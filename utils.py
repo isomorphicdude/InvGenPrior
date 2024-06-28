@@ -16,6 +16,7 @@ def restore_checkpoint(ckpt_dir, state, device):
     state['model'].load_state_dict(loaded_state['model'], strict=False)
     state['ema'].load_state_dict(loaded_state['ema'])
     state['step'] = loaded_state['step']
+    print(f"Loaded checkpoint from {ckpt_dir}")
     return state
 
 
