@@ -47,7 +47,7 @@ def main(argv):
     scaler = datasets.get_data_scaler(config)
     inverse_scaler = datasets.get_data_inverse_scaler(config)
 
-
+    print(config)
     # Setup SDEs
     if config.training.sde.lower() == "rectified_flow":
         sde = sde_lib.RectifiedFlow(
