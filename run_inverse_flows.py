@@ -81,7 +81,7 @@ this_sample_dir = "samples"
 
 torchvision.utils.save_image(
     samples.clamp_(0.0, 1.0),
-    os.path.join(this_sample_dir, "%d.png" % r),
-    nrow=10,
+    os.path.join(this_sample_dir, "sample1.png"),
+    # nrow=10,
     normalize=False,
 )

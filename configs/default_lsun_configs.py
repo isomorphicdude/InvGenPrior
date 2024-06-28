@@ -39,7 +39,7 @@ def get_default_configs():
   evaluate.batch_size = 512
   evaluate.enable_sampling = False
   evaluate.enable_figures_only = False
-  evaluate.num_samples = 50000
+  evaluate.num_samples = 1 # 50000
   evaluate.enable_loss = False
   evaluate.enable_bpd = False
   evaluate.bpd_dataset = 'test'
