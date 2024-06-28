@@ -8,7 +8,7 @@ import torchvision
 from models import ddpm, ncsnv2, ncsnpp
 import losses
 import datasets
-from models import sampling
+import sampling
 from models import utils as mutils
 from models.ema import ExponentialMovingAverage
 import sde_lib
