@@ -76,7 +76,9 @@ def main(argv):
     )
 
     # load model checkpoints
-    ckpt_path = os.path.join(checkpoint_dir, "checkpoint_{}.pth".format(10))
+    print("Loading model from", checkpoint_dir)
+    ckpt_path = os.path.join(checkpoint_dir, "celebA_ckpt.pth")
+    # ckpt_path = 
     state = restore_checkpoint(ckpt_path, state, device=config.device)
 
     samples, n = sampling_fn(score_model)
