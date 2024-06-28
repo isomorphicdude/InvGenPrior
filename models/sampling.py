@@ -82,11 +82,12 @@ def get_sampling_fn(config, sde, shape, inverse_scaler, eps):
 
     sampler_name = config.sampling.method
     # Probability flow ODE sampling with black-box ODE solvers
+    print("Sampler Name:", sampler_name)
     if sampler_name.lower() == "rectified_flow":
         sampling_fn = get_rectified_flow_sampler(
             sde=sde, shape=shape, inverse_scaler=inverse_scaler, device=config.device
         )
-    if sampler_name.lower() == "tweedie_rectified_flow":
+    elif sampler_name.lower() == "tweedie_rectified_flow":
             sampling_fn = get_tweedie_rectified_flow_sampler(
                 sde=sde, shape=shape, inverse_scaler=inverse_scaler, device=config.device
             )
