@@ -11,3 +11,4 @@ tensorflow_datasets
 ml_collections
 jax
 jaxlib
+torchdiffeq

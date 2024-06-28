@@ -1,7 +1,7 @@
 """Sampling methods for diffusion and flow models."""
 
 import torch
-import torchdiffeq
+# import torchdiffeq
 
 import functools
 from functools import partial
