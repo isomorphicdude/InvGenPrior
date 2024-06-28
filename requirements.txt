@@ -1,0 +1,13 @@
+numpy
+tensorflow
+tensorflow_gan
+torch
+ninja
+scipy
+matplotlib
+torchvision
+tqdm
+tensorflow_datasets
+ml_collections
+jax
+jaxlib
