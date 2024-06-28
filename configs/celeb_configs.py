@@ -56,11 +56,11 @@ def get_config():
     sampling.ode_tol = 1e-5
     sampling.sample_N = 1000
 
-    # evaluation
+    # evaluation, need to lower the number of batches and samples to run on lower-end GPUs
     config.eval = evaluate = ml_collections.ConfigDict()
     evaluate.begin_ckpt = 50
     evaluate.end_ckpt = 96
-    evaluate.batch_size = 512
+    evaluate.batch_size = 1 # 512
     evaluate.enable_sampling = False
     evaluate.enable_figures_only = False
     evaluate.num_samples = 1 # 50000
