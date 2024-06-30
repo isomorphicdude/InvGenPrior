@@ -12,3 +12,4 @@ ml_collections
 jax
 jaxlib
 torchdiffeq
+deepinv # for colab notebook demo
