@@ -117,6 +117,14 @@ class H_functions(torch.nn.Module):
 
 # Inpainting
 class Inpainting(H_functions):
+    """
+    Attributes:  
+        - channels: Integer representing the number of channels in the image.
+        - img_dim: Integer representing the dimension of the image e.g. 256
+        - missing_indices: torch.tensor (n,) representing the missing indices in the image.
+        - device: String representing the device to use; default is 'cpu'.
+        - kept_indices: torch.tensor (n,) representing the kept indices in the image.
+    """
     def __init__(self, channels, img_dim, missing_indices, device):
         super(Inpainting, self).__init__()
         self.channels = channels
