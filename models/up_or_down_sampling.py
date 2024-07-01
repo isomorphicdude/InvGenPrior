@@ -337,7 +337,9 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
     ]
 
     # Setup filter.
+    print(f"before scaling: {f}")
     f = f * (gain ** (f.ndim / 2))
+    print(f"after scaling: {f}")
     f = f.to(x.dtype)
     if not flip_filter:
         f = f.flip(list(range(f.ndim)))
@@ -435,7 +437,7 @@ def upsample_2d_torch(x, f, up=2, pad=0, flip_filter=False, gain=1):
 
 
 
-def downsample2d(x, f, down=2, pad=0, flip_filter=False, gain=1):
+def downsample_2d_torch(x, f, down=2, pad=0, flip_filter=False, gain=1):
     r"""Downsample a batch of 2D images using the given 2D FIR filter.
 
     By default, the result is padded so that its shape is a fraction of the input.
