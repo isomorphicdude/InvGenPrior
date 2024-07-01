@@ -126,8 +126,8 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
 
   # Transpose weights.
   w = torch.reshape(w, (num_groups, -1, inC, convH, convW))
-  # w = w[..., ::-1, ::-1].permute(0, 2, 1, 3, 4)
-  w = w.flip(dims=[3, 4]).permute(0, 2, 1, 3, 4)
+  w = w[..., ::-1, ::-1].permute(0, 2, 1, 3, 4)
+  # w = w.flip(dims=[3, 4]).permute(0, 2, 1, 3, 4)
   w = torch.reshape(w, (num_groups * inC, -1, convH, convW))
 
   x = F.conv_transpose2d(x, w, stride=stride, output_padding=output_padding, padding=0)
