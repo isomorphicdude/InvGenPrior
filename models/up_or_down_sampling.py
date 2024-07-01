@@ -350,6 +350,7 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
 
     # Convolve with the filter.
     f = f[np.newaxis, np.newaxis].repeat([num_channels, 1] + [1] * f.ndim)
+    print(f"filter: {f}")
     if f.ndim == 4:
         x = torch.nn.functional.conv2d(input=x, weight=f, groups=num_channels)
     else:
