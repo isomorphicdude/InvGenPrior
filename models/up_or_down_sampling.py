@@ -338,6 +338,10 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
 
     # Setup filter.
     print(f"before scaling: {f}")
+    print(f"up: {up}")
+    print(f"down: {down}")
+    print(f"gain: {gain}")
+    
     f = f * (gain ** (f.ndim / 2))
     print(f"after scaling: {f}")
     f = f.to(x.dtype)
