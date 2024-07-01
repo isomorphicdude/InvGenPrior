@@ -491,7 +491,7 @@ def upsample_2d(x, k=None, factor=2, gain=1):
     #     up=factor,
     #     pad=((p + 1) // 2 + factor - 1, p // 2),
     # )
-    return upsample_2d_torch(x, k, factor, gain)
+    return upsample_2d_torch(x, k, factor=factor, pad=0, flip_filter=False, gain=gain)
 
 
 def downsample_2d(x, k=None, factor=2, gain=1):
@@ -526,4 +526,4 @@ def downsample_2d(x, k=None, factor=2, gain=1):
     # return upfirdn2d(
     #     x, torch.tensor(k, device=x.device), down=factor, pad=((p + 1) // 2, p // 2)
     # )
-    return downsample_2d_torch(x, k, factor, gain)
+    return downsample_2d_torch(x, k, factor=factor, pad=0, flip_filter=False, gain=gain)
