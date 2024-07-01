@@ -15,10 +15,15 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 import numpy as np
-from op import upfirdn2d
+
+
+
 
 
 USE_TORCH_IMPLEMENTATION = True
+
+if USE_TORCH_IMPLEMENTATION:
+  from op import upfirdn2d
 
 # migrated from the misc.py in StyleGAN2
 # ----------------------------------------------------------------------------
