@@ -223,7 +223,7 @@ def _setup_kernel_torch(k):
     k /= np.sum(k)
     return k
 
-def upfirdn2d_torch(x, f, up=1, down=1, padding=0, flip_filter=False, gain=1):
+def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
     """Slow reference implementation of `upfirdn2d()` using standard PyTorch ops.
     """
     # Validate arguments.
@@ -235,7 +235,7 @@ def upfirdn2d_torch(x, f, up=1, down=1, padding=0, flip_filter=False, gain=1):
     batch_size, num_channels, in_height, in_width = x.shape
     upx, upy = _parse_scaling(up)
     downx, downy = _parse_scaling(down)
-    padx0, padx1, pady0, pady1 = _parse_padding(padding)
+    padx0, padx1, pady0, pady1 = _parse_padding(pad)
 
     # Upsample by inserting zeros.
     x = x.reshape([batch_size, num_channels, in_height, 1, in_width, 1])
@@ -295,7 +295,7 @@ def upsample_2d_torch(x, k=None, factor=2, gain=1):
   k = _setup_kernel_torch(k) * (gain * (factor ** 2))
   p = k.shape[0] - factor
   return upfirdn2d_torch(x, torch.tensor(k, device=x.device),
-                   up=factor, padding=((p + 1) // 2 + factor - 1, p // 2))
+                   up=factor, pad=((p + 1) // 2 + factor - 1, p // 2))
 
 
 def downsample_2d_torch(x, k=None, factor=2, gain=1):
@@ -328,7 +328,7 @@ def downsample_2d_torch(x, k=None, factor=2, gain=1):
   k = _setup_kernel_torch(k) * gain
   p = k.shape[0] - factor
   return upfirdn2d_torch(x, torch.tensor(k, device=x.device),
-                   down=factor, padding=((p + 1) // 2, p // 2))
+                   down=factor, pad=((p + 1) // 2, p // 2))
   
 
 # using torch only
