@@ -18,6 +18,8 @@ import numpy as np
 from op import upfirdn2d
 
 
+USE_TORCH_IMPLEMENTATION = True
+
 # migrated from the misc.py in StyleGAN2
 # ----------------------------------------------------------------------------
 # Symbolic assert.
@@ -390,7 +392,7 @@ def _shape(x, dim):
     return x.shape[dim]
 
 
-def upsample_2d(x, k=None, factor=2, gain=1):
+def upsample_2d(x, k=None, factor=2, gain=1, use_torch=USE_TORCH_IMPLEMENTATION):
     r"""Upsample a batch of 2D images with the given filter.
 
     Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
@@ -413,23 +415,24 @@ def upsample_2d(x, k=None, factor=2, gain=1):
     Returns:
         Tensor of the shape `[N, C, H * factor, W * factor]`
     """
-    assert isinstance(factor, int) and factor >= 1
-    if k is None:
-        k = [1] * factor
-    k = _setup_kernel(k) * (gain * (factor**2))
-    p = k.shape[0] - factor
-    return upfirdn2d(
-        x,
-        torch.tensor(k, device=x.device),
-        up=factor,
-        pad=((p + 1) // 2 + factor - 1, p // 2),
-    )
-    
-    # k = torch.tensor(k, device=x.device, dtype=torch.float32)
-    # return upsample_2d_torch(x, k, factor=factor, pad=0, flip_filter=False, gain=gain)
+    if not use_torch:
+      assert isinstance(factor, int) and factor >= 1
+      if k is None:
+          k = [1] * factor
+      k = _setup_kernel(k) * (gain * (factor**2))
+      p = k.shape[0] - factor
+      return upfirdn2d(
+          x,
+          torch.tensor(k, device=x.device),
+          up=factor,
+          pad=((p + 1) // 2 + factor - 1, p // 2),
+      )
+    else:
+      k = torch.tensor(k, device=x.device, dtype=torch.float32)
+      return upsample_2d_torch(x, k, factor=factor, pad=0, flip_filter=False, gain=gain)
 
 
-def downsample_2d(x, k=None, factor=2, gain=1):
+def downsample_2d(x, k=None, factor=2, gain=1, use_torch=USE_TORCH_IMPLEMENTATION):
     r"""Downsample a batch of 2D images with the given filter.
 
     Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
@@ -452,16 +455,15 @@ def downsample_2d(x, k=None, factor=2, gain=1):
     Returns:
         Tensor of the shape `[N, C, H // factor, W // factor]`
     """
-
-    assert isinstance(factor, int) and factor >= 1
-    if k is None:
-        k = [1] * factor
-    k = _setup_kernel(k) * gain
-    p = k.shape[0] - factor
-    return upfirdn2d(
-        x, torch.tensor(k, device=x.device), down=factor, pad=((p + 1) // 2, p // 2)
-    )
-    
-    
-    # k = torch.tensor(k, device=x.device, dtype=torch.float32)
-    # return downsample_2d_torch(x, k, factor=factor, pad=0, flip_filter=False, gain=gain)
+    if not use_torch:
+      assert isinstance(factor, int) and factor >= 1
+      if k is None:
+          k = [1] * factor
+      k = _setup_kernel(k) * gain
+      p = k.shape[0] - factor
+      return upfirdn2d(
+          x, torch.tensor(k, device=x.device), down=factor, pad=((p + 1) // 2, p // 2)
+      )
+    else:
+      k = torch.tensor(k, device=x.device, dtype=torch.float32)
+      return downsample_2d_torch(x, k, factor=factor, pad=0, flip_filter=False, gain=gain)
