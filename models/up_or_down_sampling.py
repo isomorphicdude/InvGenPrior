@@ -56,6 +56,7 @@ class Conv2d(nn.Module):
     return x
 
 
+# torch functions
 def naive_upsample_2d(x, factor=2):
   _N, C, H, W = x.shape
   x = torch.reshape(x, (-1, C, H, 1, W, 1))
@@ -69,6 +70,8 @@ def naive_downsample_2d(x, factor=2):
   return torch.mean(x, dim=(3, 5))
 
 
+
+# using CUDA
 def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
   """Fused `upsample_2d()` followed by `tf.nn.conv2d()`.
 
@@ -127,18 +130,76 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1):
   w = torch.reshape(w, (num_groups * inC, -1, convH, convW))
 
   x = F.conv_transpose2d(x, w, stride=stride, output_padding=output_padding, padding=0)
-  ## Original TF code.
-  # x = tf.nn.conv2d_transpose(
-  #     x,
-  #     w,
-  #     output_shape=output_shape,
-  #     strides=stride,
-  #     padding='VALID',
-  #     data_format=data_format)
-  ## JAX equivalent
 
   return upfirdn2d(x, torch.tensor(k, device=x.device),
                    pad=((p + 1) // 2 + factor - 1, p // 2 + 1))
+  
+
+def torch_setup_kernel(k):
+    k = np.asarray(k, dtype=np.float32)
+    if k.ndim == 1:
+        k = np.outer(k, k)
+    k /= np.sum(k)
+    return k
+
+def torch_upfirdn2d(x, k, pad=(0, 0)):
+    """Perform upsample + FIR filter + downsample (UpFirDn) in one step."""
+    # Pad the input tensor.
+    x = F.pad(x, (pad[1], pad[0], pad[1], pad[0]))
+    
+    # Apply the filter.
+    k = k[:, None, None, :]
+    x = F.conv2d(x, k, stride=1, padding=0, groups=x.shape[1])
+    k = k.permute(0, 1, 3, 2)
+    x = F.conv2d(x, k, stride=1, padding=0, groups=x.shape[1])
+    
+    return x
+  
+
+# using torch only
+def torch_upsample_conv_2d(x, w, k=None, factor=2, gain=1):
+  """
+  Same but does not use upfirdn2d from op.
+  """
+
+  assert isinstance(factor, int) and factor >= 1
+
+  # Check weight shape.
+  assert len(w.shape) == 4
+  convH = w.shape[2]
+  convW = w.shape[3]
+  inC = w.shape[1]
+  outC = w.shape[0]
+
+  assert convW == convH
+
+  # Setup filter kernel.
+  if k is None:
+    k = [1] * factor
+  k = torch_setup_kernel(k) * (gain * (factor ** 2))
+  p = (k.shape[0] - factor) - (convW - 1)
+
+  stride = (factor, factor)
+
+  # Determine data dimensions.
+  stride = [1, 1, factor, factor]
+  output_shape = ((_shape(x, 2) - 1) * factor + convH, (_shape(x, 3) - 1) * factor + convW)
+  output_padding = (output_shape[0] - (_shape(x, 2) - 1) * stride[0] - convH,
+                    output_shape[1] - (_shape(x, 3) - 1) * stride[1] - convW)
+  assert output_padding[0] >= 0 and output_padding[1] >= 0
+  num_groups = _shape(x, 1) // inC
+
+  # Transpose weights.
+  w = torch.reshape(w, (num_groups, -1, inC, convH, convW))
+  w = w[..., ::-1, ::-1].permute(0, 2, 1, 3, 4)
+  w = torch.reshape(w, (num_groups * inC, -1, convH, convW))
+
+  x = F.conv_transpose2d(x, w, stride=stride, output_padding=output_padding, padding=0)
+
+  return torch_upfirdn2d(x, torch.tensor(k, device=x.device),
+                   pad=((p + 1) // 2 + factor - 1, p // 2 + 1))
+  
+  
 
 
 def conv_downsample_2d(x, w, k=None, factor=2, gain=1):

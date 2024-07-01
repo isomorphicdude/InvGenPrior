@@ -17,6 +17,7 @@
 
 from . import utils, layers, layerspp, normalization
 import torch.nn as nn
+import math
 import functools
 import torch
 import numpy as np
@@ -296,7 +297,7 @@ class NCSNpp(nn.Module):
           input_pyramid = modules[m_idx](input_pyramid)
           m_idx += 1
           if self.skip_rescale:
-            input_pyramid = (input_pyramid + h) / np.sqrt(2.)
+            input_pyramid = (input_pyramid + h) / math.sqrt(2.)
           else:
             input_pyramid = input_pyramid + h
           h = input_pyramid
