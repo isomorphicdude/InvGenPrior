@@ -20,7 +20,7 @@ import numpy as np
 
 
 
-USE_TORCH_IMPLEMENTATION = True
+USE_TORCH_IMPLEMENTATION = False
 
 if not USE_TORCH_IMPLEMENTATION:
   from op import upfirdn2d
@@ -250,14 +250,14 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
         f = torch.ones([1, 1], dtype=torch.float32, device=x.device)
         
     # requires normalisation
-    f1 = torch.tensor(f[0], dtype=torch.float32, device=x.device)
-    f2 = torch.tensor(f[1], dtype=torch.float32, device=x.device)
+    f1 = torch.ones([1], dtype=torch.float32, device=x.device) * f[0]
+    f2 = torch.ones([1], dtype=torch.float32, device=x.device) * f[1]
     if len(f) == 4:
-      f3 = torch.tensor(f[2], dtype=torch.float32, device=x.device)
-      f4 = torch.tensor(f[3], dtype=torch.float32, device=x.device)
+      f3 = torch.ones([1], dtype=torch.float32, device=x.device) * f[2]
+      f4 = torch.ones([1], dtype=torch.float32, device=x.device) * f[3]
     else:
-      f3 = torch.tensor(0.0, dtype=torch.float32, device=x.device)
-      f4 = torch.tensor(0.0, dtype=torch.float32, device=x.device)
+      f3 = 0.0
+      f4 = 0.0
     
     assert isinstance(f, torch.Tensor) and f.ndim in [1, 2]
     assert f.dtype == torch.float32 and not f.requires_grad
