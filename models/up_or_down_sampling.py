@@ -301,6 +301,7 @@ def _setup_kernel(k):
     k = np.asarray(k, dtype=np.float32)
     if k.ndim == 1:
         k = np.outer(k, k)
+    # seems like this normalization is not implemented in the torch version by NVIDIA
     k /= np.sum(k)
     assert k.ndim == 2
     assert k.shape[0] == k.shape[1]
@@ -337,13 +338,15 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
     ]
 
     # Setup filter.
-    print(f"before scaling: {f}")
-    print(f"up: {up}")
-    print(f"down: {down}")
-    print(f"gain: {gain}")
-    
+    # print(f"before scaling: {f}")
+    # print(f"up: {up}")
+    # print(f"down: {down}")
+    # print(f"gain: {gain}")
+
     f = f * (gain ** (f.ndim / 2))
-    print(f"after scaling: {f}")
+    
+    # print(f"after scaling: {f}")
+    
     f = f.to(x.dtype)
     if not flip_filter:
         f = f.flip(list(range(f.ndim)))
@@ -363,7 +366,7 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
 
     # Downsample by throwing away pixels.
     x = x[:, :, ::downy, ::downx]
-    return x
+    return x / torch.sum(f)
 
 
 # def upsample_2d_torch(x, k=None, factor=2, gain=1):
@@ -441,7 +444,6 @@ def upsample_2d_torch(x, f, factor=2, pad=0, flip_filter=False, gain=1):
     )
 
 
-
 def downsample_2d_torch(x, f, factor=2, pad=0, flip_filter=False, gain=1):
     r"""Downsample a batch of 2D images using the given 2D FIR filter.
 
@@ -478,8 +480,6 @@ def downsample_2d_torch(x, f, factor=2, pad=0, flip_filter=False, gain=1):
         pady1 + (fh - downy) // 2,
     ]
     return upfirdn2d_torch(x, f, down=factor, pad=p, flip_filter=flip_filter, gain=gain)
-
-
 
 
 # def conv_downsample_2d(x, w, k=None, factor=2, gain=1):
@@ -546,17 +546,18 @@ def upsample_2d(x, k=None, factor=2, gain=1):
     Returns:
         Tensor of the shape `[N, C, H * factor, W * factor]`
     """
-    assert isinstance(factor, int) and factor >= 1
-    if k is None:
-        k = [1] * factor
-    k = _setup_kernel(k) * (gain * (factor**2))
-    p = k.shape[0] - factor
-    return upfirdn2d(
-        x,
-        torch.tensor(k, device=x.device),
-        up=factor,
-        pad=((p + 1) // 2 + factor - 1, p // 2),
-    )
+    # assert isinstance(factor, int) and factor >= 1
+    # if k is None:
+    #     k = [1] * factor
+    # k = _setup_kernel(k) * (gain * (factor**2))
+    # p = k.shape[0] - factor
+    # return upfirdn2d(
+    #     x,
+    #     torch.tensor(k, device=x.device),
+    #     up=factor,
+    #     pad=((p + 1) // 2 + factor - 1, p // 2),
+    # )
+    return upsample_2d_torch(x, k, factor, gain)
 
 
 def downsample_2d(x, k=None, factor=2, gain=1):
