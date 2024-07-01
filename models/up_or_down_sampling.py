@@ -245,6 +245,12 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
     # requires normalisation
     f1 = f[0]
     f2 = f[1]
+    if len(f) == 4:
+      f3 = f[2]
+      f4 = f[3]
+    else:
+      f3 = 0
+      f4 = 0
     
     assert isinstance(f, torch.Tensor) and f.ndim in [1, 2]
     assert f.dtype == torch.float32 and not f.requires_grad
@@ -298,7 +304,7 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
 
     # Downsample by throwing away pixels.
     x = x[:, :, ::downy, ::downx]
-    return x / (f1 + f2)**2
+    return x / (f1 + f2 + f3 + f4)**2
 
 
 def upsample_2d_torch(x, f, factor=2, pad=0, flip_filter=False, gain=1):
