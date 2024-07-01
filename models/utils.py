@@ -101,6 +101,21 @@ def create_model(config):
   return score_model
 
 
+def create_model_no_parallel(config):
+  """Create the score model."""
+  model_name = config.model.name
+  score_model = get_model(model_name)(config)
+  score_model = score_model.to(config.device)
+
+  num_params = 0
+  for p in score_model.parameters():
+      num_params += p.numel()
+  print('Number of Parameters in the Score Model:', num_params)
+
+  # score_model = torch.nn.DataParallel(score_model)
+  return score_model
+
+
 def get_model_fn(model, train=False):
   """Create a function to give the output of the score-based model.
 
