@@ -20,40 +20,44 @@ def get_weight(module,
   return module.param(weight_var, kernel_init, shape)
 
 
-class Conv2d(nn.Module):
-  """Conv2d layer with optimal upsampling and downsampling (StyleGAN2)."""
 
-  def __init__(self, in_ch, out_ch, kernel, up=False, down=False,
-               resample_kernel=(1, 3, 3, 1),
-               use_bias=True,
-               kernel_init=None):
-    super().__init__()
-    assert not (up and down)
-    assert kernel >= 1 and kernel % 2 == 1
-    self.weight = nn.Parameter(torch.zeros(out_ch, in_ch, kernel, kernel))
-    if kernel_init is not None:
-      self.weight.data = kernel_init(self.weight.data.shape)
-    if use_bias:
-      self.bias = nn.Parameter(torch.zeros(out_ch))
+# buggy implementation for torch
+# as torch does not support negative indexing
 
-    self.up = up
-    self.down = down
-    self.resample_kernel = resample_kernel
-    self.kernel = kernel
-    self.use_bias = use_bias
+# class Conv2d(nn.Module):
+#   """Conv2d layer with optimal upsampling and downsampling (StyleGAN2)."""
 
-  def forward(self, x):
-    if self.up:
-      x = upsample_conv_2d(x, self.weight, k=self.resample_kernel)
-    elif self.down:
-      x = conv_downsample_2d(x, self.weight, k=self.resample_kernel)
-    else:
-      x = F.conv2d(x, self.weight, stride=1, padding=self.kernel // 2)
+#   def __init__(self, in_ch, out_ch, kernel, up=False, down=False,
+#                resample_kernel=(1, 3, 3, 1),
+#                use_bias=True,
+#                kernel_init=None):
+#     super().__init__()
+#     assert not (up and down)
+#     assert kernel >= 1 and kernel % 2 == 1
+#     self.weight = nn.Parameter(torch.zeros(out_ch, in_ch, kernel, kernel))
+#     if kernel_init is not None:
+#       self.weight.data = kernel_init(self.weight.data.shape)
+#     if use_bias:
+#       self.bias = nn.Parameter(torch.zeros(out_ch))
 
-    if self.use_bias:
-      x = x + self.bias.reshape(1, -1, 1, 1)
+#     self.up = up
+#     self.down = down
+#     self.resample_kernel = resample_kernel
+#     self.kernel = kernel
+#     self.use_bias = use_bias
 
-    return x
+#   def forward(self, x):
+#     if self.up:
+#       x = upsample_conv_2d(x, self.weight, k=self.resample_kernel)
+#     elif self.down:
+#       x = conv_downsample_2d(x, self.weight, k=self.resample_kernel)
+#     else:
+#       x = F.conv2d(x, self.weight, stride=1, padding=self.kernel // 2)
+
+#     if self.use_bias:
+#       x = x + self.bias.reshape(1, -1, 1, 1)
+
+#     return x
 
 
 # torch functions
