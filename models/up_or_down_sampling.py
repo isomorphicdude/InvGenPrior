@@ -20,9 +20,9 @@ import numpy as np
 
 
 
-USE_TORCH_IMPLEMENTATION = True
+USE_TORCH_IMPLEMENTATION = False
 
-if USE_TORCH_IMPLEMENTATION:
+if not USE_TORCH_IMPLEMENTATION:
   from op import upfirdn2d
 
 # migrated from the misc.py in StyleGAN2
