@@ -296,7 +296,7 @@ def upsample_2d_torch(x, k=None, factor=2, gain=1):
   k = _setup_kernel_torch(k) * (gain * (factor ** 2))
   p = k.shape[0] - factor
   return upfirdn2d_torch(x, torch.tensor(k, device=x.device),
-                   up=factor, pad=((p + 1) // 2 + factor - 1, p // 2))
+                   up=factor, padding=((p + 1) // 2 + factor - 1, p // 2))
 
 
 def downsample_2d_torch(x, k=None, factor=2, gain=1):
@@ -329,7 +329,7 @@ def downsample_2d_torch(x, k=None, factor=2, gain=1):
   k = _setup_kernel_torch(k) * gain
   p = k.shape[0] - factor
   return upfirdn2d_torch(x, torch.tensor(k, device=x.device),
-                   down=factor, pad=((p + 1) // 2, p // 2))
+                   down=factor, padding=((p + 1) // 2, p // 2))
   
 
 # using torch only
