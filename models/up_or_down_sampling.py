@@ -358,7 +358,7 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
 
     # Convolve with the filter.
     f = f[np.newaxis, np.newaxis].repeat([num_channels, 1] + [1] * f.ndim)
-    print(f"filter: {f}")
+    # print(f"filter: {f}")
     if f.ndim == 4:
         x = torch.nn.functional.conv2d(input=x, weight=f, groups=num_channels)
     else:
@@ -491,6 +491,7 @@ def upsample_2d(x, k=None, factor=2, gain=1):
     #     up=factor,
     #     pad=((p + 1) // 2 + factor - 1, p // 2),
     # )
+    k = torch.tensor(k, device=x.device, dtype=torch.float32)
     return upsample_2d_torch(x, k, factor=factor, pad=0, flip_filter=False, gain=gain)
 
 
@@ -526,4 +527,5 @@ def downsample_2d(x, k=None, factor=2, gain=1):
     # return upfirdn2d(
     #     x, torch.tensor(k, device=x.device), down=factor, pad=((p + 1) // 2, p // 2)
     # )
+    k = torch.tensor(k, device=x.device, dtype=torch.float32)
     return downsample_2d_torch(x, k, factor=factor, pad=0, flip_filter=False, gain=gain)
