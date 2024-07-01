@@ -395,7 +395,7 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
 #     )
 
 
-def upsample_2d_torch(x, f, up=2, padding=0, flip_filter=False, gain=1):
+def upsample_2d_torch(x, f, up=2, pad=0, flip_filter=False, gain=1):
     r"""Upsample a batch of 2D images using the given 2D FIR filter.
 
     By default, the result is padded so that its shape is a multiple of the input.
@@ -421,7 +421,7 @@ def upsample_2d_torch(x, f, up=2, padding=0, flip_filter=False, gain=1):
         Tensor of the shape `[batch_size, num_channels, out_height, out_width]`.
     """
     upx, upy = _parse_scaling(up)
-    padx0, padx1, pady0, pady1 = _parse_padding(padding)
+    padx0, padx1, pady0, pady1 = _parse_padding(pad)
     fw, fh = _get_filter_size(f)
     p = [
         padx0 + (fw + upx - 1) // 2,
@@ -430,12 +430,12 @@ def upsample_2d_torch(x, f, up=2, padding=0, flip_filter=False, gain=1):
         pady1 + (fh - upy) // 2,
     ]
     return upfirdn2d_torch(
-        x, f, up=up, padding=p, flip_filter=flip_filter, gain=gain * upx * upy
+        x, f, up=up, pad=p, flip_filter=flip_filter, gain=gain * upx * upy
     )
 
 
 
-def downsample2d(x, f, down=2, padding=0, flip_filter=False, gain=1):
+def downsample2d(x, f, down=2, pad=0, flip_filter=False, gain=1):
     r"""Downsample a batch of 2D images using the given 2D FIR filter.
 
     By default, the result is padded so that its shape is a fraction of the input.
@@ -462,7 +462,7 @@ def downsample2d(x, f, down=2, padding=0, flip_filter=False, gain=1):
         Tensor of the shape `[batch_size, num_channels, out_height, out_width]`.
     """
     downx, downy = _parse_scaling(down)
-    padx0, padx1, pady0, pady1 = _parse_padding(padding)
+    padx0, padx1, pady0, pady1 = _parse_padding(pad)
     fw, fh = _get_filter_size(f)
     p = [
         padx0 + (fw - downx + 1) // 2,
