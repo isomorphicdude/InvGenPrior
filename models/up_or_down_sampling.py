@@ -401,7 +401,7 @@ def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
 #     )
 
 
-def upsample_2d_torch(x, f, up=2, pad=0, flip_filter=False, gain=1):
+def upsample_2d_torch(x, f, factor=2, pad=0, flip_filter=False, gain=1):
     r"""Upsample a batch of 2D images using the given 2D FIR filter.
 
     By default, the result is padded so that its shape is a multiple of the input.
@@ -426,7 +426,7 @@ def upsample_2d_torch(x, f, up=2, pad=0, flip_filter=False, gain=1):
     Returns:
         Tensor of the shape `[batch_size, num_channels, out_height, out_width]`.
     """
-    upx, upy = _parse_scaling(up)
+    upx, upy = _parse_scaling(factor)
     padx0, padx1, pady0, pady1 = _parse_padding(pad)
     fw, fh = _get_filter_size(f)
     p = [
@@ -436,12 +436,12 @@ def upsample_2d_torch(x, f, up=2, pad=0, flip_filter=False, gain=1):
         pady1 + (fh - upy) // 2,
     ]
     return upfirdn2d_torch(
-        x, f, up=up, pad=p, flip_filter=flip_filter, gain=gain * upx * upy
+        x, f, up=factor, pad=p, flip_filter=flip_filter, gain=gain * upx * upy
     )
 
 
 
-def downsample_2d_torch(x, f, down=2, pad=0, flip_filter=False, gain=1):
+def downsample_2d_torch(x, f, factor=2, pad=0, flip_filter=False, gain=1):
     r"""Downsample a batch of 2D images using the given 2D FIR filter.
 
     By default, the result is padded so that its shape is a fraction of the input.
@@ -467,7 +467,7 @@ def downsample_2d_torch(x, f, down=2, pad=0, flip_filter=False, gain=1):
     Returns:
         Tensor of the shape `[batch_size, num_channels, out_height, out_width]`.
     """
-    downx, downy = _parse_scaling(down)
+    downx, downy = _parse_scaling(factor)
     padx0, padx1, pady0, pady1 = _parse_padding(pad)
     fw, fh = _get_filter_size(f)
     p = [
@@ -476,7 +476,7 @@ def downsample_2d_torch(x, f, down=2, pad=0, flip_filter=False, gain=1):
         pady0 + (fh - downy + 1) // 2,
         pady1 + (fh - downy) // 2,
     ]
-    return upfirdn2d_torch(x, f, down=down, pad=p, flip_filter=flip_filter, gain=gain)
+    return upfirdn2d_torch(x, f, down=factor, pad=p, flip_filter=flip_filter, gain=gain)
 
 
 
