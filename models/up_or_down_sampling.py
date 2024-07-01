@@ -216,12 +216,22 @@ def naive_downsample_2d(x, factor=2):
 #                    pad=((p + 1) // 2 + factor - 1, p // 2 + 1))
   
 
-def _setup_kernel_torch(k):
-    k = np.asarray(k, dtype=np.float32)
-    if k.ndim == 1:
-        k = np.outer(k, k)
-    k /= np.sum(k)
-    return k
+# def _setup_kernel_torch(k):
+#     k = np.asarray(k, dtype=np.float32)
+#     if k.ndim == 1:
+#         k = np.outer(k, k)
+#     k /= np.sum(k)
+#     return k
+  
+  
+def _setup_kernel(k):
+  k = np.asarray(k, dtype=np.float32)
+  if k.ndim == 1:
+    k = np.outer(k, k)
+  k /= np.sum(k)
+  assert k.ndim == 2
+  assert k.shape[0] == k.shape[1]
+  return k
 
 def upfirdn2d_torch(x, f, up=1, down=1, pad=0, flip_filter=False, gain=1):
     """Slow reference implementation of `upfirdn2d()` using standard PyTorch ops.
@@ -292,7 +302,7 @@ def upsample_2d_torch(x, k=None, factor=2, gain=1):
   assert isinstance(factor, int) and factor >= 1
   if k is None:
     k = [1] * factor
-  k = _setup_kernel_torch(k) * (gain * (factor ** 2))
+  k = _setup_kernel(k) * (gain * (factor ** 2))
   p = k.shape[0] - factor
   return upfirdn2d_torch(x, torch.tensor(k, device=x.device),
                    up=factor, pad=((p + 1) // 2 + factor - 1, p // 2))
@@ -325,7 +335,7 @@ def downsample_2d_torch(x, k=None, factor=2, gain=1):
   assert isinstance(factor, int) and factor >= 1
   if k is None:
     k = [1] * factor
-  k = _setup_kernel_torch(k) * gain
+  k = _setup_kernel(k) * gain
   p = k.shape[0] - factor
   return upfirdn2d_torch(x, torch.tensor(k, device=x.device),
                    down=factor, pad=((p + 1) // 2, p // 2))
@@ -414,14 +424,7 @@ def downsample_2d_torch(x, k=None, factor=2, gain=1):
 #   return F.conv2d(x, w, stride=s, padding=0)
 
 
-def _setup_kernel(k):
-  k = np.asarray(k, dtype=np.float32)
-  if k.ndim == 1:
-    k = np.outer(k, k)
-  k /= np.sum(k)
-  assert k.ndim == 2
-  assert k.shape[0] == k.shape[1]
-  return k
+
 
 
 def _shape(x, dim):
