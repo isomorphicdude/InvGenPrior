@@ -226,42 +226,62 @@ def _setup_kernel_torch(k):
 def upfirdn2d_torch(x, f, up=1, down=1, padding=0, flip_filter=False, gain=1):
     """Slow reference implementation of `upfirdn2d()` using standard PyTorch ops.
     """
-    # Validate arguments.
-    assert isinstance(x, torch.Tensor) and x.ndim == 4
-    if f is None:
-        f = torch.ones([1, 1], dtype=torch.float32, device=x.device)
-    assert isinstance(f, torch.Tensor) and f.ndim in [1, 2]
-    assert f.dtype == torch.float32 and not f.requires_grad
-    batch_size, num_channels, in_height, in_width = x.shape
-    upx, upy = _parse_scaling(up)
-    downx, downy = _parse_scaling(down)
-    padx0, padx1, pady0, pady1 = _parse_padding(padding)
+    # # Validate arguments.
+    # assert isinstance(x, torch.Tensor) and x.ndim == 4
+    # if f is None:
+    #     f = torch.ones([1, 1], dtype=torch.float32, device=x.device)
+    # assert isinstance(f, torch.Tensor) and f.ndim in [1, 2]
+    # assert f.dtype == torch.float32 and not f.requires_grad
+    # batch_size, num_channels, in_height, in_width = x.shape
+    # upx, upy = _parse_scaling(up)
+    # downx, downy = _parse_scaling(down)
+    # padx0, padx1, pady0, pady1 = _parse_padding(padding)
 
-    # Upsample by inserting zeros.
-    x = x.reshape([batch_size, num_channels, in_height, 1, in_width, 1])
-    x = torch.nn.functional.pad(x, [0, upx - 1, 0, 0, 0, upy - 1])
-    x = x.reshape([batch_size, num_channels, in_height * upy, in_width * upx])
+    # # Upsample by inserting zeros.
+    # x = x.reshape([batch_size, num_channels, in_height, 1, in_width, 1])
+    # x = torch.nn.functional.pad(x, [0, upx - 1, 0, 0, 0, upy - 1])
+    # x = x.reshape([batch_size, num_channels, in_height * upy, in_width * upx])
 
-    # Pad or crop.
-    x = torch.nn.functional.pad(x, [max(padx0, 0), max(padx1, 0), max(pady0, 0), max(pady1, 0)])
-    x = x[:, :, max(-pady0, 0) : x.shape[2] - max(-pady1, 0), max(-padx0, 0) : x.shape[3] - max(-padx1, 0)]
+    # # Pad or crop.
+    # x = torch.nn.functional.pad(x, [max(padx0, 0), max(padx1, 0), max(pady0, 0), max(pady1, 0)])
+    # x = x[:, :, max(-pady0, 0) : x.shape[2] - max(-pady1, 0), max(-padx0, 0) : x.shape[3] - max(-padx1, 0)]
 
-    # Setup filter.
-    f = f * (gain ** (f.ndim / 2))
-    f = f.to(x.dtype)
-    if not flip_filter:
-        f = f.flip(list(range(f.ndim)))
+    # # Setup filter.
+    # f = f * (gain ** (f.ndim / 2))
+    # f = f.to(x.dtype)
+    # if not flip_filter:
+    #     f = f.flip(list(range(f.ndim)))
 
-    # Convolve with the filter.
-    f = f[np.newaxis, np.newaxis].repeat([num_channels, 1] + [1] * f.ndim)
-    if f.ndim == 4:
-        x = torch.nn.functional.conv2d(input=x, weight=f, groups=num_channels)
-    else:
-        x = torch.nn.functional.conv2d(input=x, weight=f.unsqueeze(2), groups=num_channels)
-        x = torch.nn.functional.conv2d(input=x, weight=f.unsqueeze(3), groups=num_channels)
+    # # Convolve with the filter.
+    # f = f[np.newaxis, np.newaxis].repeat([num_channels, 1] + [1] * f.ndim)
+    # if f.ndim == 4:
+    #     x = torch.nn.functional.conv2d(input=x, weight=f, groups=num_channels)
+    # else:
+    #     x = torch.nn.functional.conv2d(input=x, weight=f.unsqueeze(2), groups=num_channels)
+    #     x = torch.nn.functional.conv2d(input=x, weight=f.unsqueeze(3), groups=num_channels)
 
-    # Downsample by throwing away pixels.
-    x = x[:, :, ::downy, ::downx]
+    # # Downsample by throwing away pixels.
+    # x = x[:, :, ::downy, ::downx]
+    # return x
+    # Upsample by inserting zeros
+    if up > 1:
+        x = x.reshape(x.shape[0], x.shape[1], x.shape[2], 1, x.shape[3], 1)
+        x = torch.nn.functional.pad(x, [0, up-1, 0, 0, 0, up-1])
+        x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * up, x.shape[4] * up)
+
+    # Pad the image
+    if isinstance(padding, int):
+        padding = [padding, padding, padding, padding]
+    x = torch.nn.functional.pad(x, [padding[2], padding[3], padding[0], padding[1]])
+
+    # Convolve with the filter
+    f = setup_filter(f, device=x.device)
+    x = torch.nn.functional.conv2d(x, f.unsqueeze(0).unsqueeze(0), groups=x.shape[1])
+
+    # Downsample by keeping every Nth pixel
+    if down > 1:
+        x = x[:, :, ::down, ::down]
+
     return x
   
   
