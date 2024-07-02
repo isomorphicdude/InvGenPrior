@@ -20,7 +20,7 @@ import numpy as np
 
 
 
-USE_TORCH_IMPLEMENTATION = True
+USE_TORCH_IMPLEMENTATION = False
 
 if not USE_TORCH_IMPLEMENTATION:
   from op import upfirdn2d
