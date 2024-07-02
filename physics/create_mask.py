@@ -4,7 +4,7 @@ import math
 import torch
 
 
-def square_box(
+def square_box_mask(
     center=(0.5, 0.5), width=0.3, height=0.3, D_OR=(3, 256, 256), device='cpu'
 ):
     """
