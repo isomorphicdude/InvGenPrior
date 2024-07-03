@@ -17,14 +17,16 @@ def restore_checkpoint(ckpt_dir, state, device):
 
         # state['model'].load_state_dict(loaded_state['model'], strict=False)
         if isinstance(state["model"], torch.nn.DataParallel):
-            state["model"].load_state_dict(model_state_dict, strict=False)
+          print("Model is DataParallel")
+          state["model"].load_state_dict(loaded_state['model'], strict=False)
         else:
-            model_state_dict = {
-                key.replace("module.", ""): value
-                for key, value in model_state_dict.items()
-            }
-            state["model"].load_state_dict(model_state_dict, strict=False)
-            print("Model state loaded successfully.")
+          print("Model is not DataParallel")
+          model_state_dict = {
+              key.replace("module.", ""): value
+              for key, value in loaded_state['model'].items()
+          }
+          state["model"].load_state_dict(model_state_dict, strict=False)
+          print("Model state loaded successfully.")
 
         state["ema"].load_state_dict(loaded_state["ema"])
         state["step"] = loaded_state["step"]
