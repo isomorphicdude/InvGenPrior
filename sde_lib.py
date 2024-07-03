@@ -123,7 +123,7 @@ class RectifiedFlow:
             x = x.detach().clone() + pred * dt
 
         return x
-
+    
     def get_z0(self, batch, train=True):
         n, c, h, w = batch.shape
 
