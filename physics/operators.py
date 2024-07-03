@@ -1,10 +1,27 @@
 """
 Implements various degredation operators.
-Code adapted from RED-diff and MCGdiff, which is adapted from RED-diff.
+Code adapted from RED-diff and MCGdiff.
 """  
 
 import torch
 import einops
+
+__OPERATOR__ = {}
+
+def register_operator(name: str):
+    def wrapper(cls):
+        if __OPERATOR__.get(name, None):
+            raise NameError(f"Name {name} is already registered!")
+        __OPERATOR__[name] = cls
+        return cls
+    return wrapper
+
+
+def get_operator(name: str, **kwargs):
+    if __OPERATOR__.get(name, None) is None:
+        raise NameError(f"Name {name} is not defined.")
+    return __OPERATOR__[name](**kwargs)
+
 
 
 class H_functions(torch.nn.Module):
@@ -81,6 +98,7 @@ class H_functions(torch.nn.Module):
 
 
 # Inpainting
+@register_operator(name="inpainting")
 class Inpainting(H_functions):
     """
     Attributes:  
@@ -150,89 +168,89 @@ class Inpainting(H_functions):
     
     # override the H function to make it more efficient for batched operations
     # and matrices so (B, d_x, d_x) -> (B, d_y, d_x)
-    def H(self, mat):
-        """
-        Applies the H function to each column of the matrix.
-        which is of shape (B, d_x, d_x). 
+    # def H(self, mat):
+    #     """
+    #     Applies the H function to each column of the matrix.
+    #     which is of shape (B, d_x, d_x). 
         
-        Determine the input shape mat or vec.
+    #     Determine the input shape mat or vec.
         
-        Returns a matrix of shape (B, d_x, d_y)
+    #     Returns a matrix of shape (B, d_x, d_y)
         
-        Note: 
-            - We assume d_x = channel * height * width so that
-            the input matrix columns are flattened images.  
-            - The operation is simply extract the kept indices entries
-            for each column and reshape back
-        """
-        if len(mat.shape) == 2:
-            assert mat.shape[1] == self.channels * self.img_dim**2
-            return mat[:, self.kept_indices]
-        elif len(mat.shape) == 3:
-            assert mat.shape[1] == mat.shape[2] == self.channels * self.img_dim**2
-            return mat[:, :, self.kept_indices]
-        else:
-            raise ValueError("Input shape not recognized.")
-        
-        
-    def right_multiply_Ht(self, mat):
-        """
-        Computes mat @ H^t or vec @ H^t.
-        where H is (d_y, d_x) and H^t is (d_x, d_y)
-        and mat is (B, A, d_y) or vec is (B, d_y) respectively.  
-        
-        Note:
-            - This is implemented as first left multiply and then transpose
-            mat @ H^t = (H @ mat^t)^t
-        """
-        if len(mat.shape) == 2:
-            assert mat.shape[1] == self.channels * self.img_dim**2
-            # return mat[:, self.kept_indices].transpose(1, 0)
-            raise NotImplementedError("Not implemented for vec yet.")
-        elif len(mat.shape) == 3:
-            # assert mat.shape[1] == mat.shape[2] == self.channels * self.img_dim**2
-            return mat[:, self.kept_indices, :].transpose(1, 2)
-        else:
-            raise ValueError("Input shape not recognized.")
+    #     Note: 
+    #         - We assume d_x = channel * height * width so that
+    #         the input matrix columns are flattened images.  
+    #         - The operation is simply extract the kept indices entries
+    #         for each column and reshape back
+    #     """
+    #     if len(mat.shape) == 2:
+    #         assert mat.shape[1] == self.channels * self.img_dim**2
+    #         return mat[:, self.kept_indices]
+    #     elif len(mat.shape) == 3:
+    #         assert mat.shape[1] == mat.shape[2] == self.channels * self.img_dim**2
+    #         return mat[:, :, self.kept_indices]
+    #     else:
+    #         raise ValueError("Input shape not recognized.")
         
         
-    def quadratic_form(self, mat):
-        """
-        Computes H @ mat @ H^t. No vector operation here.
-        where H is (d_y, d_x) and H^t is (d_x, d_y)
-        so mat is (B, d_x, d_x) and the output is (B, d_y, d_y)  
+    # def right_multiply_Ht(self, mat):
+    #     """
+    #     Computes mat @ H^t or vec @ H^t.
+    #     where H is (d_y, d_x) and H^t is (d_x, d_y)
+    #     and mat is (B, A, d_y) or vec is (B, d_y) respectively.  
         
-        Note:
-            - This is implemented as the previous two operations combined.
-        """
-        assert len(mat.shape) >= 3 
-        assert mat.shape[1] == mat.shape[2] == self.channels * self.img_dim**2
+    #     Note:
+    #         - This is implemented as first left multiply and then transpose
+    #         mat @ H^t = (H @ mat^t)^t
+    #     """
+    #     if len(mat.shape) == 2:
+    #         assert mat.shape[1] == self.channels * self.img_dim**2
+    #         # return mat[:, self.kept_indices].transpose(1, 0)
+    #         raise NotImplementedError("Not implemented for vec yet.")
+    #     elif len(mat.shape) == 3:
+    #         # assert mat.shape[1] == mat.shape[2] == self.channels * self.img_dim**2
+    #         return mat[:, self.kept_indices, :].transpose(1, 2)
+    #     else:
+    #         raise ValueError("Input shape not recognized.")
         
-        return self.right_multiply_Ht(self.H(mat))
+        
+    # def quadratic_form(self, mat):
+    #     """
+    #     Computes H @ mat @ H^t. No vector operation here.
+    #     where H is (d_y, d_x) and H^t is (d_x, d_y)
+    #     so mat is (B, d_x, d_x) and the output is (B, d_y, d_y)  
+        
+    #     Note:
+    #         - This is implemented as the previous two operations combined.
+    #     """
+    #     assert len(mat.shape) >= 3 
+    #     assert mat.shape[1] == mat.shape[2] == self.channels * self.img_dim**2
+        
+    #     return self.right_multiply_Ht(self.H(mat))
     
-    # override again
-    def Ht(self, mat):
-        """
-        Applies the H^t function to each column of the matrix.
-        mat has shape (B, d_y, d_y)
-        and output has shape (B, d_x, d_y)
-        """
-        # fill the missing entries with zeros
+    # # override again
+    # def Ht(self, mat):
+    #     """
+    #     Applies the H^t function to each column of the matrix.
+    #     mat has shape (B, d_y, d_y)
+    #     and output has shape (B, d_x, d_y)
+    #     """
+    #     # fill the missing entries with zeros
         
-        if len(mat.shape) == 2:
-            assert mat.shape[1] == len(self.kept_indices)
-            temp = torch.zeros(
-                (mat.shape[0], self.channels * self.img_dim**2), 
-                device=mat.device
-            )
-            temp[:, self.kept_indices] = mat
-            return temp
+    #     if len(mat.shape) == 2:
+    #         assert mat.shape[1] == len(self.kept_indices)
+    #         temp = torch.zeros(
+    #             (mat.shape[0], self.channels * self.img_dim**2), 
+    #             device=mat.device
+    #         )
+    #         temp[:, self.kept_indices] = mat
+    #         return temp
         
-        elif len(mat.shape) == 3:
-            assert mat.shape[2] == len(self.kept_indices)
-            temp = torch.zeros(
-                (mat.shape[0], mat.shape[1], self.channels * self.img_dim**2), 
-                device=mat.device
-            )
-            temp[:, :, self.kept_indices] = mat
-            return temp
+    #     elif len(mat.shape) == 3:
+    #         assert mat.shape[2] == len(self.kept_indices)
+    #         temp = torch.zeros(
+    #             (mat.shape[0], mat.shape[1], self.channels * self.img_dim**2), 
+    #             device=mat.device
+    #         )
+    #         temp[:, :, self.kept_indices] = mat
+    #         return temp
