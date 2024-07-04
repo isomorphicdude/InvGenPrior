@@ -17,16 +17,18 @@ def restore_checkpoint(ckpt_dir, state, device):
 
         # state['model'].load_state_dict(loaded_state['model'], strict=False)
         if isinstance(state["model"], torch.nn.DataParallel):
-          print("Model is DataParallel")
-          state["model"].load_state_dict(loaded_state['model'], strict=False)
+            print("Model is DataParallel")
+            state["model"].load_state_dict(loaded_state["model"], strict=False)
         else:
-          print("Model is not DataParallel")
-          model_state_dict = {
-              key.replace("module.", ""): value
-              for key, value in loaded_state['model'].items()
-          }
-          state["model"].load_state_dict(model_state_dict, strict=False)
-          print("Model state loaded successfully.")
+            # this is for loading model for evaluation
+            # torch.func.vjp does not seem to work with DataParallel
+            print("Model is not DataParallel")
+            model_state_dict = {
+                key.replace("module.", ""): value
+                for key, value in loaded_state["model"].items()
+            }
+            state["model"].load_state_dict(model_state_dict, strict=False)
+            print("Model state loaded successfully.")
 
         state["ema"].load_state_dict(loaded_state["ema"])
         state["step"] = loaded_state["step"]
@@ -42,6 +44,3 @@ def save_checkpoint(ckpt_dir, state):
         "step": state["step"],
     }
     torch.save(saved_state, ckpt_dir)
-
-
-# def vmapped_flatten(vec):
