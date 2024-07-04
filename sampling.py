@@ -22,49 +22,6 @@ import torchvision
 from tqdm import tqdm
 
 
-
-# __SAMPLER__ = {}
-
-# def register_sampler(name: str):
-#     def wrapper(cls):
-#         if __SAMPLER__.get(name, None):
-#             raise NameError(f"Name {name} is already registered!") 
-#         __SAMPLER__[name] = cls
-#         return cls
-#     return wrapper
-
-
-# def get_sampler(name: str):
-#     if __SAMPLER__.get(name, None) is None:
-#         raise NameError(f"Name {name} is not defined!")
-#     return __SAMPLER__[name]
-
-
-# def create_sampler(sampler,
-#                    steps,
-#                    noise_schedule,
-#                    model_mean_type,
-#                    model_var_type,
-#                    dynamic_threshold,
-#                    clip_denoised,
-#                    rescale_timesteps,
-#                    timestep_respacing=""):
-    
-#     sampler = get_sampler(name=sampler)
-    
-#     betas = get_named_beta_schedule(noise_schedule, steps)
-#     if not timestep_respacing:
-#         timestep_respacing = [steps]
-         
-#     return sampler(use_timesteps=space_timesteps(steps, timestep_respacing),
-#                    betas=betas,
-#                    model_mean_type=model_mean_type,
-#                    model_var_type=model_var_type,
-#                    dynamic_threshold=dynamic_threshold,
-#                    clip_denoised=clip_denoised, 
-#                    rescale_timesteps=rescale_timesteps)
-
-
 def get_sampling_fn(config, sde, shape, inverse_scaler, eps):
     """Create a sampling function.
 
