@@ -27,7 +27,13 @@ class RectifiedFlow:
         self.noise_scale = noise_scale
         self.use_ode_sampler = use_ode_sampler
         self.ode_tol = ode_tol
+        
         self.sigma_t = lambda t: (1.0 - t) * sigma_var
+        
+        self.std_t = lambda t: 1.0 - t
+        
+        self.alpha_t = lambda t: t
+        
         print("Init. Distribution Variance:", self.noise_scale)
         print("SDE Sampler Variance:", sigma_var)
         print("ODE Tolerence:", self.ode_tol)
