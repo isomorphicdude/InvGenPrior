@@ -20,7 +20,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 from models import utils as mutils
-from sde_lib import RectifiedFlow
+from models.sde_lib import RectifiedFlow
 
 
 def get_optimizer(config, params):

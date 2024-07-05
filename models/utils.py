@@ -13,12 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""All functions and modules related to model definition.
+"""All functions and modules related to model definition and loading.
 """
 
+import os
+
 import torch
-import sde_lib
+import logging
 import numpy as np
+import tensorflow as tf
+
+import models.sde_lib as sde_lib
 
 
 _MODELS = {}
@@ -265,3 +270,47 @@ def convert_x0_to_flow(x0_hat, x_t, alpha_t, std_t, da_dt, dvar_dt):
 
     u_t = x0_hat * x0_coeff + xt_coeff * x_t
     return u_t
+
+
+
+
+def restore_checkpoint(ckpt_dir, state, device):
+    if not tf.io.gfile.exists(ckpt_dir):
+        tf.io.gfile.makedirs(os.path.dirname(ckpt_dir))
+        logging.warning(
+            f"No checkpoint found at {ckpt_dir}. " f"Returned the same state as input"
+        )
+        return state
+    else:
+        loaded_state = torch.load(ckpt_dir, map_location=device)
+        state["optimizer"].load_state_dict(loaded_state["optimizer"])
+
+        # state['model'].load_state_dict(loaded_state['model'], strict=False)
+        if isinstance(state["model"], torch.nn.DataParallel):
+            print("Model is DataParallel")
+            state["model"].load_state_dict(loaded_state["model"], strict=False)
+        else:
+            # this is for loading model for evaluation
+            # torch.func.vjp does not seem to work with DataParallel
+            print("Model is not DataParallel")
+            model_state_dict = {
+                key.replace("module.", ""): value
+                for key, value in loaded_state["model"].items()
+            }
+            state["model"].load_state_dict(model_state_dict, strict=False)
+            print("Model state loaded successfully.")
+
+        state["ema"].load_state_dict(loaded_state["ema"])
+        state["step"] = loaded_state["step"]
+        print(f"Loaded checkpoint from {ckpt_dir}")
+        return state
+
+
+def save_checkpoint(ckpt_dir, state):
+    saved_state = {
+        "optimizer": state["optimizer"].state_dict(),
+        "model": state["model"].state_dict(),
+        "ema": state["ema"].state_dict(),
+        "step": state["step"],
+    }
+    torch.save(saved_state, ckpt_dir)

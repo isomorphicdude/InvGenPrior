@@ -6,18 +6,17 @@ import numpy as np
 import torchvision
 # Keep the import below for registering all model definitions
 from models import ddpm, ncsnv2, ncsnpp
-import losses
-import datasets
-import sampling
+import models.losses as losses
+import datasets.dataset as dataset
+import models.sampling as sampling
 from models import utils as mutils
 from models.ema import ExponentialMovingAverage
-import sde_lib
+import models.sde_lib as sde_lib
 from absl import flags
 from absl import app
 from ml_collections.config_flags import config_flags
 
 import torch
-from utils import save_checkpoint, restore_checkpoint
 
 FLAGS = flags.FLAGS
 
@@ -44,8 +43,8 @@ def main(argv):
     checkpoint_dir = "checkpoints"
 
 
-    scaler = datasets.get_data_scaler(config)
-    inverse_scaler = datasets.get_data_inverse_scaler(config)
+    scaler = dataset.get_data_scaler(config)
+    inverse_scaler = dataset.get_data_inverse_scaler(config)
 
     print(config)
     # Setup SDEs
@@ -79,7 +78,7 @@ def main(argv):
     print("Loading model from", checkpoint_dir)
     ckpt_path = os.path.join(checkpoint_dir, "celebA_ckpt.pth")
     # ckpt_path = 
-    state = restore_checkpoint(ckpt_path, state, device=config.device)
+    state = mutils.restore_checkpoint(ckpt_path, state, device=config.device)
 
     samples, n = sampling_fn(score_model)
     this_sample_dir = "samples"
