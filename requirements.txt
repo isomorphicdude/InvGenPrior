@@ -13,3 +13,4 @@ jax
 jaxlib
 torchdiffeq
 deepinv # for colab notebook demo
+torchmetrics
