@@ -72,7 +72,9 @@ class GuidedSampler(ABC):
         self.noiser = noiser
         self.device = device
 
-    def guided_euler_sampler(self, y_obs, z=None, return_list=False, **kwargs):
+    def guided_euler_sampler(
+        self, y_obs, z=None, return_list=False, clamp_to=1, **kwargs
+    ):
         """
         Computes the posterior samples with respect to y_obs using the guided Euler sampler.
 
@@ -80,6 +82,7 @@ class GuidedSampler(ABC):
             - y_obs (torch.Tensor): Observed data to condition the sampling on. (B, C*H*W)
             - z (torch.Tensor, optional): Optional latent variable for sampling. Default is None. (B, C, H, W)
             - return_list (bool, optional): If True, returns the samples as a list. Default is False.
+            - clamp_to (float, optional): If not None, clamps the scores to this value. Default is 1.
             - **kwargs: Additional keyword arguments for the sampling process.
 
         Returns:
@@ -120,12 +123,10 @@ class GuidedSampler(ABC):
                     model_fn,
                     x,
                     num_t,
-                    self.H_func,
                     y_obs,
-                    self.noiser.sigma,
                     alpha_t,
                     std_t,
-                    device=self.device,
+                    clamp_to=clamp_to,
                     **kwargs,
                 )
 
