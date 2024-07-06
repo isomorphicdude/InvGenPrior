@@ -157,14 +157,16 @@ class GuidedSampler(ABC):
     def guided_rk45_sampler(self):
         pass
 
-    def sample(self, y_obs, z=None, return_list=False, method="euler", **kwargs):
+    def sample(
+        self, y_obs, z=None, return_list=False, method="euler", clamp_to=1, **kwargs
+    ):
         if method == "euler":
             return self.guided_euler_sampler(
-                y_obs, z=z, return_list=return_list, **kwargs
+                y_obs, z=z, return_list=return_list, clamp_to=clamp_to, **kwargs
             )
         elif method == "rk45":
             return self.guided_rk45_sampler(
-                y_obs, z=z, return_list=return_list, **kwargs
+                y_obs, z=z, return_list=return_list, clamp_to=clamp_to, **kwargs
             )
         else:
             raise NotImplementedError(f"Method {method} not yet supported.")
