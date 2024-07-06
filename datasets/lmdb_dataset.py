@@ -1,6 +1,5 @@
 """Implements base class for lmdb datasets."""
 
-
 import os
 import io
 from abc import ABC, abstractmethod
@@ -12,6 +11,7 @@ import lmdb
 from PIL import Image
 
 __LMDB_DATASETS__ = {}
+
 
 def register_dataset(name: str):
     def wrapper(cls):
@@ -29,7 +29,6 @@ def get_dataset(name: str, root, split, transform=None, is_encoded=False, **kwar
     return __LMDB_DATASETS__[name](root, split, transform, is_encoded, **kwargs)
 
 
-
 class LMDBDataset(data.Dataset):
     def __init__(self, root, split="val", transform=None, is_encoded=False):
         self.transform = transform
@@ -41,7 +40,7 @@ class LMDBDataset(data.Dataset):
             lmdb_path = os.path.join(self.root, "validation.lmdb")
         else:
             lmdb_path = os.path.join(f"{self.root}.lmdb")
-        
+
         self.data_lmdb = lmdb.Environment(
             path=lmdb_path,
             readonly=True,
@@ -63,7 +62,7 @@ class LMDBDataset(data.Dataset):
             else:
                 # assume data is a numpy array
                 img = np.asarray(data, dtype=np.uint8)
-                
+
                 # assume data is RGB
                 size = int(np.sqrt(len(img) / 3))
                 img = np.reshape(img, (size, size, 3))
@@ -81,13 +80,14 @@ class LMDBDataset(data.Dataset):
             with self.data_lmdb.begin() as txn:
                 self.length = txn.stat()["entries"]
             return self.length
-        
-        
+
 
 # celebrity face 256x256
 @register_dataset(name="celeba")
 class CelebADataset(LMDBDataset):
-    def __init__(self, root, split="val", transform=transforms.ToTensor(), is_encoded=False):
+    def __init__(
+        self, root, split="val", transform=transforms.ToTensor(), is_encoded=False
+    ):
         super().__init__(root, split, transform, is_encoded)
         self.transform = transforms.Compose(
             [
@@ -95,17 +95,18 @@ class CelebADataset(LMDBDataset):
                 transforms.ToTensor(),
             ]
         )
-    # we may want to use a subset of the celeba dataset
-    # require selecting the subset beforehand 
-    
 
-# cat face 
+    # we may want to use a subset of the celeba dataset
+    # require selecting the subset beforehand
+
+
+# cat face
 @register_dataset(name="afhq")
 class AFHQDataset(LMDBDataset):
-    def __init__(self, root, split="val", transform=transforms.ToTensor(), is_encoded=False):
+    def __init__(
+        self, root, split="val", transform=transforms.ToTensor(), is_encoded=False
+    ):
         super().__init__(root, split, transform, is_encoded)
-        
-        
 
 
 def num_samples(dataset, train):
@@ -119,8 +120,26 @@ def num_samples(dataset, train):
         return 63000 if train else 7000
     else:
         raise NotImplementedError("dataset %s is unknown" % dataset)
-    
-    
+
+
+def get_data_scaler(config):
+    """Data normalizer. Assume data are always in [0, 1]."""
+    if config.data.centered:
+        # Rescale to [-1, 1]
+        return lambda x: x * 2.0 - 1.0
+    else:
+        return lambda x: x
+
+
+def get_data_inverse_scaler(config):
+    """Inverse data normalizer."""
+    if config.data.centered:
+        # Rescale [-1, 1] to [0, 1]
+        return lambda x: (x + 1.0) / 2.0
+    else:
+        return lambda x: x
+
+
 # def get_dataset(config, uniform_dequantization=False, evaluation=False):
 #     """Create data loaders for training and evaluation.
 
@@ -129,9 +148,9 @@ def num_samples(dataset, train):
 #       - uniform_dequantization: If `True`, add uniform dequantization to images.
 #       - evaluation: If `True`, fix number of epochs to 1.
 
-#     Returns:  
+#     Returns:
 #       - train_ds, eval_ds, dataset_builder.
-#     """  
-    
-    
+#     """
+
+
 #     pass
