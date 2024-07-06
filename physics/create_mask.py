@@ -159,3 +159,7 @@ def main():
         coordinates_mask=pixel_coordinates_mask.detach().cpu().numpy(),
     )
     logging.info("Masks saved to masks/ directory.")
+
+
+if __name__ == "__main__":
+    main()
