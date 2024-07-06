@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 
 import math
 import torch
+from torchvision import transforms
 import einops
 import logging
 import numpy as np
@@ -87,7 +88,7 @@ class H_functions(ABC):
         Adds trailing zeros to turn a vector from the small dimension (U) to the big dimension (V)
         """
         raise NotImplementedError()
-    
+
     def H(self, vec):
         """
         Multiplies the input vector by H
@@ -354,6 +355,11 @@ class Denoising(H_functions):
 # Super Resolution frmo NVIDIA
 @register_operator(name="super_resolution")
 class SuperResolution(H_functions):
+    """
+    Degrades the image to a lower resolution.
+    (B, C, H, W) -> (B, C, H//ratio, W//ratio)
+    This implementation is simply taking the average of pixels in a block of size ratio x ratio.
+    """
     def __init__(self, config):  # ratio = 2 or 4
         super(SuperResolution, self).__init__()
         
@@ -575,107 +581,170 @@ class Colorization(H_functions):
 # Deblurring
 @register_operator(name="deblurring")
 class Deblurring(H_functions):
-    def mat_by_img(self, M, v):
-        return torch.matmul(
-            M, v.reshape(v.shape[0] * self.channels, self.img_dim, self.img_dim)
-        ).reshape(v.shape[0], self.channels, M.shape[0], self.img_dim)
-
-    def img_by_mat(self, v, M):
-        return torch.matmul(
-            v.reshape(v.shape[0] * self.channels, self.img_dim, self.img_dim), M
-        ).reshape(v.shape[0], self.channels, self.img_dim, M.shape[1])
-
-    def __init__(self, kernel, channels, img_dim, device, ZERO=3e-2):
+    def __init__(self, config):
+        # a custom implementation using torchvision so can match with Pokle et al. 2024
+        kernel_size = config.kernel_size
+        channels = config.channels
+        img_dim = config.img_dim
+        device = config.device
+        intensity = config.intensity # intensity of the blur, sigma of the gaussian
+        
         self.img_dim = img_dim
         self.channels = channels
-        # build 1D conv matrix
-        H_small = torch.zeros(img_dim, img_dim, device=device)
-        for i in range(img_dim):
-            for j in range(i - kernel.shape[0] // 2, i + kernel.shape[0] // 2):
-                if j < 0 or j >= img_dim:
-                    continue
-                H_small[i, j] = kernel[j - i + kernel.shape[0] // 2]
-        # get the svd of the 1D conv
-        self.U_small, self.singulars_small, self.V_small = torch.svd(
-            H_small, some=False
-        )
-        self.U_small = torch.nn.Parameter(self.U_small)
-        self.singulars_small = torch.nn.Parameter(self.singulars_small)
-        self.V_small = torch.nn.Parameter(self.V_small)
-        # ZERO = 3e-2
-        self.singulars_small[self.singulars_small < ZERO] = 0
         
-        # calculate the singular values of the big matrix
-        self._singulars = torch.nn.Parameter(
-            torch.matmul(
-                self.singulars_small.reshape(img_dim, 1),
-                self.singulars_small.reshape(1, img_dim),
-            ).reshape(img_dim**2)
-        )
-        # sort the big matrix singulars and save the permutation
-        self._singulars, self._perm = self._singulars.sort(
-            descending=True
-        )  # , stable=True)
-        self._singulars = torch.nn.Parameter(self._singulars)
-        self._perm = torch.nn.Parameter(self._perm)
-
+        # do not use anisotropic blurring for now
+        # this is implemented by Cardoso et al. 2023 in Deblurring2D
+        self.gaussian_blur_torch = transforms.GaussianBlur(kernel_size, sigma=intensity)
+        
+        
+    def H(self, vec):
+        return self.gaussian_blur_torch(vec)
+    
+    def get_degraded_image(self, vec):
+        return self.H(vec)
+        
     def V(self, vec):
-        # invert the permutation
-        temp = torch.zeros(
-            vec.shape[0], self.img_dim**2, self.channels, device=vec.device
-        )
-        temp[:, self._perm, :] = vec.clone().reshape(
-            vec.shape[0], self.img_dim**2, self.channels
-        )
-        temp = temp.permute(0, 2, 1)
-        # multiply the image by V from the left and by V^T from the right
-        out = self.mat_by_img(self.V_small, temp)
-        out = self.img_by_mat(out, self.V_small.transpose(0, 1)).reshape(
-            vec.shape[0], -1
-        )
-        return out
-
-    def Vt(self, vec, for_H=True):
-        # multiply the image by V^T from the left and by V from the right
-        temp = self.mat_by_img(self.V_small.transpose(0, 1), vec.clone())
-        temp = self.img_by_mat(temp, self.V_small).reshape(
-            vec.shape[0], self.channels, -1
-        )
-        # permute the entries according to the singular values
-        temp = temp[:, :, self._perm].permute(0, 2, 1)
-        return temp.reshape(vec.shape[0], -1)
-
+        raise NotImplementedError("Not implemented for deblurring.")
+    
+    def Vt(self, vec):
+        raise NotImplementedError("Not implemented for deblurring.")
+    
     def U(self, vec):
-        # invert the permutation
-        temp = torch.zeros(
-            vec.shape[0], self.img_dim**2, self.channels, device=vec.device
-        )
-        temp[:, self._perm, :] = vec.clone().reshape(
-            vec.shape[0], self.img_dim**2, self.channels
-        )
-        temp = temp.permute(0, 2, 1)
-        # multiply the image by U from the left and by U^T from the right
-        out = self.mat_by_img(self.U_small, temp)
-        out = self.img_by_mat(out, self.U_small.transpose(0, 1)).reshape(
-            vec.shape[0], -1
-        )
-        return out
-
+        raise NotImplementedError("Not implemented for deblurring.")
+    
     def Ut(self, vec):
-        # multiply the image by U^T from the left and by U from the right
-        temp = self.mat_by_img(self.U_small.transpose(0, 1), vec.clone())
-        temp = self.img_by_mat(temp, self.U_small).reshape(
-            vec.shape[0], self.channels, -1
-        )
-        # permute the entries according to the singular values
-        temp = temp[:, :, self._perm].permute(0, 2, 1)
-        return temp.reshape(vec.shape[0], -1)
-
+        raise NotImplementedError("Not implemented for deblurring.")
+    
     def singulars(self):
-        return self._singulars.repeat(1, 3).reshape(-1)
-
+        raise NotImplementedError("Not implemented for deblurring.")
+    
     def add_zeros(self, vec):
-        return vec.clone().reshape(vec.shape[0], -1)
+        raise NotImplementedError("Not implemented for deblurring.")
+        
+
+# class Deblurring(H_functions):
+    
+#     # TODO: can use einops to make the code more readable
+#     def mat_by_img(self, M, v):
+#         """
+#         Returns the matrix-vector product M @ v.
+#         M is of shape (d_y, d_x) and v is of shape (B, d_x).
+#         """
+#         return torch.matmul(
+#             M, v.reshape(v.shape[0] * self.channels, self.img_dim, self.img_dim)
+#         ).reshape(v.shape[0], self.channels, M.shape[0], self.img_dim)
+
+#     def img_by_mat(self, v, N):
+#         """
+#         Returns the vector-matrix product v @ M.
+#         v is of shape (B, d_x) and M is of shape (d_x, d_y).
+#         """
+#         return torch.matmul(
+#             v.reshape(v.shape[0] * self.channels, self.img_dim, self.img_dim), N
+#         ).reshape(v.shape[0], self.channels, self.img_dim, N.shape[1])
+
+#     # def __init__(self, kernel, channels, img_dim, device, ZERO=3e-2):
+#     def __init__(self, config):
+        
+#         kernel = config.kernel
+#         channels = config.channels
+#         img_dim = config.img_dim
+#         device = config.device
+#         try:
+#             ZERO = config.ZERO
+#         except:
+#             ZERO = 3e-2
+        
+#         self.img_dim = img_dim
+#         self.channels = channels
+#         # build 1D conv matrix
+#         H_small = torch.zeros(img_dim, img_dim, device=device)
+#         for i in range(img_dim):
+#             for j in range(i - kernel.shape[0] // 2, i + kernel.shape[0] // 2):
+#                 if j < 0 or j >= img_dim:
+#                     continue
+#                 H_small[i, j] = kernel[j - i + kernel.shape[0] // 2]
+#         # get the svd of the 1D conv
+#         self.U_small, self.singulars_small, self.V_small = torch.svd(
+#             H_small, some=False
+#         )
+#         self.U_small = torch.nn.Parameter(self.U_small)
+#         self.singulars_small = torch.nn.Parameter(self.singulars_small)
+#         self.V_small = torch.nn.Parameter(self.V_small)
+#         # ZERO = 3e-2
+#         self.singulars_small[self.singulars_small < ZERO] = 0
+        
+#         # calculate the singular values of the big matrix
+#         self._singulars = torch.nn.Parameter(
+#             torch.matmul(
+#                 self.singulars_small.reshape(img_dim, 1),
+#                 self.singulars_small.reshape(1, img_dim),
+#             ).reshape(img_dim**2)
+#         )
+#         # sort the big matrix singulars and save the permutation
+#         self._singulars, self._perm = self._singulars.sort(
+#             descending=True
+#         )  # , stable=True)
+#         self._singulars = torch.nn.Parameter(self._singulars)
+#         self._perm = torch.nn.Parameter(self._perm)
+
+#     def V(self, vec):
+#         # invert the permutation
+#         temp = torch.zeros(
+#             vec.shape[0], self.img_dim**2, self.channels, device=vec.device
+#         )
+#         temp[:, self._perm, :] = vec.clone().reshape(
+#             vec.shape[0], self.img_dim**2, self.channels
+#         )
+#         temp = temp.permute(0, 2, 1)
+#         # multiply the image by V from the left and by V^T from the right
+#         out = self.mat_by_img(self.V_small, temp)
+#         out = self.img_by_mat(out, self.V_small.transpose(0, 1)).reshape(
+#             vec.shape[0], -1
+#         )
+#         return out
+
+#     def Vt(self, vec, for_H=True):
+#         # multiply the image by V^T from the left and by V from the right
+#         temp = self.mat_by_img(self.V_small.transpose(0, 1), vec.clone())
+#         temp = self.img_by_mat(temp, self.V_small).reshape(
+#             vec.shape[0], self.channels, -1
+#         )
+#         # permute the entries according to the singular values
+#         temp = temp[:, :, self._perm].permute(0, 2, 1)
+#         return temp.reshape(vec.shape[0], -1)
+
+#     def U(self, vec):
+#         # invert the permutation
+#         temp = torch.zeros(
+#             vec.shape[0], self.img_dim**2, self.channels, device=vec.device
+#         )
+#         temp[:, self._perm, :] = vec.clone().reshape(
+#             vec.shape[0], self.img_dim**2, self.channels
+#         )
+#         temp = temp.permute(0, 2, 1)
+#         # multiply the image by U from the left and by U^T from the right
+#         out = self.mat_by_img(self.U_small, temp)
+#         out = self.img_by_mat(out, self.U_small.transpose(0, 1)).reshape(
+#             vec.shape[0], -1
+#         )
+#         return out
+
+#     def Ut(self, vec):
+#         # multiply the image by U^T from the left and by U from the right
+#         temp = self.mat_by_img(self.U_small.transpose(0, 1), vec.clone())
+#         temp = self.img_by_mat(temp, self.U_small).reshape(
+#             vec.shape[0], self.channels, -1
+#         )
+#         # permute the entries according to the singular values
+#         temp = temp[:, :, self._perm].permute(0, 2, 1)
+#         return temp.reshape(vec.shape[0], -1)
+
+#     def singulars(self):
+#         return self._singulars.repeat(1, 3).reshape(-1)
+
+#     def add_zeros(self, vec):
+#         return vec.clone().reshape(vec.shape[0], -1)
 
 
 
