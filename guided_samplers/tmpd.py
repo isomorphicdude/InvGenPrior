@@ -27,7 +27,6 @@ class TMPD(GuidedSampler):
             x0_hat = convert_flow_to_x0(
                 u_t=flow_pred,
                 x_t=x_t,
-                t=num_t,
                 alpha_t=alpha_t,
                 std_t=std_t,
             )
