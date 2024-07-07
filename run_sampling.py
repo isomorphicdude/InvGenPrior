@@ -14,7 +14,6 @@ import time
 
 import torch
 from torchvision.utils import save_image
-import deepinv
 import logging
 import numpy as np
 import tensorflow as tf
@@ -24,7 +23,7 @@ import matplotlib.pyplot as plt
 
 
 # flow models
-from models import sde_lib, losses, sampling, ncsnpp, ddpm, ncsnv2
+from models import sde_lib, losses
 from models import utils as mutils
 from models.ema import ExponentialMovingAverage
 
@@ -193,13 +192,13 @@ config_flags.DEFINE_config_file(
     "config", None, "Sampling configuration.", lock_config=False # might want to lock
 )
 
-flags.DEFINE_string("workdir", None, "Work directory.")
+flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
 flags.DEFINE_string(
     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
 )
 
-flags.mark_flag_as_required(["workdir", "config"])
+flags.mark_flag_as_required("config")
 
 # TODO: separate the main and the runlib
 def main(argv):
