@@ -95,19 +95,19 @@ class GuidedSampler(ABC):
                     **kwargs,
                 )
 
-            # print(scaled_grad.mean())
-            x = (
-                x.detach().clone()
-                + guided_vec * dt
-                # + flow_pred * dt
-                # + scaled_grad * dt * gamma_t
-                + sigma_t * math.sqrt(dt) * torch.randn_like(guided_vec).to(self.device)
-            )
+                # print(scaled_grad.mean())
+                x = (
+                    x.detach().clone()
+                    + guided_vec * dt
+                    # + flow_pred * dt
+                    # + scaled_grad * dt * gamma_t
+                    + sigma_t * math.sqrt(dt) * torch.randn_like(guided_vec).to(self.device)
+                )
 
-            if return_list and i % (self.sde.sample_N // 5) == 0:
-                samples.append(x.detach().clone())
-            if i == self.sde.sample_N - 1 and return_list:
-                samples.append(x.detach().clone())
+                if return_list and i % (self.sde.sample_N // 5) == 0:
+                    samples.append(x.detach().clone())
+                if i == self.sde.sample_N - 1 and return_list:
+                    samples.append(x.detach().clone())
 
         if return_list:
             for i in range(len(samples)):
