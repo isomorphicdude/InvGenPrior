@@ -128,11 +128,11 @@ class GuidedSampler(ABC):
         if method == "euler":
             return self.guided_euler_sampler(
                 y_obs, z=z, return_list=return_list, clamp_to=clamp_to, **kwargs
-            )
+            )[0]
         elif method == "rk45":
             return self.guided_rk45_sampler(
                 y_obs, z=z, return_list=return_list, clamp_to=clamp_to, **kwargs
-            )
+            )[0]
         else:
             raise NotImplementedError(f"Method {method} not yet supported.")
 
