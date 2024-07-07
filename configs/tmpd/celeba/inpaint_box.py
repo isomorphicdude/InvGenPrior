@@ -10,6 +10,9 @@ from ...celeb_configs import get_config as get_celeb_config
 def get_config():
     config = get_celeb_config()
     
+    # ckpt name
+    config.ckpt_name = "celebA_ckpt.pth"
+    
     # data config (for creating degraded images)
     data = config.data
     data.name = "celeba"

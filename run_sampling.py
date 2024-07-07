@@ -83,8 +83,8 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     state = dict(optimizer=optimizer, model=score_model, ema=ema, step=0)
     checkpoint_dir = os.path.join(workdir, "checkpoints")
 
-    # load weights #TODO: config.ckpt name
-    ckpt_path = os.path.join(checkpoint_dir, "celebA_ckpt.pth")
+    # load weights
+    ckpt_path = os.path.join(checkpoint_dir, config.ckpt_name)
     state = mutils.restore_checkpoint(ckpt_path, state, device=config.device)
 
     # Setup SDEs
