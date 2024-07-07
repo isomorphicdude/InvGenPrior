@@ -165,6 +165,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             clamp_to = config.sampling.clamp_to,
             # clamp_to=1,
         )
+        print(batched_samples.shape)
 
         # save the images to eval folder
         logging.info(f"Current batch finished. Saving images...")
