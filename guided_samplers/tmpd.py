@@ -91,14 +91,14 @@ class TMPD(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None:
-            # guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
-            #     flow_pred
-            # )
-            guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+                flow_pred
+            )
+            # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
-        return guided_vec
-        # return flow_pred
+        # return guided_vec
+        return flow_pred
 
 
 # -------------------------------------------  TMPD  -------------------------------------------#
