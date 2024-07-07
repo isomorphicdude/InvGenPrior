@@ -96,7 +96,8 @@ class TMPD(GuidedSampler):
             )
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
-        return guided_vec
+        # return guided_vec
+        return flow_pred
 
 
 # -------------------------------------------  TMPD  -------------------------------------------#
