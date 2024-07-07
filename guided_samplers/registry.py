@@ -26,7 +26,7 @@ def get_guided_sampler(
     if __GUIDED_SAMPLERS__.get(name, None) is None:
         raise NameError(f"Name {name} is not defined!")
     return __GUIDED_SAMPLERS__[name](
-        model_fn=model,
+        model=model,
         sde=sde,
         shape=shape,
         sampling_eps=sampling_eps,
