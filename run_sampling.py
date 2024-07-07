@@ -85,6 +85,11 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
     # load weights
     ckpt_path = os.path.join(checkpoint_dir, config.ckpt_name)
+    
+    if not os.path.exists(ckpt_path):
+        logging.error(f"Checkpoint {ckpt_path} does not exist.")
+        raise FileNotFoundError(f"Checkpoint {ckpt_path} does not exist.")
+    
     state = mutils.restore_checkpoint(ckpt_path, state, device=config.device)
 
     # Setup SDEs
