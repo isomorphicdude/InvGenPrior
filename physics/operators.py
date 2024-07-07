@@ -178,8 +178,8 @@ class Inpainting(H_functions):
         )
 
     def V(self, vec):
-        temp = vec.clone().reshape(vec.shape[0], -1)
-        out = torch.zeros_like(temp)
+        temp = vec.clone().reshape(vec.shape[0], -1).to(self.device)
+        out = torch.zeros_like(temp).to(self.device)
         out[:, self.kept_indices] = temp[:, : self.kept_indices.shape[0]]
         out[:, self.missing_indices] = temp[:, self.kept_indices.shape[0] :]
         return (
@@ -194,8 +194,8 @@ class Inpainting(H_functions):
             .reshape(vec.shape[0], self.channels, -1)
             .permute(0, 2, 1)
             .reshape(vec.shape[0], -1)
-        )
-        out = torch.zeros_like(temp)
+        ).to(self.device)
+        out = torch.zeros_like(temp).to(self.device)
         out[:, : self.kept_indices.shape[0]] = temp[:, self.kept_indices]
         out[:, self.kept_indices.shape[0] :] = temp[:, self.missing_indices]
         return out
