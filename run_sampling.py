@@ -58,7 +58,6 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     dset = lmdb_dataset.get_dataset(
         name = config.data.name,
         db_path= config.data.lmdb_file_path,
-        split=config.data.split_name,
         transform=None,  # overridden by child class
     )
 
