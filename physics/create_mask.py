@@ -118,6 +118,7 @@ def load_mask(mask_path, device="cpu"):
         - kept_indices: torch.tensor (n,) length same as flattened kept part
         - coordinates_mask: torch.tensor (c*h*w, ), entries are boolean
     """
+    print(f"Loading mask to {device}...")
     loaded_file = np.load(mask_path)
     mask = torch.from_numpy(loaded_file["mask"]).to(device)
     missing_indices = torch.from_numpy(loaded_file["missing_indices"]).long().to(device)

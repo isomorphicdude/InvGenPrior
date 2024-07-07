@@ -39,7 +39,7 @@ def get_config():
     
     # load mask from masks/
     mask_path = "masks/square_box_mask.npz"
-    degredation.missing_indices = load_mask(mask_path, device=config.device)[1]
+    degredation.missing_indices = load_mask(mask_path, device=config.degredation.device)[1]
     
     # sampling config
     sampling = config.sampling
