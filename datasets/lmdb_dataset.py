@@ -1,16 +1,17 @@
 """Implements base class for lmdb datasets."""
 
 import os
+import os.path as osp
 import io
-import six
-from abc import ABC, abstractmethod
 
 import torch
+import torch.utils
+import torch.utils.data
 import torchvision
-import torch.utils.data as data
 import numpy as np
 import lmdb
 import pyarrow
+import pickle
 from PIL import Image
 
 __LMDB_DATASETS__ = {}
@@ -32,33 +33,12 @@ def get_dataset(name: str, db_path, transform=None, target_transform=None):
     return __LMDB_DATASETS__[name](db_path, transform, target_transform)
 
 
-# adapted from https://github.com/Fangyh09/Image2LMDB
 class ImageFolderWithPaths(torchvision.datasets.ImageFolder):
     def __getitem__(self, index):
         original_tuple = super(ImageFolderWithPaths, self).__getitem__(index)
         path = self.imgs[index][0]
         tuple_with_path = original_tuple + (path,)
         return tuple_with_path
-
-
-def loads_pyarrow(buf):
-    """
-    Args:
-        buf: the output of `dumps`.
-    """
-    return pyarrow.deserialize(buf)
-
-
-def read_txt(fname):
-    map = {}
-    with open(fname) as f:
-        content = f.readlines()
-    # you may also want to remove whitespace characters like `\n` at the end of each line
-    content = [x.strip() for x in content]
-    for line in content:
-        img, idx = line.split(" ")
-        map[img] = idx
-    return map
 
 
 class LMDBDataset(torch.utils.data.Dataset):
@@ -73,52 +53,59 @@ class LMDBDataset(torch.utils.data.Dataset):
 
     def __init__(self, db_path, transform=None, target_transform=None):
         self.db_path = db_path
-        self.env = lmdb.open(
-            db_path,
-            subdir=os.path.isdir(db_path),
+        self.transform = transform
+        self.target_transform = target_transform
+
+        env = lmdb.open(
+            self.db_path,
+            subdir=osp.isdir(self.db_path),
             readonly=True,
             lock=False,
             readahead=False,
             meminit=False,
         )
-        with self.env.begin(write=False) as txn:
-            # self.length = txn.stat()['entries'] - 1
-            self.length = loads_pyarrow(txn.get(b"__len__"))
-            # self.keys = umsgpack.unpackb(txn.get(b'__keys__'))
-            self.keys = loads_pyarrow(txn.get(b"__keys__"))
+        with env.begin(write=False) as txn:
+            self.length = pickle.loads(txn.get(b"__len__"))
+            self.keys = pickle.loads(txn.get(b"__keys__"))
 
-        self.transform = transform
-        self.target_transform = target_transform
-        map_path = db_path[:-5] + "_images_idx.txt"
-        self.img2idx = read_txt(map_path)
+    def open_lmdb(self):
+        self.env = lmdb.open(
+            self.db_path,
+            subdir=osp.isdir(self.db_path),
+            readonly=True,
+            lock=False,
+            readahead=False,
+            meminit=False,
+        )
+        self.txn = self.env.begin(write=False, buffers=True)
+        self.length = pickle.loads(self.txn.get(b"__len__"))
+        self.keys = pickle.loads(self.txn.get(b"__keys__"))
 
     def __getitem__(self, index):
+        if not hasattr(self, "txn"):
+            self.open_lmdb()
+
         img, target = None, None
-        env = self.env
-        with env.begin(write=False) as txn:
-            # print("key", self.keys[index].decode("ascii"))
-            byteflow = txn.get(self.keys[index])
+        byteflow = self.txn.get(self.keys[index])
+        unpacked = pickle.loads(byteflow)
 
-        unpacked = loads_pyarrow(byteflow)
-
-        imgbuf = unpacked
-        buf = six.BytesIO()
-        buf.write(imgbuf)
+        # load image
+        imgbuf = unpacked[0]
+        buf = io.BytesIO()
+        buf.write(imgbuf[0])
         buf.seek(0)
-        import numpy as np
-
         img = Image.open(buf).convert("RGB")
-        # img.save("img.jpg")
+
+        # load label
+        target = unpacked[1]
+
         if self.transform is not None:
             img = self.transform(img)
-        im2arr = np.array(img)
-        # print(im2arr.shape)
 
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        # return img, target
-        return im2arr
+        return img, target
 
     def __len__(self):
         return self.length
@@ -203,57 +190,43 @@ def raw_reader(path):
     return bin_data
 
 
-def dumps_pyarrow(obj):
+def dump_pickle(obj):
     """
     Serialize an object.
-    Returns:
-        Implementation-dependent bytes-like object
+
+    Returns :
+        The pickled representation of the object obj as a bytes object
     """
-    return pyarrow.serialize(obj).to_buffer()
+    return pickle.dumps(obj)
 
 
-def folder2lmdb(dpath, 
-                name="train",
-                num_workers=1,
-                write_frequency=5000):
-    """
-    Convert a folder of images to lmdb.
-    """
-    all_imgpath = []
-    all_idxs = []
-    directory = os.path.expanduser(os.path.join(dpath, name))
+def folder2lmdb(dpath, name="train_images", write_frequency=5000, num_workers=0):
+    directory = osp.expanduser(osp.join(dpath, name))
     print("Loading dataset from %s" % directory)
-    dataset = ImageFolderWithPaths(directory, loader=raw_reader)
-    
-    data_loader = torch.utils.data.DataLoader(
-        dataset, num_workers=num_workers, collate_fn=lambda x: x
-    )
+    dataset = torchvision.datasets.ImageFolder(directory, loader=raw_reader)
+    data_loader = torch.utils.data.DataLoader(dataset, num_workers=num_workers)
 
-    lmdb_path = os.path.join(dpath, "%s.lmdb" % name)
+    lmdb_path = osp.join(dpath, "%s.lmdb" % name)
     isdir = os.path.isdir(lmdb_path)
 
-    print("Generate LMDB to %s" % lmdb_path)
-    
+    print("Generating LMDB to %s" % lmdb_path)
+    map_size = 30737418240  # this should be adjusted based on OS/db size
     db = lmdb.open(
         lmdb_path,
         subdir=isdir,
-        map_size=1099511627776 * 2,
+        map_size=map_size,
         readonly=False,
         meminit=False,
         map_async=True,
     )
 
+    print(len(dataset), len(data_loader))
     txn = db.begin(write=True)
-    for idx, data in enumerate(data_loader):
+    for idx, (data, label) in enumerate(data_loader):
         # print(type(data), data)
-        # image, label = data[0]
-        image, label, imgpath = data[0]
-        # print(image.shape)
-        imgpath = os.path.basename(imgpath)
-        all_imgpath.append(imgpath)
-        all_idxs.append(idx)
-        txn.put("{}".format(idx).encode("ascii"), dumps_pyarrow(image))
-        # txn.put(u'{}'.format(imgpath).encode('ascii'), dumps_pyarrow(image))
+        image = data
+        label = label.numpy()
+        txn.put("{}".format(idx).encode("ascii"), dump_pickle((image, label)))
         if idx % write_frequency == 0:
             print("[%d/%d]" % (idx, len(data_loader)))
             txn.commit()
@@ -263,17 +236,12 @@ def folder2lmdb(dpath,
     txn.commit()
     keys = ["{}".format(k).encode("ascii") for k in range(idx + 1)]
     with db.begin(write=True) as txn:
-        txn.put(b"__keys__", dumps_pyarrow(keys))
-        txn.put(b"__len__", dumps_pyarrow(len(keys)))
+        txn.put(b"__keys__", dump_pickle(keys))
+        txn.put(b"__len__", dump_pickle(len(keys)))
 
     print("Flushing database ...")
     db.sync()
     db.close()
-
-    fout = open(dpath + "/" + name + "_images_idx.txt", "w")
-    for img, idx in zip(all_imgpath, all_idxs):
-        fout.write("{} {}\n".format(img, idx))
-    fout.close()
 
 
 # def get_dataset(config, uniform_dequantization=False, evaluation=False):
