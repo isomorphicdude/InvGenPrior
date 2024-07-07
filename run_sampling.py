@@ -125,6 +125,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         H_func=H_func,
         noiser=noiser,
         device=config.device,
+        sampling_eps=sampling_eps,
     )
 
     # begin sampling
