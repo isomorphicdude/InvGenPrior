@@ -173,4 +173,4 @@ class GuidedSampler(ABC):
 
     @abstractmethod
     def get_guidance(self):
-        pass
+        raise NotImplementedError()
