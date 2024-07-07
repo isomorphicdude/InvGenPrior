@@ -121,15 +121,16 @@ class H_functions(ABC):
         This is a default implementation that works for inpainting and denoising.
         """
         vec = self.H(vec)
-
+        # print(vec.shape)
         # creat a flattend vector to store out for visualisation
-        y_0_img = -torch.ones(self.channels * self.img_dim**2, device=self.device)
+        y_0_img = -torch.ones(vec.shape[0], 
+                              self.channels * self.img_dim**2, device=self.device)
 
         # input the observed part
-        y_0_img[: vec.shape[-1]] = vec[0]
+        y_0_img[:, : vec.shape[-1]] = vec
 
         # re-order back
-        y_0_img = self.V(y_0_img[None, ...])
+        y_0_img = self.V(y_0_img)
 
         # re-shape from flattened vector to image
         y_0_img = y_0_img.reshape(vec.shape[0], self.channels, self.img_dim, self.img_dim)
