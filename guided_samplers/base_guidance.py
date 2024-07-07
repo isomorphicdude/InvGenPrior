@@ -95,7 +95,6 @@ class GuidedSampler(ABC):
                     **kwargs,
                 )
 
-                # print(scaled_grad.mean())
                 x = (
                     x.detach().clone()
                     + guided_vec * dt

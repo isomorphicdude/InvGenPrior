@@ -73,7 +73,7 @@ class TMPD(GuidedSampler):
                     )  # answer is sparsity? (from Ben Boys)
                 )[0]
             )
-            + self.noiser.sigma**2 * 0
+            + self.noiser.sigma**2
         )
 
         # difference
