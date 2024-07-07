@@ -33,8 +33,8 @@ from datasets import lmdb_dataset
 # inverse problems
 from physics.operators import get_operator
 from physics.noisers import get_noise
-from guided_samplers.base_guidance import get_guided_sampler
-from guided_samplers import tmpd
+from guided_samplers import tmpd, dps, pgdm
+from guided_samplers.registry import get_guided_sampler
 
 
 logging.basicConfig(level=logging.INFO)
