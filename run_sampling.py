@@ -63,7 +63,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
     data_loader = torch.utils.data.DataLoader(
         dset,
-        batch_size=config.evaluate.batch_size,
+        batch_size=config.sampling.batch_size,
         shuffle=False,
         # num_workers=config.data.num_workers,
     )
@@ -110,7 +110,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
     # build sampling function
     sampling_shape = (
-        config.evaluate.batch_size,
+        config.sampling.batch_size,
         config.data.num_channels,
         config.data.image_size,
         config.data.image_size,
@@ -134,7 +134,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     start_time = time.time()
     for iter_no, (batched_img, img_idx) in enumerate(data_loader):
         logging.info(
-            f"Sampling a batch of {config.evaluate.batch_size} image {iter_no}"
+            f"Sampling a batch of {config.sampling.batch_size} image {iter_no}"
         )
 
         # apply scaler
@@ -159,7 +159,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
         # save the images to eval folder
         logging.info(f"Current batch finished. Saving images...")
-        for j in range(config.evaluate.batch_size):
+        for j in range(config.sampling.batch_size):
             img = batched_samples[j]
             # img = inverse_scaler(img) # already included in sampler
             save_image(
@@ -171,7 +171,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             
         if save_degraded:
             logging.info(f"Saving degraded images...")
-            for j in range(config.evaluate.batch_size):
+            for j in range(config.sampling.batch_size):
                 img = y_obs[j]
                 # img = inverse_scaler(img) # already included in sampler
                 save_image(
