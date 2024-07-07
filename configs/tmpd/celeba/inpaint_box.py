@@ -35,6 +35,7 @@ def get_config():
     degredation.img_dim = 256
     degredation.noiser = "gaussian"
     degredation.sigma = 0.05
+    degredation.device = config.device
     
     # load mask from masks/
     mask_path = "masks/square_box_mask.npz"
