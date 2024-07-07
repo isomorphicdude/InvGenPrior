@@ -197,7 +197,7 @@ flags.DEFINE_string(
 
 flags.mark_flag_as_required(["workdir", "config"])
 
-
+# TODO: separate the main and the runlib
 def main(argv):
     tf.io.gfile.makedirs(FLAGS.workdir)
     # Set logger so that it outputs to both console and file
@@ -218,3 +218,5 @@ def main(argv):
         eval_folder=FLAGS.eval_folder,
     )
     
+if __name__ == "__main__":
+    app.run(main)
