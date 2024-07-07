@@ -106,7 +106,7 @@ class GuidedSampler(ABC):
 
             if return_list and i % (self.sde.sample_N // 5) == 0:
                 samples.append(x.detach().clone())
-            if i == self.sde.sample_N - 1:
+            if i == self.sde.sample_N - 1 and return_list:
                 samples.append(x.detach().clone())
 
         if return_list:
