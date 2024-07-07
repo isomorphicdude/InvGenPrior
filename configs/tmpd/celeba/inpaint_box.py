@@ -10,6 +10,12 @@ from ...celeb_configs import get_config as get_celeb_config
 def get_config():
     config = get_celeb_config()
     
+    # data config (for creating degraded images)
+    data = config.data
+    data.name = "celeba"
+    data.lmdb_file_path = "data/celeba-hq/val.lmdb"
+    data.split_name = "val"
+    
     # degredation config
     config.degredation = degredation = ml_collections.ConfigDict()
     degredation.name = "inpainting"
