@@ -5,10 +5,10 @@ import torch
 import functorch
 from models.utils import convert_flow_to_x0
 from guided_samplers.base_guidance import GuidedSampler
-import registry
+from guided_samplers.registry import register_guided_sampler
 
 
-@registry.register_guided_sampler(name="tmpd")
+@register_guided_sampler(name="tmpd")
 class TMPD(GuidedSampler):
     # TMPD does not seem to require any additional hyperparameters
     def get_guidance(
