@@ -15,10 +15,10 @@ def register_noise(name: str):
         return cls
     return wrapper
 
-def get_noise(name: str, **kwargs):
+def get_noise(name: str, config):
     if __NOISE__.get(name, None) is None:
         raise NameError(f"Name {name} is not defined.")
-    noiser = __NOISE__[name](**kwargs)
+    noiser = __NOISE__[name](config)
     noiser.__name__ = name
     return noiser
 
@@ -37,8 +37,8 @@ class Clean(Noise):
 
 @register_noise(name='gaussian')
 class GaussianNoise(Noise):
-    def __init__(self, sigma):
-        self.sigma = sigma
+    def __init__(self, config):
+        self.sigma = config.sigma
     
     def forward(self, data):
         return data + torch.randn_like(data, device=data.device) * self.sigma
@@ -46,7 +46,8 @@ class GaussianNoise(Noise):
 
 @register_noise(name='poisson')
 class PoissonNoise(Noise):
-    def __init__(self, rate):
+    def __init__(self, config):
+        rate = config.rate
         self.rate = rate
 
     def forward(self, data):

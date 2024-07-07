@@ -150,6 +150,9 @@ class Inpainting(H_functions):
         - kept_indices: torch.tensor (n,) representing the kept indices in the image.
     """
     def __init__(self, config):
+        """
+        Initialize from config.degredation.
+        """
         super(Inpainting, self).__init__()
         
         channels = config.channels
