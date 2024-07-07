@@ -218,7 +218,7 @@ def main(argv):
     create_samples(
         FLAGS.config,
         FLAGS.workdir,
-        save_degraded=False,
+        save_degraded=True,
         eval_folder=FLAGS.eval_folder,
     )
     
