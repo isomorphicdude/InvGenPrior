@@ -4,7 +4,7 @@ import math
 import torch
 import functorch
 from models.utils import convert_flow_to_x0
-from .base_guidance import GuidedSampler, register_guided_sampler
+from guided_samplers.base_guidance import GuidedSampler, register_guided_sampler
 
 
 @register_guided_sampler(name="tmpd")
