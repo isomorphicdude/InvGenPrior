@@ -73,7 +73,7 @@ class TMPD(GuidedSampler):
                     )  # answer is sparsity? (from Ben Boys)
                 )[0]
             )
-            + self.noiser.sigma**2
+            + self.noiser.sigma**2 * 0
         )
 
         # difference
@@ -97,8 +97,8 @@ class TMPD(GuidedSampler):
             # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
-        # return guided_vec
-        return flow_pred
+        return guided_vec
+        # return flow_pred
 
 
 # -------------------------------------------  TMPD  -------------------------------------------#
