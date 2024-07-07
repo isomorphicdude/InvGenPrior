@@ -57,11 +57,10 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
     # create data
     dset = lmdb_dataset.get_dataset(
-        config.data.dataset,
-        root=config.data.data_dir,
-        split="val",
+        name = config.data.name,
+        db_path= config.data.lmdb_file_path,
+        split=config.data.split_name,
         transform=None,  # overridden by child class
-        is_encoded=False,
     )
 
     data_loader = torch.utils.data.DataLoader(
@@ -130,7 +129,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
 
     start_time = time.time()
-    for iter_no, batched_img in enumerate(data_loader):
+    for iter_no, (batched_img, img_idx) in enumerate(data_loader):
         logging.info(
             f"Sampling a batch of {config.evaluate.batch_size} image {iter_no}"
         )
