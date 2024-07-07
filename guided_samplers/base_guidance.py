@@ -24,7 +24,7 @@ class GuidedSampler(ABC):
         device,
         **kwargs,
     ):
-        self.model_fn = model
+        self.model = model
         self.sde = sde
         self.shape = shape
         self.sampling_eps = sampling_eps
