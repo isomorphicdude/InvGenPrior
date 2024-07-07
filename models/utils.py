@@ -225,7 +225,7 @@ def from_flattened_numpy(x, shape):
     return torch.from_numpy(x.reshape(shape))
 
 
-def convert_flow_to_x0(u_t, x_t, alpha_t, std_t, da_dt, dvar_dt):
+def convert_flow_to_x0(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt):
     """
     Convert flow to x0.
 
@@ -235,20 +235,20 @@ def convert_flow_to_x0(u_t, x_t, alpha_t, std_t, da_dt, dvar_dt):
 		- alpha_t: float, the alpha_t coeff.
 		- std_t: float, the sigma_t coeff.
 		- da_dt: float, derivative of alpha_t coeff (this is alpha bar in DDPM paper).
-		- dvar_dt: float, derivative of sigma_t coeff (see Pokle et al. 2024)
+		- dstd_dt: float, derivative of sigma_t coeff (see Pokle et al. 2024)
 
     Returns:
 		- x0_hat: torch.tensor (b, c, h, w), the noiseless prediction.
     """
     # da_dt = 1.0
     # dvar_dt = -1.0
-    x0_coeff = da_dt - (alpha_t * dvar_dt / std_t)
-    xt_coeff = dvar_dt / std_t
+    x0_coeff = da_dt - (alpha_t * dstd_dt / std_t)
+    xt_coeff = dstd_dt / std_t
     x0_hat = (u_t - xt_coeff * x_t) / x0_coeff
     return x0_hat
 
 
-def convert_x0_to_flow(x0_hat, x_t, alpha_t, std_t, da_dt, dvar_dt):
+def convert_x0_to_flow(x0_hat, x_t, alpha_t, std_t, da_dt, dstd_dt):
     """
     Convert x0 to flow.   
     
@@ -258,15 +258,15 @@ def convert_x0_to_flow(x0_hat, x_t, alpha_t, std_t, da_dt, dvar_dt):
 	  - alpha_t: float, the alpha_t coeff.
 	  - std_t: float, the sigma_t coeff.
 	  - da_dt: float, derivative of alpha_t coeff (this is alpha bar in DDPM paper).
-	  - dvar_dt: float, derivative of sigma_t coeff (see Pokle et al. 2024)  
+	  - dstd_dt: float, derivative of sigma_t coeff (see Pokle et al. 2024)  
     
 	Returns:    
 	  - u_t: torch.tensor (b, c, h, w), the flow vector.  
     """
     # da_dt = 1.0
     # dvar_dt = -1.0
-    x0_coeff = da_dt - (alpha_t * dvar_dt / std_t)
-    xt_coeff = dvar_dt / std_t
+    x0_coeff = da_dt - (alpha_t * dstd_dt / std_t)
+    xt_coeff = dstd_dt / std_t
 
     u_t = x0_hat * x0_coeff + xt_coeff * x_t
     return u_t

@@ -79,6 +79,8 @@ class GuidedSampler(ABC):
 
                 alpha_t = self.sde.alpha_t(num_t)
                 std_t = self.sde.std_t(num_t)
+                da_dt = self.sde.da_dt(num_t)
+                dstd_dt = self.sde.dstd_dt(num_t)
 
                 guided_vec = self.get_guidance(
                     model_fn,
@@ -87,6 +89,8 @@ class GuidedSampler(ABC):
                     y_obs,
                     alpha_t,
                     std_t,
+                    da_dt,
+                    dstd_dt,
                     clamp_to=clamp_to,
                     **kwargs,
                 )

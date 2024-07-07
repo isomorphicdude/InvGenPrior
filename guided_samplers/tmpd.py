@@ -12,7 +12,17 @@ from guided_samplers.registry import register_guided_sampler
 class TMPD(GuidedSampler):
     # TMPD does not seem to require any additional hyperparameters
     def get_guidance(
-        self, model_fn, x_t, num_t, y_obs, alpha_t, std_t, clamp_to, **kwargs
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
     ):
         """
         TMPD guidance for OT path.
@@ -29,6 +39,8 @@ class TMPD(GuidedSampler):
                 x_t=x_t,
                 alpha_t=alpha_t,
                 std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
             )
 
             x0_hat_obs = self.H_func.H(x0_hat)
