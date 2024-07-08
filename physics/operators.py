@@ -524,16 +524,16 @@ class Colorization(H_functions):
         
         self.U_small, self.singulars_small, self.V_small = torch.svd(H, some=False)
         self.Vt_small = self.V_small.transpose(0, 1).to(device)
-        self.Vt_small = self.Vt_small.to(device)
+        # self.Vt_small = self.Vt_small.to(device)
         self.V_small = self.V_small.to(device)
+        self.U_small = self.U_small.to(device)
         self.singulars_small = self.singulars_small.to(device)
         
-        self.U_small = self.U_small.to(device)
 
     def V(self, vec):
         # get the needles [R, G, B]
         needles = (
-            vec.clone().reshape(vec.shape[0], self.channels, -1).permute(0, 2, 1)
+            vec.clone().reshape(vec.shape[0], self.channels, -1).permute(0, 2, 1).to(self.device)
         )  # shape: B, WH, C'
         
         # multiply each needle by the small V
@@ -547,10 +547,10 @@ class Colorization(H_functions):
         recon = needles.permute(0, 2, 1)  # shape: B, C, WH
         return recon.reshape(vec.shape[0], -1)
 
-    def Vt(self, vec, for_H=True):
+    def Vt(self, vec):
         # get the needles
         needles = (
-            vec.clone().reshape(vec.shape[0], self.channels, -1).permute(0, 2, 1)
+            vec.clone().reshape(vec.shape[0], self.channels, -1).permute(0, 2, 1).to(self.device)
         )  # shape: B, WH, C
         # multiply each needle by the small V transposed
         needles = torch.matmul(
