@@ -50,7 +50,7 @@ class TMPD(GuidedSampler):
             # pass to model to get x0_hat prediction
             x0_hat = convert_flow_to_x0(
                 u_t=flow_pred,
-                x_t=x_t,
+                x_t=x,
                 alpha_t=alpha_t,
                 std_t=std_t,
                 da_dt=da_dt,
@@ -101,6 +101,7 @@ class TMPD(GuidedSampler):
         gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
 
         # scale gradient for flows
+        # TODO: implement this as derivatives for more generality
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
         # clamp to interval
