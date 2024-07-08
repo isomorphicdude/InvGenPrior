@@ -406,10 +406,13 @@ class SuperResolution(H_functions):
         # after first unfold is (B, C, y_dim, img_dim, ratio)
         # after second unfold is (B, C, y_dim, y_dim, ratio, ratio)
         
-        patches = patches.contiguous().reshape(
-            vec.shape[0], self.channels, -1, self.ratio**2
-        )
+        # patches = patches.contiguous().reshape(
+        #     vec.shape[0], self.channels, -1, self.ratio**2
+        # )
         
+        patches = patches.reshape(
+             vec.shape[0], self.channels, -1, self.ratio**2
+        )
         # multiply each by the small V transposed
         # after reshaped patches are (B*C*y_dim**2, ratio**2, 1)
         patches = torch.matmul(
