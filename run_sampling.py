@@ -142,14 +142,16 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         with open(os.path.join(eval_dir, "sampled_images.txt"), "r") as f:
             sampled_images = f.readlines()
             sampled_images = set([int(x.strip()) for x in sampled_images])
+        # img counter
+        # img_counter = len(sampled_images)
     else:
         logging.info("Starting over...")
         sampled_images = set()
         # create the file
         with open(os.path.join(eval_dir, "sampled_images.txt"), "w") as f:
             f.write("")
-
-    # img counter
+        
+        
     img_counter = 0
 
     for iter_no, (batched_img, img_idx) in enumerate(data_loader):
@@ -229,8 +231,9 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             img_counter += config.sampling.batch_size
 
         else:
+            img_sampled_in_batch = [img_counter + i for i in range(config.sampling.batch_size)]
+            logging.info(f"Skipping image {img_sampled_in_batch}.")
             img_counter += config.sampling.batch_size
-            logging.info(f"Skipping image {img_idx}. Already sampled.")
 
     # clear memory
     torch.cuda.empty_cache()
