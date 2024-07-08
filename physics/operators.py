@@ -385,14 +385,13 @@ class SuperResolution(H_functions):
         H = torch.Tensor([[1 / ratio**2] * ratio**2]).to(device)
         
         self.U_small, self.singulars_small, self.V_small = torch.svd(H, some=False)
-        self.U_small = torch.nn.Parameter(self.U_small, requires_grad=False, device=device)
-        self.V_small = torch.nn.Parameter(self.V_small, requires_grad=False, device=device)
+        self.U_small = torch.nn.Parameter(self.U_small, requires_grad=False)
+        self.V_small = torch.nn.Parameter(self.V_small, requires_grad=False)
         self.singulars_small = torch.nn.Parameter(
-            self.singulars_small, requires_grad=False, device=device
+            self.singulars_small, requires_grad=False
         )
-        self.Vt_small = torch.nn.Parameter(
-            self.V_small.transpose(0, 1), requires_grad=False, device=device
-        )
+        self.Vt_small = self.V_small.transpose(0, 1)
+        
 
     def Vt(self, vec):
         # extract flattened patches
@@ -416,7 +415,7 @@ class SuperResolution(H_functions):
         # multiply each by the small V transposed
         # after reshaped patches are (B*C*y_dim**2, ratio**2, 1)
         patches = torch.matmul(
-            self.Vt_small, patches.reshape(-1, self.ratio**2, 1)
+            self.Vt_small.to(self.device), patches.reshape(-1, self.ratio**2, 1)
         ).reshape(vec.shape[0], self.channels, -1, self.ratio**2)
         
         # after multiplication (B*C*y_dim**2, ratio**2, 1)
