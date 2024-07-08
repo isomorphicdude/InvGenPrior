@@ -132,63 +132,94 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     # begin sampling
     score_model.eval()
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
-
-    start_time = time.time()
-    for iter_no, (batched_img, img_idx) in enumerate(data_loader):
-        logging.info(
-            f"Sampling a batch of {config.sampling.batch_size} image {iter_no}"
-        )
-
-        # apply scaler
-        batched_img = scaler(batched_img)
-
-        # apply degredation operator
-        y_obs = H_func.H(batched_img)
-
-        # apply noiser
-        y_obs = noiser(y_obs)
+    
+    # check if certain images are sampled before
+    # the img_idx will be written to disk
+    if os.path.exists(os.path.join(eval_dir, "sampled_images.txt")):
         
-        # if save the degraded images then return the re-shaped
-        if save_degraded:
-            y_obs_image = H_func.get_degraded_image(batched_img)
-            y_obs_image = noiser(y_obs_image)
-            # apply scaler
-            y_obs_image = inverse_scaler(y_obs_image)
+        logging.info("Some images have been sampled before. Loading...")
+        
+        with open(os.path.join(eval_dir, "sampled_images.txt"), "r") as f:
+            sampled_images = f.readlines()
+            sampled_images = set([int(x.strip()) for x in sampled_images])
+    else:
+        logging.info("Starting over...")
+        sampled_images = set()
+        # create the file
+        with open(os.path.join(eval_dir, "sampled_images.txt"), "w") as f:
+            f.write("")
 
-        # pass to guided sampler
-        batched_samples = guided_sampler.sample(
-            y_obs=y_obs,
-            z=None,  # maybe can use latent encoding
-            return_list=False,
-            method = config.sampling.use_ode_sampler, # euler or rk45
-            # method="euler",
-            clamp_to = config.sampling.clamp_to,
-            # clamp_to=1,
-        )
-
-        # save the images to eval folder
-        logging.info(f"Current batch finished. Saving images...")
-        for j in range(config.sampling.batch_size):
-            img = batched_samples[j]
-            # img = inverse_scaler(img) # already included in sampler
-            save_image(
-                img,
-                os.path.join(eval_dir, f"{iter_no}_{j}.png"),
-                # normalize=True,
-                # range=(-1, 1),
+    for iter_no, (batched_img, img_idx) in enumerate(data_loader):
+        
+        if img_idx not in sampled_images:
+            start_time = time.time()    
+            logging.info(
+                f"Sampling a batch of {config.sampling.batch_size} image {iter_no}"
             )
+
+            # apply scaler
+            batched_img = scaler(batched_img)
+
+            # apply degredation operator
+            y_obs = H_func.H(batched_img)
+
+            # apply noiser
+            y_obs = noiser(y_obs)
             
-        if save_degraded:
-            logging.info(f"Saving degraded images...")
+            # if save the degraded images then return the re-shaped
+            if save_degraded:
+                y_obs_image = H_func.get_degraded_image(batched_img)
+                y_obs_image = noiser(y_obs_image)
+                # apply scaler
+                y_obs_image = inverse_scaler(y_obs_image)
+
+            # pass to guided sampler
+            batched_samples = guided_sampler.sample(
+                y_obs=y_obs,
+                z=None,  # maybe can use latent encoding
+                return_list=False,
+                method = config.sampling.use_ode_sampler, # euler or rk45
+                # method="euler",
+                clamp_to = config.sampling.clamp_to,
+                # clamp_to=1,
+            )
+
+            # save the images to eval folder
+            logging.info(f"Current batch finished. Saving images...")
             for j in range(config.sampling.batch_size):
-                img = y_obs_image[j]
+                img = batched_samples[j]
                 # img = inverse_scaler(img) # already included in sampler
                 save_image(
                     img,
-                    os.path.join(eval_dir, f"{iter_no}_{j}_degraded.png"),
+                    os.path.join(eval_dir, f"{iter_no}_{j}.png"),
                     # normalize=True,
                     # range=(-1, 1),
                 )
+                
+            if save_degraded:
+                logging.info(f"Saving degraded images...")
+                for j in range(config.sampling.batch_size):
+                    img = y_obs_image[j]
+                    # img = inverse_scaler(img) # already included in sampler
+                    save_image(
+                        img,
+                        os.path.join(eval_dir, f"{iter_no}_{j}_degraded.png"),
+                        # normalize=True,
+                        # range=(-1, 1),
+                    )
+            
+            end_time = time.time()
+            
+            logging.info(f"Batch {iter_no} finished in {end_time - start_time} seconds.")
+            # additional time
+            logging.info(f"Estimated time remaining: {(end_time - start_time) * (len(data_loader) - iter_no)} seconds.")
+
+            # write to file to store index
+            with open(os.path.join(eval_dir, "sampled_images.txt"), "a") as f:
+                f.write(f"{img_idx}\n")
+                
+        else:
+            logging.info(f"Skipping image {img_idx}. Already sampled.")
                 
     # clear memory  
     torch.cuda.empty_cache()
