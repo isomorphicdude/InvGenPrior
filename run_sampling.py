@@ -52,7 +52,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         name of the experiment and the method used to generate the samples
     """
     # Create directory to eval_folder
-    eval_dir = os.path.join(workdir, eval_folder, config.degredation.name)
+    eval_dir = os.path.join(workdir, eval_folder, config.degredation.task_name)
     tf.io.gfile.makedirs(eval_dir)
 
     # create data
@@ -128,7 +128,10 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         device=config.device,
         sampling_eps=sampling_eps,
     )
-
+    # dumping the config setting into a txt
+    with open(os.path.join(eval_dir, "config.txt"), "w") as f:
+        f.write(f"{config}")
+        
     # begin sampling
     score_model.eval()
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
@@ -150,7 +153,6 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         # create the file
         with open(os.path.join(eval_dir, "sampled_images.txt"), "w") as f:
             f.write("")
-        
         
     img_counter = 0
 
@@ -234,6 +236,8 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             img_sampled_in_batch = [img_counter + i for i in range(config.sampling.batch_size)]
             logging.info(f"Skipping image {img_sampled_in_batch}.")
             img_counter += config.sampling.batch_size
+            
+    logging.info("Sampling finished.")
 
     # clear memory
     torch.cuda.empty_cache()
