@@ -52,7 +52,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         name of the experiment and the method used to generate the samples
     """
     # Create directory to eval_folder
-    eval_dir = os.path.join(workdir, eval_folder)
+    eval_dir = os.path.join(workdir, config.degredation.name, eval_folder)
     tf.io.gfile.makedirs(eval_dir)
 
     # create data
