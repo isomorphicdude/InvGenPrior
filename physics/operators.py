@@ -600,7 +600,7 @@ class Deblurring(H_functions):
         self.device = device
         # do not use anisotropic blurring for now
         # this is implemented by Cardoso et al. 2023 in Deblurring2D
-        self.gaussian_blur_torch = transforms.GaussianBlur(kernel_size, sigma=intensity)
+        self.gaussian_blur_torch = transforms.GaussianBlur(kernel_size, sigma=intensity).to(device)
         
         
     def H(self, vec):
