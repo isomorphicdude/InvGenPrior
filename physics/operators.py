@@ -523,13 +523,12 @@ class Colorization(H_functions):
         ).to(device)
         
         self.U_small, self.singulars_small, self.V_small = torch.svd(H, some=False)
-        self.Vt_small = self.V_small.transpose(0, 1)
-        self.Vt_small = torch.nn.Parameter(self.Vt_small, requires_grad=False)
-        self.V_small = torch.nn.Parameter(self.V_small, requires_grad=False)
-        self.singulars_small = torch.nn.Parameter(
-            self.singulars_small, requires_grad=False
-        )
-        self.U_small = torch.nn.Parameter(self.U_small, requires_grad=False)
+        self.Vt_small = self.V_small.transpose(0, 1).to(device)
+        self.Vt_small = self.Vt_small.to(device)
+        self.V_small = self.V_small.to(device)
+        self.singulars_small = self.singulars_small.to(device)
+        
+        self.U_small = self.U_small.to(device)
 
     def V(self, vec):
         # get the needles [R, G, B]
@@ -598,7 +597,7 @@ class Deblurring(H_functions):
         
         self.img_dim = img_dim
         self.channels = channels
-        
+        self.device = device
         # do not use anisotropic blurring for now
         # this is implemented by Cardoso et al. 2023 in Deblurring2D
         self.gaussian_blur_torch = transforms.GaussianBlur(kernel_size, sigma=intensity)
