@@ -538,7 +538,7 @@ class Colorization(H_functions):
         
         # multiply each needle by the small V
         needles = torch.matmul(
-            self.V_small, needles.reshape(-1, self.channels, 1)
+            self.V_small.to(self.device), needles.reshape(-1, self.channels, 1)
         ).reshape(
             vec.shape[0], -1, self.channels
         )  # shape: B, WH, C
@@ -554,7 +554,7 @@ class Colorization(H_functions):
         )  # shape: B, WH, C
         # multiply each needle by the small V transposed
         needles = torch.matmul(
-            self.Vt_small, needles.reshape(-1, self.channels, 1)
+            self.Vt_small.to(self.device), needles.reshape(-1, self.channels, 1)
         ).reshape(
             vec.shape[0], -1, self.channels
         )  # shape: B, WH, C'
@@ -574,7 +574,7 @@ class Colorization(H_functions):
     def add_zeros(self, vec):
         reshaped = vec.clone().reshape(vec.shape[0], -1)
         temp = torch.zeros(
-            (vec.shape[0], self.channels * self.img_dim**2), device=vec.device
+            (vec.shape[0], self.channels * self.img_dim**2), device=self.device
         )
         temp[:, : self.img_dim**2] = reshaped
         return temp
