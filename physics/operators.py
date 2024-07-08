@@ -385,13 +385,13 @@ class SuperResolution(H_functions):
         H = torch.Tensor([[1 / ratio**2] * ratio**2]).to(device)
         
         self.U_small, self.singulars_small, self.V_small = torch.svd(H, some=False)
-        self.U_small = torch.nn.Parameter(self.U_small, requires_grad=False)
-        self.V_small = torch.nn.Parameter(self.V_small, requires_grad=False)
+        self.U_small = torch.nn.Parameter(self.U_small, requires_grad=False, device=device)
+        self.V_small = torch.nn.Parameter(self.V_small, requires_grad=False, device=device)
         self.singulars_small = torch.nn.Parameter(
-            self.singulars_small, requires_grad=False
+            self.singulars_small, requires_grad=False, device=device
         )
         self.Vt_small = torch.nn.Parameter(
-            self.V_small.transpose(0, 1), requires_grad=False
+            self.V_small.transpose(0, 1), requires_grad=False, device=device
         )
 
     def Vt(self, vec):
