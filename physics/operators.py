@@ -411,7 +411,9 @@ class SuperResolution(H_functions):
         
         patches = patches.reshape(
              vec.shape[0], self.channels, -1, self.ratio**2
-        )
+        ).to(self.device)
+        print(patches.device)
+        print(self.Vt_small.device)
         # multiply each by the small V transposed
         # after reshaped patches are (B*C*y_dim**2, ratio**2, 1)
         patches = torch.matmul(
