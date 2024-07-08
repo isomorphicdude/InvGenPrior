@@ -31,6 +31,7 @@ def get_config():
     # degredation config
     config.degredation = degredation = ml_collections.ConfigDict()
     degredation.name = "inpainting"
+    degredation.task_name = "inpainting_box"
     degredation.channels = 3
     degredation.img_dim = 256
     degredation.noiser = "gaussian"

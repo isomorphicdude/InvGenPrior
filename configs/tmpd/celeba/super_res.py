@@ -31,6 +31,7 @@ def get_config():
     # degredation config
     config.degredation = degredation = ml_collections.ConfigDict()
     degredation.name = "super_resolution"
+    degredation.task_name = degredation.name
     degredation.channels = 3
     degredation.img_dim = 256
     degredation.noiser = "gaussian"
