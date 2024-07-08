@@ -48,7 +48,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
       - config: configuration file, used for ml_collections
       - workdir: working directory, usually just the root directory of repo
       - save_degraded: whether to save the degraded images
-      - eval_folder: folder to save the samples, should be a combination of the 
+      - eval_folder: folder to save the samples, should be a combination of the
         name of the experiment and the method used to generate the samples
     """
     # Create directory to eval_folder
@@ -57,8 +57,8 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
     # create data
     dset = lmdb_dataset.get_dataset(
-        name = config.data.name,
-        db_path= config.data.lmdb_file_path,
+        name=config.data.name,
+        db_path=config.data.lmdb_file_path,
         transform=None,  # overridden by child class
     )
 
@@ -84,11 +84,11 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
     # load weights
     ckpt_path = os.path.join(checkpoint_dir, config.ckpt_name)
-    
+
     if not os.path.exists(ckpt_path):
         logging.error(f"Checkpoint {ckpt_path} does not exist.")
         raise FileNotFoundError(f"Checkpoint {ckpt_path} does not exist.")
-    
+
     state = mutils.restore_checkpoint(ckpt_path, state, device=config.device)
 
     # Setup SDEs
@@ -132,13 +132,13 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     # begin sampling
     score_model.eval()
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
-    
+
     # check if certain images are sampled before
     # the img_idx will be written to disk
     if os.path.exists(os.path.join(eval_dir, "sampled_images.txt")):
-        
+
         logging.info("Some images have been sampled before. Loading...")
-        
+
         with open(os.path.join(eval_dir, "sampled_images.txt"), "r") as f:
             sampled_images = f.readlines()
             sampled_images = set([int(x.strip()) for x in sampled_images])
@@ -151,11 +151,11 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
     # img counter
     img_counter = 0
-    
+
     for iter_no, (batched_img, img_idx) in enumerate(data_loader):
-        
-        if img_idx not in sampled_images:
-            start_time = time.time()    
+
+        if img_counter not in sampled_images:
+            start_time = time.time()
             logging.info(
                 f"Sampling a batch of {config.sampling.batch_size} image {iter_no}"
             )
@@ -168,7 +168,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
             # apply noiser
             y_obs = noiser(y_obs)
-            
+
             # if save the degraded images then return the re-shaped
             if save_degraded:
                 y_obs_image = H_func.get_degraded_image(batched_img)
@@ -181,9 +181,9 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
                 y_obs=y_obs,
                 z=None,  # maybe can use latent encoding
                 return_list=False,
-                method = config.sampling.use_ode_sampler, # euler or rk45
+                method=config.sampling.use_ode_sampler,  # euler or rk45
                 # method="euler",
-                clamp_to = config.sampling.clamp_to,
+                clamp_to=config.sampling.clamp_to,
                 # clamp_to=1,
             )
 
@@ -198,7 +198,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
                     # normalize=True,
                     # range=(-1, 1),
                 )
-                
+
             if save_degraded:
                 logging.info(f"Saving degraded images...")
                 for j in range(config.sampling.batch_size):
@@ -210,32 +210,36 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
                         # normalize=True,
                         # range=(-1, 1),
                     )
-            
+
             end_time = time.time()
-            
-            logging.info(f"Batch {iter_no} finished in {end_time - start_time} seconds.")
+
+            logging.info(
+                f"Batch {iter_no} finished in {end_time - start_time:.3f} seconds."
+            )
             # additional time
-            logging.info(f"Estimated time remaining: {(end_time - start_time) * (len(data_loader) - iter_no)} seconds.")
+            logging.info(
+                f"Estimated time remaining: {(end_time - start_time) * (len(data_loader) - iter_no):.3f} seconds; Or {(end_time - start_time) * (len(data_loader) - iter_no) / 60:.3f} minutes."
+            )
 
             # write to file to store index
             with open(os.path.join(eval_dir, "sampled_images.txt"), "a") as f:
                 for i in range(img_counter, img_counter + config.sampling.batch_size):
                     f.write(f"{i}\n")
-                    
+
             img_counter += config.sampling.batch_size
-                
+
         else:
             img_counter += config.sampling.batch_size
             logging.info(f"Skipping image {img_idx}. Already sampled.")
-                
-    # clear memory  
+
+    # clear memory
     torch.cuda.empty_cache()
-    
+
 
 FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file(
-    "config", None, "Sampling configuration.", lock_config=False # might want to lock
+    "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 )
 
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
@@ -245,6 +249,7 @@ flags.DEFINE_string(
 )
 
 flags.mark_flag_as_required("config")
+
 
 # TODO: separate the main and the runlib
 def main(argv):
@@ -259,13 +264,14 @@ def main(argv):
     logger = logging.getLogger()
     logger.addHandler(handler)
     logger.setLevel("INFO")
-    
+
     create_samples(
         FLAGS.config,
         FLAGS.workdir,
         save_degraded=True,
         eval_folder=FLAGS.eval_folder,
     )
-    
+
+
 if __name__ == "__main__":
     app.run(main)
