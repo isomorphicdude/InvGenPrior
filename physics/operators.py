@@ -94,9 +94,9 @@ class H_functions(ABC):
         Multiplies the input vector by H
         """
         temp = self.Vt(vec)
-        print(temp.device)
+        # print(temp.device)
         singulars = self.singulars()
-        print(singulars.device)
+        # print(singulars.device)
         return self.U(singulars * temp[:, : singulars.shape[0]])
 
     def Ht(self, vec):
