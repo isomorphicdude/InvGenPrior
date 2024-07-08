@@ -38,7 +38,7 @@ def get_config():
     degredation.device = config.device
     
     degredation.kernel_size = 61
-    degredation.intensity = 1.0
+    degredation.intensity = 4.0
     
     
     # sampling config
