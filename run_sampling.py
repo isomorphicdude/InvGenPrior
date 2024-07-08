@@ -149,6 +149,9 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         with open(os.path.join(eval_dir, "sampled_images.txt"), "w") as f:
             f.write("")
 
+    # img counter
+    img_counter = 0
+    
     for iter_no, (batched_img, img_idx) in enumerate(data_loader):
         
         if img_idx not in sampled_images:
@@ -216,9 +219,13 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
             # write to file to store index
             with open(os.path.join(eval_dir, "sampled_images.txt"), "a") as f:
-                f.write(f"{img_idx}\n")
+                for i in range(img_counter, img_counter + config.sampling.batch_size):
+                    f.write(f"{i}\n")
+                    
+            img_counter += config.sampling.batch_size
                 
         else:
+            img_counter += config.sampling.batch_size
             logging.info(f"Skipping image {img_idx}. Already sampled.")
                 
     # clear memory  
