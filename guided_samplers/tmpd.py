@@ -1,4 +1,4 @@
-"""Implements the guidance functions."""
+"""Implements the TMPD guidance functions."""
 
 import math
 import torch
@@ -27,6 +27,20 @@ class TMPD(GuidedSampler):
         """
         TMPD guidance for OT path.
         Returns ∇ log p(y|x_t) approximation.
+        
+        Args:   
+          - model_fn: model function that takes x_t and t as input and returns the flow prediction
+          - x_t: current state x_t ~ p_t(x_t|z, y)
+          - num_t: current time step
+          - y_obs: observed data
+          - alpha_t: alpha_t
+          - std_t: std_t, the sigma_t in Pokle et al. 2024
+          - da_dt: derivative of alpha w.r.t. t
+          - dstd_dt: derivative of std w.r.t. t
+          - clamp_to: gradient clipping for the guidance
+          
+        Returns:  
+         - guided_vec: guidance vector with flow prediction and guidance combined
         """
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
