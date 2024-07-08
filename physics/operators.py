@@ -412,8 +412,7 @@ class SuperResolution(H_functions):
         patches = patches.reshape(
              vec.shape[0], self.channels, -1, self.ratio**2
         ).to(self.device)
-        print(patches.device)
-        print(self.Vt_small.device)
+        
         # multiply each by the small V transposed
         # after reshaped patches are (B*C*y_dim**2, ratio**2, 1)
         patches = torch.matmul(
@@ -425,7 +424,7 @@ class SuperResolution(H_functions):
         
         # reorder the vector to have the first entry first (because singulars are ordered descendingly)
         recon = torch.zeros(
-            vec.shape[0], self.channels * self.img_dim**2, device=vec.device
+            vec.shape[0], self.channels * self.img_dim**2, device=self.device
         )
         recon[:, : self.channels * self.y_dim**2] = patches[:, :, :, 0].view(
             vec.shape[0], self.channels * self.y_dim**2
@@ -436,7 +435,7 @@ class SuperResolution(H_functions):
                     vec.shape[0], self.channels * self.y_dim**2
                 )
             )
-        return recon
+        return recon.to(self.device)
     
     def V(self, vec):
         # reorder the vector back into patches (because singulars are ordered descendingly)
