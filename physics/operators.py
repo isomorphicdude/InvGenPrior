@@ -604,7 +604,7 @@ class Deblurring(H_functions):
         
         
     def H(self, vec):
-        return self.gaussian_blur_torch(vec)
+        return self.gaussian_blur_torch(vec).to(self.device)
     
     def get_degraded_image(self, vec):
         return self.H(vec)
