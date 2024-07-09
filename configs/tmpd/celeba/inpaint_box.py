@@ -47,10 +47,12 @@ def get_config():
     sampling = config.sampling
     sampling.gudiance_method = "tmpd"
     sampling.use_ode_sampler = "euler"
-    sampling.clamp_to = None # gradient clipping
-    sampling.batch_size = 5
-    sampling.sample_N = 10
-    
+    sampling.clamp_to = 1 # gradient clipping for the guidance
+    sampling.batch_size = 2
+    sampling.sample_N = 10 # NOTE: tune this
+    sampling.sigma_variance = 0.0 # NOTE: tune this add noise and denoise?
+    # does flow models denoise? can it go off the data manifold?
+    sampling.starting_time = 0.2
     return config
     
     

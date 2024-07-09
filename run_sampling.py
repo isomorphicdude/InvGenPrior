@@ -188,6 +188,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
                 # method="euler",
                 clamp_to=config.sampling.clamp_to,
                 # clamp_to=1,
+                starting_time=config.sampling.starting_time,
             )
 
             # save the images to eval folder
