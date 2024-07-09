@@ -121,7 +121,7 @@ class GuidedSampler(ABC):
             return x, nfe
 
     def guided_rk45_sampler(self):
-        pass
+        raise NotImplementedError()
 
     def sample(
         self, y_obs, return_list=False, method="euler", clamp_to=1, 
