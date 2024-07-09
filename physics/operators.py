@@ -121,8 +121,11 @@ class H_functions(ABC):
         Returns the degraded image for plotting (B, C, H, W)
         This implementation varies depending on the degradation operator.
         This is a default implementation that works for inpainting and denoising.
+        
+        Args:  
+            - vec (torch.Tensor): The H(x) re-shaped as an image. (B, C*H*W) -> (B, C, H, W)
         """
-        vec = self.H(vec)
+        # vec = self.H(vec)
         # print(vec.shape)
         # creat a flattend vector to store out for visualisation
         y_0_img = -torch.ones(vec.shape[0], 
@@ -489,7 +492,8 @@ class SuperResolution(H_functions):
        """
        Returns the lower-resolution image for plotting (B, C, H//ratio, W//ratio)
        """
-       return self.H(vec).reshape(vec.shape[0], self.channels, self.y_dim, self.y_dim)
+       
+       return vec.reshape(vec.shape[0], self.channels, self.y_dim, self.y_dim)
     
     
 
@@ -580,7 +584,7 @@ class Colorization(H_functions):
         return temp
     
     def get_degraded_image(self, vec):
-        return self.H(vec).reshape(vec.shape[0], 1, self.img_dim, self.img_dim)
+        return vec.reshape(vec.shape[0], 1, self.img_dim, self.img_dim)
 
 
 
@@ -607,7 +611,7 @@ class Deblurring(H_functions):
         return self.gaussian_blur_torch(vec).to(self.device)
     
     def get_degraded_image(self, vec):
-        return self.H(vec)
+        return vec
         
     def V(self, vec):
         raise NotImplementedError("Not implemented for deblurring.")

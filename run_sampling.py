@@ -175,8 +175,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
             # if save the degraded images then return the re-shaped
             if save_degraded:
-                y_obs_image = H_func.get_degraded_image(batched_img)
-                y_obs_image = noiser(y_obs_image)
+                y_obs_image = H_func.get_degraded_image(y_obs)
                 # apply scaler
                 y_obs_image = inverse_scaler(y_obs_image)
 
