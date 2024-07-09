@@ -48,7 +48,7 @@ def get_config():
     sampling.gudiance_method = "tmpd"
     sampling.use_ode_sampler = "euler"
     sampling.clamp_to = None # gradient clipping
-    sampling.batch_size = 10
+    sampling.batch_size = 5
     sampling.sample_N = 10
     
     return config
