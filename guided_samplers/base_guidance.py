@@ -102,8 +102,10 @@ class GuidedSampler(ABC):
                     + guided_vec * dt
                     # + flow_pred * dt
                     # + scaled_grad * dt * gamma_t
-                    + sigma_t * math.sqrt(dt) * torch.randn_like(guided_vec).to(self.device)
-                ) #.clip(-1, 1) # clipping the image to [-1, 1]
+                    + sigma_t
+                    * math.sqrt(dt)
+                    * torch.randn_like(guided_vec).to(self.device)
+                )  # .clip(-1, 1) # clipping the image to [-1, 1]
 
                 if return_list and i % (self.sde.sample_N // 5) == 0:
                     samples.append(x.detach().clone())
@@ -124,30 +126,36 @@ class GuidedSampler(ABC):
         raise NotImplementedError()
 
     def sample(
-        self, y_obs, return_list=False, method="euler", clamp_to=1, 
-        starting_time=0, **kwargs
-        
+        self,
+        y_obs,
+        return_list=False,
+        method="euler",
+        clamp_to=1,
+        starting_time=0,
+        **kwargs,
     ):
         """
-        Samples the solution to the inverse problem using the guided sampler.  
-        
-        Args:  
+        Samples the solution to the inverse problem using the guided sampler.
+
+        Args:
           - y_obs (torch.Tensor): Observed data to condition the sampling on. (B, C*H*W)
           - return_list (bool, optional): If True, returns the samples as a list. Default is False.
           - method (str, optional): The method to use for sampling. Default is "euler".
           - clamp_to (float, optional): If not None, clamps the guidance scores to this value. Default is 1.
           - starting_time (int, optional): The starting time for the sampling process. Default is 0. If nonzero,
           then the latent z is replaced with a_t y + sigma_t \epsilon.
-          
-        Returns:  
+
+        Returns:
           - torch.Tensor or list: The posterior samples. If `return_list` is True, returns intermediate samples as a list.
-          - int: The number of function evaluations (NFEs) used in the sampling process.  
+          - int: The number of function evaluations (NFEs) used in the sampling process.
         """
         if starting_time == 0:
             z = None
         else:
             degraded_image = self.H_func.get_degraded_image(y_obs).detach().clone()
-            z = self.sde.alpha_t(starting_time) * degraded_image + self.sde.std_t(starting_time) * torch.randn_like(degraded_image).to(self.device)
+            z = self.sde.alpha_t(starting_time) * degraded_image + self.sde.std_t(
+                starting_time
+            ) * torch.randn_like(degraded_image).to(self.device)
         if method == "euler":
             return self.guided_euler_sampler(
                 y_obs, z=z, return_list=return_list, clamp_to=clamp_to, **kwargs
