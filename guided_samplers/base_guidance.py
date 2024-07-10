@@ -105,7 +105,7 @@ class GuidedSampler(ABC):
                     + sigma_t
                     * math.sqrt(dt)
                     * torch.randn_like(guided_vec).to(self.device)
-                )  # .clip(-1, 1) # clipping the image to [-1, 1]
+                ).clip(-1, 1) # clipping the image to [-1, 1]
 
                 if return_list and i % (self.sde.sample_N // 5) == 0:
                     samples.append(x.detach().clone())
