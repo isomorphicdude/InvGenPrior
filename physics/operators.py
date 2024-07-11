@@ -782,7 +782,7 @@ class Deblurring(H_functions):
         return vec.clone().reshape(vec.shape[0], -1).to(self.device)
     
     def get_degraded_image(self, vec):
-        print(vec)
+        # print(vec)
         return vec.reshape(vec.shape[0], self.channels, self.img_dim, self.img_dim)
 
 
