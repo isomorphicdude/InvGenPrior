@@ -26,7 +26,7 @@ class TMPD(GuidedSampler):
     ):
         """
         TMPD guidance for OT path.
-        Returns ∇ log p(y|x_t) approximation.
+        Returns ∇ log p(y|x_t) approximation with row-sum approximation.
         
         Args:   
           - model_fn: model function that takes x_t and t as input and returns the flow prediction
@@ -75,7 +75,7 @@ class TMPD(GuidedSampler):
         # Even so, K is still approximated using row sums
         # namely K \approx diag (H @ (∇_x x0_hat) @ H^t @ 1 + sigma_y^2 * 1)
         # -----------------------------------------
-        coeff_C_yy = std_t**2 / math.sqrt(alpha_t)
+        coeff_C_yy = std_t**2 / alpha_t
         C_yy = (
             coeff_C_yy
             * self.H_func.H(
@@ -89,12 +89,20 @@ class TMPD(GuidedSampler):
             )
             + self.noiser.sigma**2
         )
-
+        
+        # C_yy = (
+        #     coeff_C_yy
+        #     * self.H_func.H(
+        #         vjp_estimate_h_x_0(
+        #            torch.ones_like(self.H_func.H(flow_pred))
+        #         )[0]
+        #     )
+        #     + self.noiser.sigma**2
+        # )
+        
         # difference
         difference = y_obs - h_x_0
-
-        # norm = torch.linalg.norm(difference)
-
+        
         grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
 
         # compute gamma_t scaling
@@ -113,7 +121,223 @@ class TMPD(GuidedSampler):
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
+        # return flow_pred 
+    
+    
+@register_guided_sampler(name="tmpd_fixed_cov")
+class TMPD_fixed_cov(GuidedSampler):
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        """
+        TMPD guidance for OT path.
+        Returns ∇ log p(y|x_t) approximation with Equation 9 in paper.
+        Full Jacobian approximation but not exact.
+        
+        Args:
+          - model_fn: model function that takes x_t and t as input and returns the flow prediction
+          - x_t: current state x_t ~ p_t(x_t|z, y)
+          - num_t: current time step
+          - y_obs: observed data
+          - alpha_t: alpha_t
+          - std_t: std_t, the sigma_t in Pokle et al. 2024
+          - da_dt: derivative of alpha w.r.t. t
+          - dstd_dt: derivative of std w.r.t. t
+          - clamp_to: gradient clipping for the guidance
+
+        Returns:
+         - guided_vec: guidance vector with flow prediction and guidance combined
+        """
+        assert hasattr(
+            self.H_func, "H_mat"
+        ), "H_func must have H_mat attribute for now."
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        def get_x0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            return x0_hat, flow_pred
+
+        # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of d_y dim
+        # so equivalently (∇_x x0_hat) @ H^t @ u
+        jac_x_0_func = torch.func.vmap(
+            torch.func.jacrev(get_x0, argnums=0, has_aux=True),
+            # in_dims=(0,),
+        )
+
+        jac_x_0, flow_pred = jac_x_0_func(x_t)
+
+        coeff_C_yy = std_t**2 / alpha_t
+
+        # difference
+        x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
+        h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
+        difference = y_obs - h_x_0
+        
+        
+        C_yy = coeff_C_yy* torch.einsum(
+                "ij, bjk, kl -> bil",
+                self.H_func.H_mat,
+                jac_x_0,
+                self.H_func.H_mat.T,
+            )+ self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
+
+        
+        C_yy_diff = torch.linalg.solve(
+            C_yy,
+            difference,
+        ) # (B, d_y)
+
+        # (B, D, D) @ (D, d_y) @ (B, d_y) -> (B, D)
+        grad_ll = torch.einsum(
+            "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
+        )
+
+        # compute gamma_t scaling
+        gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
+        
+        # scale gradient for flows
+        # TODO: implement this as derivatives for more generality
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        
+        # clamp to interval
+        if clamp_to is not None:
+            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+                flow_pred
+            )
+            # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+        else:
+            guided_vec = (gamma_t * scaled_grad) + (flow_pred)
+        return guided_vec
         # return flow_pred
+    
+# @register_guided_sampler(name="tmpd_exact")
+# class TMPD_exact(GuidedSampler):
+#     def get_guidance(
+#         self,
+#         model_fn,
+#         x_t,
+#         num_t,
+#         y_obs,
+#         alpha_t,
+#         std_t,
+#         da_dt,
+#         dstd_dt,
+#         clamp_to,
+#         **kwargs
+#     ):
+#         """
+#         TMPD guidance for OT path.
+#         Returns ∇ log p(y|x_t) approximation with exact second order approximation.
+        
+#         Args:   
+#           - model_fn: model function that takes x_t and t as input and returns the flow prediction
+#           - x_t: current state x_t ~ p_t(x_t|z, y)
+#           - num_t: current time step
+#           - y_obs: observed data
+#           - alpha_t: alpha_t
+#           - std_t: std_t, the sigma_t in Pokle et al. 2024
+#           - da_dt: derivative of alpha w.r.t. t
+#           - dstd_dt: derivative of std w.r.t. t
+#           - clamp_to: gradient clipping for the guidance
+          
+#         Returns:  
+#          - guided_vec: guidance vector with flow prediction and guidance combined
+#         """
+#         assert hasattr(
+#             self.H_func, "H_mat"
+#         ), "H_func must have H_mat attribute for now."
+#         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+#         x_t.requires_grad_()
+        
+#         def get_x0(x):
+#             flow_pred = model_fn(x, t_batched * 999)
+
+#             # pass to model to get x0_hat prediction
+#             x0_hat = convert_flow_to_x0(
+#                 u_t=flow_pred,
+#                 x_t=x,
+#                 alpha_t=alpha_t,
+#                 std_t=std_t,
+#                 da_dt=da_dt,
+#                 dstd_dt=dstd_dt,
+#             )
+#             return x0_hat, flow_pred
+
+#         # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of d_y dim
+#         # so equivalently (∇_x x0_hat) @ H^t @ u
+#         jac_x_0_func = torch.func.vmap(
+#             torch.func.jacrev(get_x0, argnums=0, has_aux=True),
+#             # in_dims=(0,),
+#         )
+
+#         jac_x_0, flow_pred = jac_x_0_func(x_t)
+
+#         coeff_C_yy = std_t**2 / alpha_t
+
+#         # difference
+#         x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
+#         h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
+        
+#         C_yy = coeff_C_yy* torch.einsum(
+#                 "ij, bjk, kl -> bil",
+#                 self.H_func.H_mat,
+#                 jac_x_0,
+#                 self.H_func.H_mat.T,
+#             )+ self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
+        
+#         # create distribution instance
+#         likelihood_distr = torch.distributions.MultivariateNormal(
+#             loc = h_x_0, # (B, d_y)
+#             covariance_matrix=C_yy
+#         )
+        
+#         likelihood = likelihood_distr.log_prob(y_obs).sum().requires_grad_()
+        
+#         grad_ll = torch.autograd.grad(
+#             likelihood,
+#             x_t,
+#         )[0]
+        
+
+#         # compute gamma_t scaling
+#         gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
+
+#         # scale gradient for flows
+#         # TODO: implement this as derivatives for more generality
+#         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+#         # clamp to interval
+#         if clamp_to is not None:
+#             guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+#                 flow_pred
+#             )
+#             # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+#         else:
+#             guided_vec = (gamma_t * scaled_grad.squeeze(-1)) + (flow_pred)
+#         return guided_vec
+    
+    
 
 
 # -------------------------------------------  TMPD  -------------------------------------------#
