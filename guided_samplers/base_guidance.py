@@ -29,6 +29,11 @@ class GuidedSampler(ABC):
         self.sde = sde
         self.shape = shape
         self.sampling_eps = sampling_eps
+        
+        if inverse_scaler is None:
+            # if no inverse scaler is provided, default to identity
+            inverse_scaler = lambda x: x
+            
         self.inverse_scaler = inverse_scaler
         self.H_func = H_func
         self.noiser = noiser
@@ -105,7 +110,7 @@ class GuidedSampler(ABC):
                     + sigma_t
                     * math.sqrt(dt)
                     * torch.randn_like(guided_vec).to(self.device)
-                ).clip(-1, 1) # clipping the image to [-1, 1]
+                )  # .clip(-1, 1) # clipping the image to [-1, 1]
 
                 if return_list and i % (self.sde.sample_N // 5) == 0:
                     samples.append(x.detach().clone())
@@ -132,6 +137,7 @@ class GuidedSampler(ABC):
         method="euler",
         clamp_to=1,
         starting_time=0,
+        z = None,
         **kwargs,
     ):
         """
@@ -150,7 +156,7 @@ class GuidedSampler(ABC):
           - int: The number of function evaluations (NFEs) used in the sampling process.
         """
         if starting_time == 0:
-            z = None
+            z = z
         else:
             degraded_image = self.H_func.get_degraded_image(y_obs).detach().clone()
             z = self.sde.alpha_t(starting_time) * degraded_image + self.sde.std_t(

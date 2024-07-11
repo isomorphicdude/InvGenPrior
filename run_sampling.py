@@ -182,7 +182,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             # pass to guided sampler
             batched_samples = guided_sampler.sample(
                 y_obs=y_obs,
-                # z=None,  # maybe can use latent encoding
+                z=None,  # maybe can use latent encoding
                 return_list=False,
                 method=config.sampling.use_ode_sampler,  # euler or rk45
                 # method="euler",
