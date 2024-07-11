@@ -737,6 +737,7 @@ class Deblurring(H_functions):
 
     def V(self, vec):
         #invert the permutation
+        vec = vec.to(self.device) # added
         temp = torch.zeros(vec.shape[0], self.img_dim**2, self.channels, device=vec.device)
         temp[:, self._perm, :] = vec.clone().reshape(vec.shape[0], self.img_dim**2, self.channels)
         temp = temp.permute(0, 2, 1)
@@ -747,6 +748,7 @@ class Deblurring(H_functions):
 
     def Vt(self, vec):
         #multiply the image by V^T from the left and by V from the right
+        vec = vec.to(self.device) # added
         temp = self.mat_by_img(self.V_small.transpose(0, 1), vec.clone())
         temp = self.img_by_mat(temp, self.V_small).reshape(vec.shape[0], self.channels, -1)
         #permute the entries according to the singular values
@@ -754,6 +756,7 @@ class Deblurring(H_functions):
         return temp.reshape(vec.shape[0], -1).to(self.device)
 
     def U(self, vec):
+        vec = vec.to(self.device)
         #invert the permutation
         temp = torch.zeros(vec.shape[0], self.img_dim**2, self.channels, device=vec.device)
         temp[:, self._perm, :] = vec.clone().reshape(vec.shape[0], self.img_dim**2, self.channels)
@@ -764,6 +767,7 @@ class Deblurring(H_functions):
         return out.to(self.device)
 
     def Ut(self, vec):
+        vec = vec.to(self.device)
         #multiply the image by U^T from the left and by U from the right
         temp = self.mat_by_img(self.U_small.transpose(0, 1), vec.clone())
         temp = self.img_by_mat(temp, self.U_small).reshape(vec.shape[0], self.channels, -1)

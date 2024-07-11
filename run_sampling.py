@@ -167,6 +167,9 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             # apply scaler
             batched_img = scaler(batched_img)
 
+            # if not already on device
+            batched_img = batched_img.to(config.device)
+            
             # apply degredation operator
             y_obs = H_func.H(batched_img)
 
