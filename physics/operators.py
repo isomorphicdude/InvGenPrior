@@ -722,6 +722,12 @@ class Deblurring(H_functions):
                 H_small[i, j] = kernel[j - i + kernel.shape[0]//2]
         #get the svd of the 1D conv
         self.U_small, self.singulars_small, self.V_small = torch.svd(H_small, some=False)
+        
+        # move to device
+        self.U_small = self.U_small.to(device)
+        self.singulars_small = self.singulars_small.to(device)
+        self.V_small = self.V_small.to(device)
+        
         #ZERO = 3e-2
         self.singulars_small[self.singulars_small < ZERO] = 0
         #calculate the singular values of the big matrix
@@ -737,7 +743,7 @@ class Deblurring(H_functions):
         #multiply the image by V from the left and by V^T from the right
         out = self.mat_by_img(self.V_small, temp)
         out = self.img_by_mat(out, self.V_small.transpose(0, 1)).reshape(vec.shape[0], -1)
-        return out
+        return out.to(self.device)
 
     def Vt(self, vec):
         #multiply the image by V^T from the left and by V from the right
@@ -745,7 +751,7 @@ class Deblurring(H_functions):
         temp = self.img_by_mat(temp, self.V_small).reshape(vec.shape[0], self.channels, -1)
         #permute the entries according to the singular values
         temp = temp[:, :, self._perm].permute(0, 2, 1)
-        return temp.reshape(vec.shape[0], -1)
+        return temp.reshape(vec.shape[0], -1).to(self.device)
 
     def U(self, vec):
         #invert the permutation
@@ -755,7 +761,7 @@ class Deblurring(H_functions):
         #multiply the image by U from the left and by U^T from the right
         out = self.mat_by_img(self.U_small, temp)
         out = self.img_by_mat(out, self.U_small.transpose(0, 1)).reshape(vec.shape[0], -1)
-        return out
+        return out.to(self.device)
 
     def Ut(self, vec):
         #multiply the image by U^T from the left and by U from the right
@@ -763,13 +769,13 @@ class Deblurring(H_functions):
         temp = self.img_by_mat(temp, self.U_small).reshape(vec.shape[0], self.channels, -1)
         #permute the entries according to the singular values
         temp = temp[:, :, self._perm].permute(0, 2, 1)
-        return temp.reshape(vec.shape[0], -1)
+        return temp.reshape(vec.shape[0], -1).to(self.device)
 
     def singulars(self):
-        return self._singulars.repeat(1, 3).reshape(-1)
+        return self._singulars.repeat(1, 3).reshape(-1).to(self.device)
 
     def add_zeros(self, vec):
-        return vec.clone().reshape(vec.shape[0], -1)
+        return vec.clone().reshape(vec.shape[0], -1).to(self.device)
     
     def get_degraded_image(self, vec):
         print(vec)
