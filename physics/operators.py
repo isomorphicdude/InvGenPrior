@@ -630,6 +630,53 @@ class Deblurring(H_functions):
     
     def add_zeros(self, vec):
         raise NotImplementedError("Not implemented for deblurring.")
+    
+    
+# Deblurring
+@register_operator(name="gmm_h")
+class H_func_gmm(H_functions):
+    def __init__(self, config):
+        obs_dim = config.obs_dim
+        dim = config.dim
+        H_mat = config.H_mat
+        if H_mat is None:
+            H_mat = torch.randn(obs_dim * dim).reshape(obs_dim, dim)
+            U, S, Vt = torch.linalg.svd(H_mat, full_matrices=True)
+            coordinate_mask = torch.ones_like(Vt[0])
+            coordinate_mask[len(S):] = 0
+            
+            # sampling Unif[0, 1] for the singular values
+            diag = torch.sort(torch.rand_like(S), descending=True).values
+            
+            H_mat = U @ (torch.diag(diag)) @ Vt[coordinate_mask==1, :]
+        else:
+            H_mat = H_mat
+        
+        self.H_mat = H_mat
+        
+    def H(self, vec):
+        return torch.einsum("ij,bj->bi", self.H_mat, vec)
+    
+    def get_degraded_image(self, vec):
+        return vec
+        
+    def V(self, vec):
+        raise NotImplementedError("Not implemented for deblurring.")
+    
+    def Vt(self, vec):
+        raise NotImplementedError("Not implemented for deblurring.")
+    
+    def U(self, vec):
+        raise NotImplementedError("Not implemented for deblurring.")
+    
+    def Ut(self, vec):
+        raise NotImplementedError("Not implemented for deblurring.")
+    
+    def singulars(self):
+        raise NotImplementedError("Not implemented for deblurring.")
+    
+    def add_zeros(self, vec):
+        raise NotImplementedError("Not implemented for deblurring.")
         
 
 # class Deblurring(H_functions):
