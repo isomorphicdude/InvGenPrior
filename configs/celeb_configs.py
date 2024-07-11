@@ -39,6 +39,7 @@ def get_config():
     sampling.init_noise_scale = 1.0
     sampling.use_ode_sampler = "rk45"
     sampling.batch_size = 1
+    sampling.starting_time = 0
     # sampling.gudiance_method = "tmpd" # newly added for inverseproblems
 
     # data
