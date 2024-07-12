@@ -44,6 +44,8 @@ class TMPD(GuidedSampler):
         """
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
+        x_t = x_t.clone().detach()
+        
         def estimate_h_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
 
@@ -61,7 +63,7 @@ class TMPD(GuidedSampler):
 
             return (x0_hat_obs, flow_pred)
 
-        # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of d_y dim
+        # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of shape (d_y,)
         # so equivalently (∇_x x0_hat) @ H^t @ u
         h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
             estimate_h_x_0, x_t, has_aux=True
@@ -73,7 +75,7 @@ class TMPD(GuidedSampler):
         # which is (∇_x x0_hat) @ H^t @ (coeff * H @ (∇_x x0_hat) @ H^t + sigma_y^2 I)^{-1} @ (y - Hx)
         #
         # Even so, K is still approximated using row sums
-        # namely K \approx diag (H @ (∇_x x0_hat) @ H^t @ 1 + sigma_y^2 * 1)
+        # namely K ≈ diag (H @ (∇_x x0_hat) @ H^t @ 1 + sigma_y^2 * 1)
         # -----------------------------------------
         coeff_C_yy = std_t**2 / alpha_t
         C_yy = (
@@ -103,7 +105,9 @@ class TMPD(GuidedSampler):
         # difference
         difference = y_obs - h_x_0
         
+        # C_yy = 1.0
         grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
+        
 
         # compute gamma_t scaling
         gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
@@ -117,7 +121,6 @@ class TMPD(GuidedSampler):
             guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
                 flow_pred
             )
-            # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
