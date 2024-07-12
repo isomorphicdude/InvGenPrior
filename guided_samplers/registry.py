@@ -4,7 +4,9 @@ __GUIDED_SAMPLERS__ = {}
 def register_guided_sampler(name: str):
     def wrapper(cls):
         if __GUIDED_SAMPLERS__.get(name, None):
-            raise NameError(f"Name {name} is already registered!")
+            # raise NameError(f"Name {name} is already registered!")
+            # warning instead
+            print(f"Name {name} is already registered!")
         __GUIDED_SAMPLERS__[name] = cls
         return cls
 
