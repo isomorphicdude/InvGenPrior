@@ -59,7 +59,7 @@ class TMPD(GuidedSampler):
 
             x0_hat_obs = self.H_func.H(x0_hat)
 
-            return x0_hat_obs, flow_pred
+            return (x0_hat_obs, flow_pred)
 
         # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of d_y dim
         # so equivalently (∇_x x0_hat) @ H^t @ u
