@@ -640,6 +640,10 @@ class H_func_gmm(H_functions):
         obs_dim = config.obs_dim
         dim = config.dim
         H_mat = config.H_mat
+        V_mat = config.V_mat
+        U_mat = config.U_mat
+        singulars = config.singulars
+        
         if H_mat is None:
             H_mat = torch.randn(obs_dim * dim).reshape(obs_dim, dim)
             U, S, Vt = torch.linalg.svd(H_mat, full_matrices=True)
@@ -653,7 +657,12 @@ class H_func_gmm(H_functions):
         else:
             H_mat = H_mat
         
+        self.dim = dim
+        self.obs_dim = obs_dim
         self.H_mat = H_mat
+        self.V_mat = V_mat
+        self.U_mat = U_mat
+        self._singulars = singulars
         
     def H(self, vec):
         return torch.einsum("ij,bj->bi", self.H_mat, vec)
@@ -662,23 +671,24 @@ class H_func_gmm(H_functions):
         return vec
         
     def V(self, vec):
-        raise NotImplementedError("Not implemented for deblurring.")
+        return torch.einsum("ij,bj->bi", self.V_mat, vec)
     
     def Vt(self, vec):
-        raise NotImplementedError("Not implemented for deblurring.")
+        return torch.einsum("ij,bj->bi", self.V_mat.T, vec)
     
     def U(self, vec):
-        raise NotImplementedError("Not implemented for deblurring.")
+        return torch.einsum("ij,bj->bi", self.U_mat, vec)
     
     def Ut(self, vec):
-        raise NotImplementedError("Not implemented for deblurring.")
+        return torch.einsum("ij,bj->bi", self.U_mat.T, vec)
     
     def singulars(self):
-        raise NotImplementedError("Not implemented for deblurring.")
+        return self._singulars
     
     def add_zeros(self, vec):
-        raise NotImplementedError("Not implemented for deblurring.")
-        
+        temp = torch.zeros((vec.shape[0], self.dim))
+        temp[:, :vec.shape[1]] = vec
+        return temp        
 
 @register_operator(name="deblurring")
 class Deblurring(H_functions):
