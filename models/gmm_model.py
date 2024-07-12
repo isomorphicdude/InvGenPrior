@@ -99,7 +99,10 @@ class GMM(object):
         def p_t(x):
             return self.prior_distr_t(a_t).log_prob(x).sum()
 
-        return torch.autograd.grad(p_t(x_t), x_t)[0]
+        # return torch.autograd.grad(p_t(x_t), x_t)[0]
+        return torch.func.grad(
+            p_t
+        )(x_t)
 
     def x0_pred(self, x_t, t):
         """
