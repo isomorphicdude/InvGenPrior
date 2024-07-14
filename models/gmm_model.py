@@ -206,21 +206,31 @@ class GMM(object):
     def sample_from_prior_t(self, n_samples, a_t):
         return self.prior_distr_t(a_t).sample((n_samples,))
 
-    def plot_prior(self, n_samples, dims_tuple=(0, 1)):
+    def plot_prior(self, ax, n_samples, dims_tuple=(0, 1)):
+        """
+        Returns a scatter plot of the prior samples with ax.  
+        
+        Args:  
+            - ax: matplotlib axis object.
+            - n_samples: number of samples to draw from the prior.
+            - dims_tuple: tuple of dimensions to plot.  
+        """
         samples = self.sample_from_prior(n_samples)
-        plt.scatter(
+        ax.scatter(
             samples[:, dims_tuple[0]], samples[:, dims_tuple[1]], s=10, alpha=0.5
         )
-        plt.title("Prior samples")
-        plt.show()
+        ax.set_title("Prior samples")
 
-    def plot_posterior(self, n_samples, y_obs, H_mat, sigma_y, dims_tuple=(0, 1)):
+    def plot_posterior(self, ax, n_samples, y_obs, H_mat, sigma_y, dims_tuple=(0, 1)):
+        """
+        Returns a scatter plot of the posterior samples with ax.
+        """
         samples = self.get_posterior(y_obs, H_mat, sigma_y).sample((n_samples,))
-        plt.scatter(
+        ax.scatter(
             samples[:, dims_tuple[0]], samples[:, dims_tuple[1]], s=10, alpha=0.5
         )
-        plt.title("Posterior samples")
-        plt.show()
+        ax.set_title("Posterior samples")
+        
 
     def plot_prior_t(self, n_samples, a_t, dims_tuple=(0, 1)):
         samples = self.sample_from_prior_t(n_samples, a_t)
