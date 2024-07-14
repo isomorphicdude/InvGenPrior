@@ -91,18 +91,30 @@ class GMM(object):
             - x_t (torch.Tensor): the observation at time t.
             - t (float): the discretized time step.
         """
-        # requires grad
 
         a_t = self.sde.alpha_t(t)
 
-        # print(t.shape)
         def p_t(x):
             return self.prior_distr_t(a_t).log_prob(x).sum()
 
-        # return torch.autograd.grad(p_t(x_t), x_t)[0]
-        return torch.func.grad(
-            p_t
-        )(x_t)
+        score = torch.func.grad(p_t)(x_t)
+        
+        return score
+    
+        # with torch.enable_grad():
+        #     x_t.requires_grad_(True)
+        #     output_val = p_t(x_t)
+            
+        # return torch.autograd.grad(output_val, x_t, retain_graph=True)[0].detach()
+        
+        
+        # a_t = self.sde.alpha_t(t)
+        
+        # def p_t(x):
+        #     return self.prior_distr_t(a_t).log_prob(x)
+        
+        # # use vmap instead
+        # return torch.func.vmap(torch.func.grad(p_t))(x_t)
 
     def x0_pred(self, x_t, t):
         """
@@ -217,3 +229,7 @@ class GMM(object):
         )
         plt.title("Prior samples at time t")
         plt.show()
+        
+    def sample_from_posterior(self, n_samples, y_obs, H_mat, sigma_y):
+        samples = self.get_posterior(y_obs, H_mat, sigma_y).sample((n_samples,))
+        return samples
