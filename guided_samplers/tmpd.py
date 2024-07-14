@@ -78,34 +78,35 @@ class TMPD(GuidedSampler):
         # namely K ≈ diag (H @ (∇_x x0_hat) @ H^t @ 1 + sigma_y^2 * 1)
         # -----------------------------------------
         coeff_C_yy = std_t**2 / alpha_t
-        C_yy = (
-            coeff_C_yy
-            * self.H_func.H(
-                vjp_estimate_h_x_0(
-                    self.H_func.H(
-                        torch.ones_like(
-                            flow_pred
-                        )  # why not just torch.ones_like(H_func.H(flow_pred))?
-                    )  # answer is sparsity? (from Ben Boys)
-                )[0]
-            )
-            + self.noiser.sigma**2
-        )
-        
+        coeff_C_yy = 1.0
         # C_yy = (
         #     coeff_C_yy
         #     * self.H_func.H(
         #         vjp_estimate_h_x_0(
-        #            torch.ones_like(self.H_func.H(flow_pred))
+        #             self.H_func.H(
+        #                 torch.ones_like(
+        #                     flow_pred
+        #                 )  # why not just torch.ones_like(H_func.H(flow_pred))?
+        #             )  # answer is sparsity? (from Ben Boys)
         #         )[0]
         #     )
         #     + self.noiser.sigma**2
         # )
         
+        C_yy = (
+            coeff_C_yy
+            * self.H_func.H(
+                vjp_estimate_h_x_0(
+                   torch.ones_like(y_obs)
+                )[0]
+            )
+            + self.noiser.sigma**2
+        )
+        
         # difference
         difference = y_obs - h_x_0
         
-        # C_yy = 1.0
+        # C_yy = 0.1
         grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
         
 
@@ -115,6 +116,8 @@ class TMPD(GuidedSampler):
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        # print(scaled_grad.mean())
 
         # clamp to interval
         if clamp_to is not None:
@@ -178,6 +181,8 @@ class TMPD_fixed_cov(GuidedSampler):
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
             )
+            # summing over the batch dimension
+            # return torch.sum(x0_hat, dim=0)
             return x0_hat, flow_pred
 
         # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of d_y dim
@@ -188,6 +193,12 @@ class TMPD_fixed_cov(GuidedSampler):
         )
 
         jac_x_0, flow_pred = jac_x_0_func(x_t)
+        
+        # jac_x_0 = torch.autograd.functional.jacobian(get_x0, x_t, create_graph=True).reshape(
+        #     x_t.shape[0], x_t.shape[1], x_t.shape[1]
+        # )
+        
+        flow_pred = model_fn(x_t, t_batched * 999)
 
         coeff_C_yy = std_t**2 / alpha_t
 
@@ -196,6 +207,7 @@ class TMPD_fixed_cov(GuidedSampler):
         h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
         difference = y_obs - h_x_0
         
+        coeff_C_yy = 1.0
         
         C_yy = coeff_C_yy* torch.einsum(
                 "ij, bjk, kl -> bil",
@@ -222,6 +234,7 @@ class TMPD_fixed_cov(GuidedSampler):
         # TODO: implement this as derivatives for more generality
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
         
+        # print(scaled_grad.mean())
         # clamp to interval
         if clamp_to is not None:
             guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (

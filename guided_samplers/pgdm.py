@@ -52,6 +52,8 @@ class PiGDM(GuidedSampler):
         
         scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t)
         
+        # print(scaled_grad.mean())
+         
         # compute gamma_t scaling
         gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
         
