@@ -55,6 +55,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     eval_dir = os.path.join(
         workdir,
         eval_folder,
+        config.data.name,
         config.sampling.gudiance_method,
         config.degredation.task_name,
     )
