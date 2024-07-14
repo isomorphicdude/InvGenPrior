@@ -52,7 +52,7 @@ def get_config():
     sampling.sample_N = 50 # NOTE: tune this
     sampling.sigma_variance = 0.0 # NOTE: tune this add noise and denoise?
     # does flow models denoise? can it go off the data manifold?
-    sampling.starting_time = 0.0
+    sampling.starting_time = 0
     return config
     
     
