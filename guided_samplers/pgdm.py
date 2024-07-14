@@ -48,7 +48,9 @@ class PiGDM(GuidedSampler):
             
         grad_term = torch.autograd.grad(mat_x, x_t, retain_graph=True)[0]
         
-        grad_term = grad_term.detach()
+        # time r_t^2
+        r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
+        grad_term = grad_term.detach()  / r_t_2
         
         scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t)
         
