@@ -140,6 +140,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     # begin sampling
     score_model.eval()
     logging.info(f"Using {config.sampling.gudiance_method} guided sampler.")
+    logging.info(f"Using dataset {config.data.name}.")
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
     logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
 
