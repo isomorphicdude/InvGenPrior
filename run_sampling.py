@@ -52,7 +52,12 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         name of the experiment and the method used to generate the samples
     """
     # Create directory to eval_folder
-    eval_dir = os.path.join(workdir, eval_folder, config.degredation.task_name)
+    eval_dir = os.path.join(
+        workdir,
+        eval_folder,
+        config.sampling.gudiance_method,
+        config.degredation.task_name,
+    )
     tf.io.gfile.makedirs(eval_dir)
 
     # create data
@@ -131,10 +136,12 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     # dumping the config setting into a txt
     with open(os.path.join(eval_dir, "config.txt"), "w") as f:
         f.write(f"{config}")
-        
+
     # begin sampling
     score_model.eval()
+    logging.info(f"Using {config.sampling.gudiance_method} guided sampler.")
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
+    logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
 
     # check if certain images are sampled before
     # the img_idx will be written to disk
@@ -148,12 +155,12 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         # img counter
         # img_counter = len(sampled_images)
     else:
-        logging.info("Starting over...")
+        logging.info("No previously sampled images, starting over...")
         sampled_images = set()
         # create the file
         with open(os.path.join(eval_dir, "sampled_images.txt"), "w") as f:
             f.write("")
-        
+
     img_counter = 0
 
     for iter_no, (batched_img, img_idx) in enumerate(data_loader):
@@ -169,7 +176,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
             # if not already on device
             batched_img = batched_img.to(config.device)
-            
+
             # apply degredation operator
             y_obs = H_func.H(batched_img)
 
@@ -236,10 +243,12 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             img_counter += config.sampling.batch_size
 
         else:
-            img_sampled_in_batch = [img_counter + i for i in range(config.sampling.batch_size)]
+            img_sampled_in_batch = [
+                img_counter + i for i in range(config.sampling.batch_size)
+            ]
             logging.info(f"Skipping image {img_sampled_in_batch}.")
             img_counter += config.sampling.batch_size
-            
+
     logging.info("Sampling finished.")
 
     # clear memory
