@@ -245,7 +245,6 @@ class GuidedSampler(ABC):
 
         Returns:
           - torch.Tensor or list: The posterior samples. If `return_list` is True, returns intermediate samples as a list.
-          - int: The number of function evaluations (NFEs) used in the sampling process.
         """
         if starting_time == 0:
             z = z
