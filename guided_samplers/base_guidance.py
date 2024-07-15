@@ -145,59 +145,60 @@ class GuidedSampler(ABC):
             - torch.Tensor or list: The posterior samples. If `return_list` is True, returns intermediate samples as a list.
             - int: The number of function evaluations (NFEs) used in the sampling process.
         """
-        rtol = atol = self.sde.ode_tol
-        # METHOD = "RK45"
-        eps = self.sampling_eps
+        with torch.no_grad():
+            rtol = atol = self.sde.ode_tol
+            # METHOD = "RK45"
+            eps = self.sampling_eps
 
-        # Initial sample
-        if z is None:
-            z0 = self.sde.get_z0(
-                torch.zeros(self.shape, device=self.device), train=False
-            ).to(self.device)
-            x = z0.detach().clone()
-        else:
-            x = z
+            # Initial sample
+            if z is None:
+                z0 = self.sde.get_z0(
+                    torch.zeros(self.shape, device=self.device), train=False
+                ).to(self.device)
+                x = z0.detach().clone()
+            else:
+                x = z
 
-        model_fn = mutils.get_model_fn(self.model, train=False)
+            model_fn = mutils.get_model_fn(self.model, train=False)
 
-        def ode_func(t, x):
-            x = (
-                mutils.from_flattened_numpy(x, self.shape)
-                .to(self.device)
-                .type(torch.float32)
+            def ode_func(t, x):
+                x = (
+                    mutils.from_flattened_numpy(x, self.shape)
+                    .to(self.device)
+                    .type(torch.float32)
+                )
+
+                # compute the coefficients required for the guided sampler
+                alpha_t = self.sde.alpha_t(t)
+                std_t = self.sde.std_t(t)
+                da_dt = self.sde.da_dt(t)
+                dstd_dt = self.sde.dstd_dt(t)
+
+                guided_vec = self.get_guidance(
+                    model_fn,
+                    x,
+                    t,
+                    y_obs,
+                    alpha_t,
+                    std_t,
+                    da_dt,
+                    dstd_dt,
+                    clamp_to=clamp_to,
+                    **kwargs,
+                )
+
+                return mutils.to_flattened_numpy(guided_vec)
+
+            # Black-box ODE solver for the probability flow ODE
+            solution = integrate.solve_ivp(
+                fun=ode_func,
+                t_span=(eps, self.sde.T),
+                y0=mutils.to_flattened_numpy(x),
+                rtol=rtol,
+                atol=atol,
+                method="RK45",
             )
-
-            # compute the coefficients required for the guided sampler
-            alpha_t = self.sde.alpha_t(t)
-            std_t = self.sde.std_t(t)
-            da_dt = self.sde.da_dt(t)
-            dstd_dt = self.sde.dstd_dt(t)
-
-            guided_vec = self.get_guidance(
-                model_fn,
-                x,
-                t,
-                y_obs,
-                alpha_t,
-                std_t,
-                da_dt,
-                dstd_dt,
-                clamp_to=clamp_to,
-                **kwargs,
-            )
-
-            return mutils.to_flattened_numpy(guided_vec)
-
-        # Black-box ODE solver for the probability flow ODE
-        solution = integrate.solve_ivp(
-            fun=ode_func,
-            t_span=(eps, self.sde.T),
-            y0=mutils.to_flattened_numpy(x),
-            rtol=rtol,
-            atol=atol,
-            method="RK45",
-        )
-        nfe = solution.nfev
+            nfe = solution.nfev
         
         if return_list:
             result_list = []
