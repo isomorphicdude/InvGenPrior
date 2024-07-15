@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import math
 
 import torch
-import scipy
+from scipy import integrate
 
 # custom imports
 from models import utils as mutils
@@ -29,11 +29,11 @@ class GuidedSampler(ABC):
         self.sde = sde
         self.shape = shape
         self.sampling_eps = sampling_eps
-        
+
         if inverse_scaler is None:
             # if no inverse scaler is provided, default to identity
             inverse_scaler = lambda x: x
-            
+
         self.inverse_scaler = inverse_scaler
         self.H_func = H_func
         self.noiser = noiser
@@ -54,6 +54,7 @@ class GuidedSampler(ABC):
 
         Returns:
             - torch.Tensor or list: The posterior samples. If `return_list` is True, returns intermediate samples as a list.
+            - int: The number of function evaluations (NFEs) used in the sampling process.
         """
         if return_list:
             samples = []
@@ -127,8 +128,99 @@ class GuidedSampler(ABC):
             nfe = self.sde.sample_N
             return x, nfe
 
-    def guided_rk45_sampler(self):
-        raise NotImplementedError()
+    def guided_rk45_sampler(
+        self, y_obs, z=None, return_list=False, clamp_to=1, **kwargs
+    ):
+        """
+        Computes the posterior samples with respect to y_obs using the guided RK45 sampler.
+
+        Args:
+            - y_obs (torch.Tensor): Observed data to condition the sampling on. (B, C*H*W)
+            - z (torch.Tensor, optional): Optional latent variable for sampling. Default is None. (B, C, H, W)
+            - return_list (bool, optional): If True, returns the samples as a list. Default is False.
+            - clamp_to (float, optional): If not None, clamps the scores to this value. Default is 1.
+            - **kwargs: Additional keyword arguments for the sampling process.
+
+        Returns:
+            - torch.Tensor or list: The posterior samples. If `return_list` is True, returns intermediate samples as a list.
+            - int: The number of function evaluations (NFEs) used in the sampling process.
+        """
+        rtol = atol = self.sde.ode_tol
+        # METHOD = "RK45"
+        eps = self.sampling_eps
+
+        # Initial sample
+        if z is None:
+            z0 = self.sde.get_z0(
+                torch.zeros(self.shape, device=self.device), train=False
+            ).to(self.device)
+            x = z0.detach().clone()
+        else:
+            x = z
+
+        model_fn = mutils.get_model_fn(self.model, train=False)
+
+        def ode_func(t, x):
+            x = (
+                mutils.from_flattened_numpy(x, self.shape)
+                .to(self.device)
+                .type(torch.float32)
+            )
+
+            # compute the coefficients required for the guided sampler
+            alpha_t = self.sde.alpha_t(t)
+            std_t = self.sde.std_t(t)
+            da_dt = self.sde.da_dt(t)
+            dstd_dt = self.sde.dstd_dt(t)
+
+            guided_vec = self.get_guidance(
+                model_fn,
+                x,
+                t,
+                y_obs,
+                alpha_t,
+                std_t,
+                da_dt,
+                dstd_dt,
+                clamp_to=clamp_to,
+                **kwargs,
+            )
+
+            return mutils.to_flattened_numpy(guided_vec)
+
+        # Black-box ODE solver for the probability flow ODE
+        solution = integrate.solve_ivp(
+            fun=ode_func,
+            t_span=(eps, self.sde.T),
+            y0=mutils.to_flattened_numpy(x),
+            rtol=rtol,
+            atol=atol,
+            method="RK45",
+        )
+        nfe = solution.nfev
+        
+        if return_list:
+            result_list = []
+            for i in range(solution.y.shape[1]):
+                x = (
+                    torch.tensor(solution.y[:, i])
+                    .reshape(self.shape)
+                    .to(self.device)
+                    .type(torch.float32)
+                )
+                x = self.inverse_scaler(x)
+                result_list.append(x)
+            return result_list, nfe
+        else:
+            x = (
+                torch.tensor(solution.y[:, -1])
+                .reshape(self.shape)
+                .to(self.device)
+                .type(torch.float32)
+            )
+
+            x = self.inverse_scaler(x)
+            return x, nfe
 
     def sample(
         self,
@@ -137,7 +229,7 @@ class GuidedSampler(ABC):
         method="euler",
         clamp_to=1,
         starting_time=0,
-        z = None,
+        z=None,
         **kwargs,
     ):
         """
