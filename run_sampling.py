@@ -37,13 +37,6 @@ from guided_samplers import tmpd, dps, pgdm, reddiff
 from guided_samplers.registry import get_guided_sampler
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s%(msecs)d %(asctime)s %(thread)d',
-    datefmt='%m%d %H:%M:%S'
-)
-
-
 def create_samples(config, workdir, save_degraded=True, eval_folder="eval_samples"):
     """
     Create samples using the guided sampler.
