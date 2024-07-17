@@ -46,8 +46,8 @@ def get_config():
     # sampling config
     sampling = config.sampling
     sampling.gudiance_method = "tmpd"
-    # sampling.use_ode_sampler = "euler"
-    sampling.use_ode_sampler = "rk45"
+    sampling.use_ode_sampler = "euler"
+    # sampling.use_ode_sampler = "rk45"
     sampling.clamp_to = 1 # gradient clipping for the guidance
     sampling.batch_size = 2
     sampling.sample_N = 50 # NOTE: tune this
