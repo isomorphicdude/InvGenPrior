@@ -226,7 +226,7 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
                         # img = inverse_scaler(img) # already included in sampler
                         save_image(
                             img,
-                            os.path.join(eval_dir, f"{iter_no}_{j}_time_{i*10}.png"),
+                            os.path.join(eval_dir, f"{iter_no}_{j}_time_{i*sde.sample_N//10}.png"),
                             # normalize=True,
                             # range=(-1, 1),
                         )
