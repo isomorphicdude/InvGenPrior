@@ -57,7 +57,7 @@ class PiGDM(GuidedSampler):
         # compute gamma_t scaling
         gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
         
-        print((gamma_t * scaled_grad).mean())
+        # print((gamma_t * scaled_grad).mean())
         
         return gamma_t * scaled_grad + flow_pred
         
