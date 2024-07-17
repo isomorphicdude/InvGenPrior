@@ -47,7 +47,7 @@ class REDdiff(GuidedSampler):
         # mu is the mean of the variational distribution and needs to be optimized
         mu = torch.autograd.Variable(x, requires_grad=True)
         optimizer = torch.optim.Adam(
-            [mu], lr=kwargs.get("lr", 0.01), betas=(0.9, 0.99), weight_decay=0.0
+            [mu], lr=kwargs.get("lr", 0.1), betas=(0.9, 0.99), weight_decay=0.0
         )
         
         model_fn = mutils.get_model_fn(self.model, train=False)
@@ -116,9 +116,9 @@ class REDdiff(GuidedSampler):
             
 
             if return_list and i % (self.sde.sample_N // 10) == 0:
-                samples.append(x0_pred.detach().clone())
+                samples.append(x0_pred.clone().detach())
             if i == self.sde.sample_N - 1 and return_list:
-                samples.append(x0_pred.detach().clone())
+                samples.append(x0_pred.clone().detach())
 
         if return_list:
             for i in range(len(samples)):
