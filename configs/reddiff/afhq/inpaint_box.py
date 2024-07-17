@@ -48,9 +48,9 @@ def get_config():
     sampling.gudiance_method = "reddiff"
     sampling.use_ode_sampler = "euler"
     # sampling.use_ode_sampler = "rk45"
-    sampling.clamp_to = 1 # gradient clipping for the guidance
+    sampling.clamp_to = None # gradient clipping for the guidance
     sampling.batch_size = 2
-    sampling.sample_N = 500 # NOTE: tune this
+    sampling.sample_N = 100 # NOTE: tune this
     sampling.sigma_variance = 0.0 # NOTE: tune this add noise and denoise?
     # does flow models denoise? can it go off the data manifold?
     sampling.starting_time = 0

@@ -85,7 +85,7 @@ class REDdiff(GuidedSampler):
             # thus loss is lambda_t (network_out - noise)^T mu
             
             et = convert_flow_to_noise(
-                u_t = model_fn(x0_pred, t_batched * 999),
+                u_t = model_fn(x_t, t_batched * 999),
                 x_t = x_t,
                 alpha_t=alpha_t,
                 std_t=std_t,
@@ -118,9 +118,9 @@ class REDdiff(GuidedSampler):
             
             
             if return_list and i % (self.sde.sample_N // 10) == 0:
-                samples.append(x0_pred.clone().detach())
+                samples.append(x_t.clone().detach())
             if i == self.sde.sample_N - 1 and return_list:
-                samples.append(x0_pred.clone().detach())
+                samples.append(x_t.clone().detach())
 
         if return_list:
             for i in range(len(samples)):
