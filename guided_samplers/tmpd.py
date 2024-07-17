@@ -77,8 +77,10 @@ class TMPD(GuidedSampler):
         # Even so, K is still approximated using row sums
         # namely K ≈ diag (H @ (∇_x x0_hat) @ H^t @ 1 + sigma_y^2 * 1)
         # -----------------------------------------
+        
+        # change this to see the performance change
         coeff_C_yy = std_t**2 / alpha_t
-        coeff_C_yy = 1.0
+        
         # C_yy = (
         #     coeff_C_yy
         #     * self.H_func.H(
@@ -106,12 +108,15 @@ class TMPD(GuidedSampler):
         # difference
         difference = y_obs - h_x_0
         
-        # C_yy = 0.1
         grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
         
-
-        # compute gamma_t scaling
+        # print(grad_ll.mean())
+        
+        # compute gamma_t scaling, used in Pokle et al. 2024
         gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
+        
+        # TMPD does not seem to require this
+        # gamma_t = 1.0
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
@@ -121,13 +126,13 @@ class TMPD(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None:
-            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+            guided_vec = (scaled_grad * gamma_t).clamp(-clamp_to, clamp_to) + (
                 flow_pred
             )
         else:
-            guided_vec = (gamma_t * scaled_grad) + (flow_pred)
+            guided_vec = (scaled_grad * gamma_t) + (flow_pred)
         return guided_vec
-        # return flow_pred 
+        
     
     
 @register_guided_sampler(name="tmpd_fixed_cov")
