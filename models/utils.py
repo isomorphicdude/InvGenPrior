@@ -272,6 +272,27 @@ def convert_x0_to_flow(x0_hat, x_t, alpha_t, std_t, da_dt, dstd_dt):
     return u_t
 
 
+def convert_flow_to_noise(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt):
+    """
+    Convert the flow prediction to noise prediction in DDPM/IM.
+    
+    Args:  
+        - u_t: torch.tensor (b, c, h, w), the flow vector.
+        - x_t: torch.tensor (b, c, h, w), the input image.
+        - alpha_t: float, the alpha_t coeff.
+        - std_t: float, the sigma_t coeff.
+        - da_dt: float, derivative of alpha_t coeff (this is alpha bar in DDPM paper).
+        - dstd_dt: float, derivative of sigma_t coeff (see Pokle et al. 2024)
+        
+    Returns:  
+        - noise_t: torch.tensor (b, c, h, w), the noise prediction.
+    """
+    x0_hat = convert_flow_to_x0(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt)
+    
+    return (x_t - x0_hat * alpha_t) / std_t
+    
+
+
 
 
 def restore_checkpoint(ckpt_dir, state, device):
