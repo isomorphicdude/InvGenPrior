@@ -250,6 +250,7 @@ class GuidedSampler(ABC):
         if starting_time == 0:
             z = z
         else:
+            assert self.H_func.__name__ == "Inpainting"
             degraded_image = self.H_func.get_degraded_image(y_obs).detach().clone()
             z = self.sde.alpha_t(starting_time) * degraded_image + self.sde.std_t(
                 starting_time
