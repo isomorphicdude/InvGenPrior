@@ -8,11 +8,11 @@ import math
 import torch
 from torchvision import transforms
 import einops
-import logging
+# import logging
 import numpy as np
 import ml_collections
 
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
 __OPERATOR__ = {}
 
