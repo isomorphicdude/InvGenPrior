@@ -114,6 +114,11 @@ class REDdiff(GuidedSampler):
             loss.backward()
             optimizer.step()
             
+            if clamp_to is not None:
+                x0_pred = torch.clamp(x0_pred, -clamp_to, clamp_to)
+                mu = torch.clamp(mu, -clamp_to, clamp_to)
+            
+            
 
             if return_list and i % (self.sde.sample_N // 10) == 0:
                 samples.append(x0_pred.clone().detach())
