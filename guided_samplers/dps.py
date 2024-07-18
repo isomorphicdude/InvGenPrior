@@ -43,13 +43,14 @@ class DPS(GuidedSampler):
                 dstd_dt=dstd_dt,
             )
             # NOTE: while the authors claim that the stepsize is 1/||y-H(x0_hat)||^2
-            # we note that this does not work well for GMM
+            # we note that this does not work well for GMM (? maybe the seed is bad)
             # but we will use the official implementation for images
             if len(y_obs.shape) > 2:
                 norm_diff = torch.linalg.norm(y_obs - self.H_func.H(x0_hat))
             else:
                 norm_diff = torch.linalg.norm(y_obs - self.H_func.H(x0_hat))**2
             
+            # norm_diff = torch.linalg.norm(y_obs - self.H_func.H(x0_hat))
             
         grad_term = torch.autograd.grad(norm_diff, x_t, retain_graph=True)[0]
         
