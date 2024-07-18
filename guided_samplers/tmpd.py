@@ -80,6 +80,9 @@ class TMPD(GuidedSampler):
         
         # change this to see the performance change
         coeff_C_yy = std_t**2 / alpha_t
+        # coeff_C_yy = 1.0
+        # coeff_C_yy = std_t / alpha_t
+        # coeff_C_yy = std_t**2 / math.sqrt(alpha_t)
         
         # C_yy = (
         #     coeff_C_yy
@@ -116,7 +119,7 @@ class TMPD(GuidedSampler):
         gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
         
         # TMPD does not seem to require this
-        # gamma_t = 1.0
+        gamma_t = 1.0
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
