@@ -79,8 +79,8 @@ class TMPD(GuidedSampler):
         # -----------------------------------------
         
         # change this to see the performance change
-        coeff_C_yy = std_t**2 / alpha_t
-        # coeff_C_yy = 1.0
+        # coeff_C_yy = std_t**2 / alpha_t
+        coeff_C_yy = 1.0
         # coeff_C_yy = std_t / alpha_t
         # coeff_C_yy = std_t**2 / math.sqrt(alpha_t)
         
