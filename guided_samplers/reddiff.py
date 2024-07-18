@@ -117,10 +117,12 @@ class REDdiff(GuidedSampler):
             optimizer.step()
             
             
-            if return_list and i % (self.sde.sample_N // 10) == 0:
-                samples.append(x_t.clone().detach())
-            if i == self.sde.sample_N - 1 and return_list:
-                samples.append(x_t.clone().detach())
+            # if return_list and i % (self.sde.sample_N // 10) == 0:
+            #     samples.append(x_t.clone().detach())
+            # if i == self.sde.sample_N - 1 and return_list:
+            #     samples.append(x_t.clone().detach())
+            if return_list:
+                samples.append(x0_pred.clone().detach())
 
         if return_list:
             for i in range(len(samples)):
