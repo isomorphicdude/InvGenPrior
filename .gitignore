@@ -3,4 +3,5 @@ notebooks/
 *.ipynb
 *.json
 *.DS_Store
+temp/
 # datasets/lmdb_dataset.py
