@@ -28,7 +28,9 @@ class RectifiedFlow:
         self.use_ode_sampler = use_ode_sampler
         self.ode_tol = ode_tol
         
-        self.sigma_t = lambda t: (1.0 - t) * sigma_var
+        # use the implementation in Albergo et al. 2023 
+        # stochastic version of the interpolants: t * (1 - t) 
+        self.sigma_t = lambda t: t * (1.0 - t) * sigma_var
         
         self.std_t = lambda t: 1.0 - t
         self.dstd_dt = lambda t: -1.0
