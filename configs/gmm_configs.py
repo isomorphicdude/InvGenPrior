@@ -33,8 +33,8 @@ def get_H_mat(dim, obs_dim):
 
 def get_config():
     gmm_config = ml_collections.ConfigDict()
-    gmm_config.dim = 80
-    gmm_config.obs_dim = 1
+    gmm_config.dim = 8
+    gmm_config.obs_dim = 4
 
     H_mat, U, S, V = get_H_mat(gmm_config.dim, gmm_config.obs_dim)
 
@@ -44,11 +44,14 @@ def get_config():
     gmm_config.singulars = S
     gmm_config.V_mat = V
 
-    gmm_config.sigma = 0.05
+    gmm_config.sigma = 0.1
     gmm_config.device = 'cpu'
     gmm_config.sampling_eps = 1e-3
+    
+    # sde configs
     gmm_config.init_type = 'gaussian'
     gmm_config.noise_scale = 1.0
     gmm_config.sample_N = 1000 # number of sampling steps
+    gmm_config.sde_sigma_var = 0.0
     
     return gmm_config
