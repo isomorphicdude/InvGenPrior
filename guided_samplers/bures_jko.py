@@ -1,0 +1,138 @@
+"""
+Implements a Bures-Wasserstein JKO sampler, 
+following Sarkka (2007) and Lambert et al. (2022) and Yi & Liu (2023)
+"""
+
+import math
+import torch
+
+from models import utils as mutils
+from guided_samplers.base_guidance import GuidedSampler
+from guided_samplers.registry import register_guided_sampler
+from models.utils import convert_flow_to_score
+
+
+@register_guided_sampler(name="bures_jko")
+class BuresJKO(GuidedSampler):
+    """
+    Implements the evolving mean mu_t for Gaussian VI.
+    """
+
+    def guided_euler_sampler(
+        self, y_obs, z=None, return_list=False, clamp_to=1, **kwargs
+    ):
+        """
+        Weird and probably will not work.
+        Requires the score at time 0 but we are working with flow,
+        I don't see any reason why particular to flows?
+
+        Here all vectors are flattened unless it's particle.
+
+        Args:
+            - y_obs (torch.Tensor): Observed data to condition the sampling on. (B, C*H*W)
+            - z (torch.Tensor, optional): Optional latent variable for sampling. Default is None. (B, C, H, W)
+            - return_list (bool, optional): If True, returns the samples as a list. Default is False.
+            - clamp_to (float, optional): If not None, clamps the scores to this value. Default is 1.
+            - **kwargs: Additional keyword arguments for the sampling process.
+
+        Returns:
+            - torch.Tensor or list: The posterior samples. If `return_list` is True, returns intermediate samples as a list.
+            - int: The number of function evaluations (NFEs) used in the sampling process.
+        """
+        # number of particles to estimate the Monte Carlo approximation
+        N_approx = kwargs.get("N_approx", 4)
+
+        if return_list:
+            samples = []
+
+        if z is None:
+            x = torch.randn(self.shape, device=self.device).detach().reshape(-1)
+        else:
+            x = z.clone().detach().to(self.device).reshape(-1)
+
+        model_fn = mutils.get_model_fn(self.model, train=False)
+
+        # the mu_t from the variational distribution, (B*C*H*W, )
+        mu_t = torch.randn(x.shape, device=self.device).detach()
+
+        ### Uniform
+        dt = 1.0 / self.sde.sample_N
+        eps = 1e-3  # default: 1e-3
+
+        for i in range(self.sde.sample_N):
+            # print(f"Step {i}")
+            num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps
+
+            # pass through the model function as (batch * N_approx, C, H, W)
+            t_batched = torch.ones(self.shape[0] * N_approx, device=self.device) * eps
+
+            sigma_t = self.sde.sigma_t(num_t)
+            alpha_t = self.sde.alpha_t(num_t)
+            std_t = self.sde.std_t(num_t)
+            da_dt = self.sde.da_dt(num_t)
+            dstd_dt = self.sde.dstd_dt(num_t)
+
+            # sample from variational distribution
+            q_t = torch.distributions.MultivariateNormal(
+                mu_t, 0.5 * torch.eye(mu_t.shape[0])
+            )
+            
+            q_t_samples = q_t.sample((N_approx,))
+
+            # compute the derivative with Monte Carlo approximation
+            sigma_y = self.noiser.sigma
+
+            # first compute grad_x (-1/2sigma_y^2 ||y - H(x)||^2)
+            x_t = q_t_samples.reshape(N_approx * self.shape[0], *self.shape[1:])
+
+            # H_func takes input of shape (B, C, H, W)
+            # def compute_norm(x):
+            #     print(x.shape)
+            #     H_x = self.H_func.H(x)
+            #     print(H_x.shape)
+            #     # norm_diff = torch.linalg.norm(y_obs.repeat(N_approx, 1) - H_x) ** 2
+            #     norm_diff = torch.linalg.norm(y_obs - H_x.reshape(N_approx, self.shape[0], -1),
+            #                                   dim=-1) ** 2
+            #     return norm_diff.sum(dim=0)
+            
+            # print(compute_norm(x_t).shape)
+
+            # grad_term = torch.func.vmap(torch.func.grad(compute_norm))(x_t)
+            with torch.enable_grad():
+                x_t.requires_grad_(True)
+                H_x = self.H_func.H(x_t)
+                norm_diff = torch.linalg.norm(y_obs.repeat(N_approx, 1) - H_x) ** 2
+                norm_diff = torch.linalg.norm(y_obs - H_x.reshape(N_approx, self.shape[0], -1),
+                                              dim=-1) ** 2
+                norm_diff_sum = norm_diff.sum(dim=0)
+                norm_diff_sum_batched = norm_diff_sum.sum()
+            
+            grad_term = torch.autograd.grad(norm_diff_sum_batched, x_t, create_graph=True)[0]
+            grad_term = grad_term.detach()
+
+            # then compute the score at time 0 (true grad_x p(x_0))
+            # detach
+            x_t = x_t.detach()
+            
+            flow_pred = model_fn(
+                x_t,
+                t_batched * 999,
+            )
+            score_pred = convert_flow_to_score(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
+            
+            dmu_dt = torch.mean(
+                (score_pred - (0.5 / sigma_y ** 2) * grad_term).reshape(N_approx, self.shape[0], -1), 
+                dim=0,)
+            
+            mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
+            # print(mu_t.mean())
+
+        return mu_t.reshape(self.shape), self.sde.sample_N
+
+    def get_guidance(self):
+        raise NotImplementedError("This method is not implemented for Bures-JKO.")
+
+    def guided_rk45_sampler(
+        self, y_obs, z=None, return_list=False, clamp_to=1, **kwargs
+    ):
+        raise NotImplementedError("This method is not implemented for Bures-JKO.")
