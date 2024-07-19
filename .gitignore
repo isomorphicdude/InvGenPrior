@@ -4,4 +4,6 @@ notebooks/
 *.json
 *.DS_Store
 temp/
+run_tmpd_exact.py
+*.pkl
 # datasets/lmdb_dataset.py
