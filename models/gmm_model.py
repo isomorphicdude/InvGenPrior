@@ -160,6 +160,9 @@ class GMM(object):
         Returns:
             - posterior_distr: (torch.distributions) posterior GMM.
         """
+        if sigma_y == 0:
+            print("Zero noise, returning prior...")
+            return self.prior_distr
         post_sigma = torch.linalg.solve(
             torch.eye(self.dim) + (1 / sigma_y**2) * H_mat.T @ H_mat,
             torch.eye(self.dim),
