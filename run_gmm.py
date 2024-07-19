@@ -85,7 +85,7 @@ def create_samples(
         init_type=gmm_config.init_type,
         noise_scale=gmm_config.noise_scale,
         sample_N=gmm_config.sample_N,
-        sigma_var=0,
+        sigma_var=gmm_config.sde_sigma_var,
     )
 
     # set GMM model
@@ -205,7 +205,7 @@ def visualise_experiment(
                         axs[j].legend()
                         plt.draw()
 
-                plt.pause(0.1)
+                plt.pause(0.01)
                 # plt.clf()
         time.sleep(30)
 
@@ -257,11 +257,11 @@ def visualise_experiment(
                 plt.close("all")
                 
     # calling the function to create the GIF
-    logging.info("Creating the GIFs...")
-    plotting_utils.make_gif_gmm("temp", "temp/GMM.gif", duration=100)
-    
-    # remove the images
-    os.system("rm temp/*.png")
+    if not plot:
+        logging.info("Creating the GIFs...")
+        plotting_utils.make_gif_gmm("temp", "temp/GMM.gif", duration=100)
+        # remove the images
+        os.system("rm temp/*.png")
 
 def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     """
@@ -338,14 +338,13 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
 FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file(
-    "config", None, "Sampling configuration.", lock_config=False  # might want to lock
+    "config", "configs/gmm_configs.py", "Sampling configuration.", lock_config=False  # might want to lock
 )
 
 flags.DEFINE_string("workdir", "temp", "Work directory.")
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
-flags.DEFINE_boolean("plot", True, "Plot the samples.")
-flags.DEFINE_boolean("visualise", False, "Visualise the samples.")
-flags.mark_flag_as_required("config")
+flags.DEFINE_boolean("plot", True, "Plot the samples but without saving the GIFs.")
+flags.DEFINE_boolean("visualise", True, "Visualise the samples instead of running benchmark.")
 
 
 def main(argv):
