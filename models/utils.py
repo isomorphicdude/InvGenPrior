@@ -290,6 +290,26 @@ def convert_flow_to_noise(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt):
     x0_hat = convert_flow_to_x0(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt)
     
     return (x_t - x0_hat * alpha_t) / std_t
+
+
+def convert_flow_to_score(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt):
+    """
+    Convert the flow prediction to the score prediction in DDPM/IM.
+    
+    Args:  
+        - u_t: torch.tensor (b, c, h, w), the flow vector.
+        - x_t: torch.tensor (b, c, h, w), the input image.
+        - alpha_t: float, the alpha_t coeff.
+        - std_t: float, the sigma_t coeff.
+        - da_dt: float, derivative of alpha_t coeff (this is alpha bar in DDPM paper).
+        - dstd_dt: float, derivative of sigma_t coeff (see Pokle et al. 2024)
+        
+    Returns:  
+        - score_t: torch.tensor (b, c, h, w), the score prediction.
+    """
+    noise = convert_flow_to_noise(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt)
+    
+    return  (-1) * noise / std_t
     
 
 
