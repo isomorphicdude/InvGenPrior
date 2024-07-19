@@ -343,13 +343,13 @@ class TMPD_exact(GuidedSampler):
         # grad_ll = torch.func.grad(log_likelihood_fn)(x_t)
 
         def log_likelihood_fn(x):
-            def get_x0(x):
-                flow_pred = model_fn(x, t_batched * 999)
+            def get_x0(xi):
+                flow_pred = model_fn(xi, t_batched * 999)
 
                 # pass to model to get x0_hat prediction
                 x0_hat = convert_flow_to_x0(
                     u_t=flow_pred,
-                    x_t=x,
+                    x_t=xi,
                     alpha_t=alpha_t,
                     std_t=std_t,
                     da_dt=da_dt,
@@ -390,27 +390,18 @@ class TMPD_exact(GuidedSampler):
             # only single sample (no sum over batch dimension)
             likelihood = likelihood_distr.log_prob(y_obs)
 
-            return likelihood.sum()
+            return likelihood.sum(), flow_pred
 
         # compute gradient of log likelihood
-        grad_ll = torch.func.grad(log_likelihood_fn)(x_t)
-
-        gamma_t = 1.0
+        grad_ll, flow_pred = torch.func.grad(log_likelihood_fn, has_aux=True)(x_t)
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
-        flow_pred = model_fn(x_t, t_batched * 999)
-
-        # clamp to interval
-        if clamp_to is not None:
-            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
-                flow_pred
-            )
-            # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
-        else:
-            guided_vec = (gamma_t * scaled_grad.squeeze(-1)) + (flow_pred)
+        
+        guided_vec = (scaled_grad) + (flow_pred)
+        
         return guided_vec
 
 
