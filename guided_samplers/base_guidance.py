@@ -121,8 +121,8 @@ class GuidedSampler(ABC):
                     samples.append(x.detach().clone())
                     
                 # print name
-                if self.__class__.__name__ == "TMPD_exact" and i % 10 == 0:
-                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
+                # if self.__class__.__name__ == "TMPD_exact" and i % 10 == 0:
+                    # print(f"Iteration {i} of {self.sde.sample_N} completed.")
 
         if return_list:
             for i in range(len(samples)):
