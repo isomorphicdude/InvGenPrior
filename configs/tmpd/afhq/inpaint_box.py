@@ -1,4 +1,4 @@
-"""Configuration for inpainting on CelebA using TMPD."""
+"""Configuration for box-masked inpainting on AFHQ-cats using TMPD."""
 import os
 import sys
 
@@ -13,24 +13,25 @@ import numpy as np
 
 import ml_collections
 
+from physics.create_mask import load_mask
 from celeb_configs import get_config as get_celeb_config
 
 def get_config():
     config = get_celeb_config()
     
     # ckpt name
-    config.ckpt_name = "celebA_ckpt.pth"
+    config.ckpt_name = "afhq_cats_ckpt.pth"
     
     # data config (for creating degraded images)
     data = config.data
-    data.name = "celeba"
-    data.lmdb_file_path = "data/celeba-hq/val.lmdb"
+    data.name = "afhq"
+    data.lmdb_file_path = "data/afhq/val.lmdb"
     data.split_name = "val"
     
     # degredation config
     config.degredation = degredation = ml_collections.ConfigDict()
-    degredation.name = "colorization"
-    degredation.task_name = degredation.name
+    degredation.name = "inpainting"
+    degredation.task_name = "inpainting_box"
     degredation.channels = 3
     degredation.img_dim = 256
     degredation.noiser = "gaussian"
@@ -38,15 +39,21 @@ def get_config():
     degredation.sigma = config.sampling.degredation_sigma
     degredation.device = config.device
     
+    # load mask from masks/
+    mask_path = "masks/square_box_mask.npz"
+    degredation.missing_indices = load_mask(mask_path, device=config.degredation.device)[1]
     
     # sampling config
     sampling = config.sampling
     sampling.gudiance_method = "tmpd"
     sampling.use_ode_sampler = "euler"
-    sampling.clamp_to = 10 # gradient clipping
-    sampling.batch_size = 2 
-    sampling.sample_N = 10
-    
+    # sampling.use_ode_sampler = "rk45"
+    sampling.clamp_to = 1 # gradient clipping for the guidance
+    sampling.batch_size = 2
+    sampling.sample_N = 50 # NOTE: tune this
+    sampling.sigma_variance = 1.0 # NOTE: tune this add noise and denoise?
+    # does flow models denoise? can it go off the data manifold?
+    sampling.starting_time = 0
     return config
     
     

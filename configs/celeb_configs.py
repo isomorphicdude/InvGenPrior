@@ -39,8 +39,10 @@ def get_config():
     sampling.init_noise_scale = 1.0
     sampling.use_ode_sampler = "rk45"
     sampling.batch_size = 1
+    sampling.starting_time = 0
     # sampling.gudiance_method = "tmpd" # newly added for inverseproblems
-
+    sampling.degredation_sigma = 0.1
+    
     # data
     data = config.data
     data.dataset = "CelebA-HQ-Pytorch"
@@ -70,6 +72,7 @@ def get_config():
     model.init_scale = 0.0
     model.fourier_scale = 16
     model.conv_size = 3
+    
 
     return config
 

@@ -28,7 +28,9 @@ class RectifiedFlow:
         self.use_ode_sampler = use_ode_sampler
         self.ode_tol = ode_tol
         
-        self.sigma_t = lambda t: (1.0 - t) * sigma_var
+        # use the implementation in Albergo et al. 2023 
+        # stochastic version of the interpolants: t * (1 - t) 
+        self.sigma_t = lambda t: t * (1.0 - t) * sigma_var
         
         self.std_t = lambda t: 1.0 - t
         self.dstd_dt = lambda t: -1.0
@@ -133,11 +135,12 @@ class RectifiedFlow:
         return x
     
     def get_z0(self, batch, train=True):
-        n, c, h, w = batch.shape
+        # n, c, h, w = batch.shape
 
         if self.init_type == "gaussian":
             ### standard gaussian #+ 0.5
-            cur_shape = (n, c, h, w)
+            # cur_shape = (n, c, h, w)
+            cur_shape = batch.shape
             return torch.randn(cur_shape) * self.noise_scale
         else:
             raise NotImplementedError("INITIALIZATION TYPE NOT IMPLEMENTED")

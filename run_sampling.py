@@ -33,14 +33,12 @@ from datasets import lmdb_dataset
 # inverse problems
 from physics.operators import get_operator
 from physics.noisers import get_noise
-from guided_samplers import tmpd, dps, pgdm
+from guided_samplers import tmpd, dps, pgdm, reddiff, bures_jko
 from guided_samplers.registry import get_guided_sampler
 
 
-logging.basicConfig(level=logging.INFO)
-
-
-def create_samples(config, workdir, save_degraded=True, eval_folder="eval_samples"):
+def create_samples(config, workdir, save_degraded=True, return_list=False,
+                   eval_folder="eval_samples"):
     """
     Create samples using the guided sampler.
 
@@ -48,11 +46,18 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
       - config: configuration file, used for ml_collections
       - workdir: working directory, usually just the root directory of repo
       - save_degraded: whether to save the degraded images
+      - return_list: whether to return a list of samples
       - eval_folder: folder to save the samples, should be a combination of the
         name of the experiment and the method used to generate the samples
     """
     # Create directory to eval_folder
-    eval_dir = os.path.join(workdir, eval_folder, config.degredation.task_name)
+    eval_dir = os.path.join(
+        workdir,
+        eval_folder,
+        config.data.name,
+        config.sampling.gudiance_method,
+        config.degredation.task_name,
+    )
     tf.io.gfile.makedirs(eval_dir)
 
     # create data
@@ -131,10 +136,13 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
     # dumping the config setting into a txt
     with open(os.path.join(eval_dir, "config.txt"), "w") as f:
         f.write(f"{config}")
-        
+
     # begin sampling
     score_model.eval()
+    logging.info(f"Using {config.sampling.gudiance_method} guided sampler.")
+    logging.info(f"Using dataset {config.data.name}.")
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
+    logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
 
     # check if certain images are sampled before
     # the img_idx will be written to disk
@@ -148,12 +156,12 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
         # img counter
         # img_counter = len(sampled_images)
     else:
-        logging.info("Starting over...")
+        logging.info("No previously sampled images, starting over...")
         sampled_images = set()
         # create the file
         with open(os.path.join(eval_dir, "sampled_images.txt"), "w") as f:
             f.write("")
-        
+
     img_counter = 0
 
     for iter_no, (batched_img, img_idx) in enumerate(data_loader):
@@ -167,6 +175,9 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             # apply scaler
             batched_img = scaler(batched_img)
 
+            # if not already on device
+            batched_img = batched_img.to(config.device)
+
             # apply degredation operator
             y_obs = H_func.H(batched_img)
 
@@ -175,8 +186,7 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
 
             # if save the degraded images then return the re-shaped
             if save_degraded:
-                y_obs_image = H_func.get_degraded_image(batched_img)
-                y_obs_image = noiser(y_obs_image)
+                y_obs_image = H_func.get_degraded_image(y_obs)
                 # apply scaler
                 y_obs_image = inverse_scaler(y_obs_image)
 
@@ -184,25 +194,44 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             batched_samples = guided_sampler.sample(
                 y_obs=y_obs,
                 z=None,  # maybe can use latent encoding
-                return_list=False,
+                return_list=return_list,
                 method=config.sampling.use_ode_sampler,  # euler or rk45
                 # method="euler",
                 clamp_to=config.sampling.clamp_to,
                 # clamp_to=1,
+                starting_time=config.sampling.starting_time,
             )
 
             # save the images to eval folder
             logging.info(f"Current batch finished. Saving images...")
-            for j in range(config.sampling.batch_size):
-                img = batched_samples[j]
-                # img = inverse_scaler(img) # already included in sampler
-                save_image(
-                    img,
-                    os.path.join(eval_dir, f"{iter_no}_{j}.png"),
-                    # normalize=True,
-                    # range=(-1, 1),
-                )
+            if not return_list:
+                for j in range(config.sampling.batch_size):
+                    img = batched_samples[j]
+                    # img = inverse_scaler(img) # already included in sampler
+                    save_image(
+                        img,
+                        os.path.join(eval_dir, f"{iter_no}_{j}.png"),
+                        # normalize=True,
+                        # range=(-1, 1),
+                    )
 
+                
+                        
+            else:
+                # save list of batched samples
+                # [batch1, batch2, ...]
+                for i, batch in enumerate(batched_samples):
+                    for j in range(config.sampling.batch_size):
+                        img = batch[j]
+                        # img = inverse_scaler(img) # already included in sampler
+                        save_image(
+                            img,
+                            # os.path.join(eval_dir, f"{iter_no}_{j}_time_{i*sde.sample_N//10}.png"),
+                            os.path.join(eval_dir, f"{iter_no}_{j}_time_{i}.png"),
+                            # normalize=True,
+                            # range=(-1, 1),
+                        )
+                
             if save_degraded:
                 logging.info(f"Saving degraded images...")
                 for j in range(config.sampling.batch_size):
@@ -214,7 +243,6 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
                         # normalize=True,
                         # range=(-1, 1),
                     )
-
             end_time = time.time()
 
             logging.info(
@@ -233,10 +261,22 @@ def create_samples(config, workdir, save_degraded=True, eval_folder="eval_sample
             img_counter += config.sampling.batch_size
 
         else:
-            img_sampled_in_batch = [img_counter + i for i in range(config.sampling.batch_size)]
+            img_sampled_in_batch = [
+                img_counter + i for i in range(config.sampling.batch_size)
+            ]
             logging.info(f"Skipping image {img_sampled_in_batch}.")
             img_counter += config.sampling.batch_size
             
+        if iter_no % 4 == 0:
+            logging.info(f"Finished {iter_no} batches.")
+        
+            # clear memory
+            torch.cuda.empty_cache()
+            gc.collect()
+            
+            # exit
+            break
+
     logging.info("Sampling finished.")
 
     # clear memory
@@ -254,6 +294,8 @@ flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 flags.DEFINE_string(
     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
 )
+
+flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
 
 flags.mark_flag_as_required("config")
 
@@ -276,6 +318,7 @@ def main(argv):
         FLAGS.config,
         FLAGS.workdir,
         save_degraded=True,
+        return_list=FLAGS.return_list,
         eval_folder=FLAGS.eval_folder,
     )
 

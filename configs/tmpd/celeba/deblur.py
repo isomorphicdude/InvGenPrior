@@ -2,6 +2,8 @@
 import os
 import sys
 
+import torch
+
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),  '..', '..', '..'))
 config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
@@ -35,20 +37,29 @@ def get_config():
     degredation.img_dim = 256
     degredation.noiser = "gaussian"
     # degredation.sigma = 0.05
-    degredation.sigma = 0.0
+    degredation.sigma = config.sampling.degredation_sigma
     degredation.device = config.device
     
+    # if using torch implementation
     degredation.kernel_size = 61
     degredation.intensity = 4.0
     
+    # if using custom implementation from NVlabs
+    def pdf(x, sigma=10):
+        """Gaussian PDF."""
+        return torch.exp(torch.tensor([-0.5 * (x / sigma) ** 2]))
+    sigma = 4
+    window = 9
+    kernel = torch.Tensor([pdf(t, sigma) for t in range(-(window-1)//2, (window-1)//2)])
+    degredation.kernel = kernel / kernel.sum()
     
     # sampling config
     sampling = config.sampling
     sampling.gudiance_method = "tmpd"
     sampling.use_ode_sampler = "euler"
-    sampling.clamp_to = 10 # gradient clipping
+    sampling.clamp_to = 1 # gradient clipping
     sampling.batch_size = 2 
-    sampling.sample_N = 10
+    sampling.sample_N = 50
     
     return config
     
