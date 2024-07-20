@@ -64,7 +64,7 @@ class BuresJKO(GuidedSampler):
             num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps
 
             # pass through the model function as (batch * N_approx, C, H, W)
-            t_batched = torch.ones(self.shape[0] * N_approx, device=self.device) * eps
+            t_batched = torch.ones(self.shape[0] * N_approx, device=self.device) * num_t
 
             sigma_t = self.sde.sigma_t(num_t)
             alpha_t = self.sde.alpha_t(num_t)
@@ -127,7 +127,7 @@ class BuresJKO(GuidedSampler):
             mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
             # print(mu_t.mean())
 
-        return mu_t.reshape(self.shape), self.sde.sample_N
+        return x_t.reshape(self.shape), self.sde.sample_N
 
     def get_guidance(self):
         raise NotImplementedError("This method is not implemented for Bures-JKO.")
