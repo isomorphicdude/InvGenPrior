@@ -137,8 +137,16 @@ class BuresJKO(GuidedSampler):
                 
                 mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
                 print(mu_t.mean())
+                
+                if return_list:
+                    samples.append(mu_t.reshape(self.shape))
 
-        return mu_t.reshape(self.shape), self.sde.sample_N
+        if return_list:
+            for i in range(len(samples)):
+                samples[i] = self.inverse_scaler(samples[i])
+            return samples, self.sde.sample_N
+        else:
+            return self.inverse_scaler(mu_t.reshape(self.shape)), self.sde.sample_N
 
     def get_guidance(self):
         raise NotImplementedError("This method is not implemented for Bures-JKO.")
