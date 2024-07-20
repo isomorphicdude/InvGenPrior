@@ -205,6 +205,7 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
             # save the images to eval folder
             logging.info(f"Current batch finished. Saving images...")
             if not return_list:
+                logging.info(f"Returning single batch.")
                 for j in range(config.sampling.batch_size):
                     img = batched_samples[j]
                     # img = inverse_scaler(img) # already included in sampler
@@ -214,10 +215,9 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
                         # normalize=True,
                         # range=(-1, 1),
                     )
-
-                
                         
             else:
+                logging.info(f"Returning list of samples.")
                 # save list of batched samples
                 # [batch1, batch2, ...]
                 for i, batch in enumerate(batched_samples):
