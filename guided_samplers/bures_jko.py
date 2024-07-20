@@ -40,7 +40,7 @@ class BuresJKO(GuidedSampler):
             - int: The number of function evaluations (NFEs) used in the sampling process.
         """
         # number of particles to estimate the Monte Carlo approximation
-        N_approx = kwargs.get("N_approx", 1)
+        N_approx = kwargs.get("N_approx", 4)
 
         if return_list:
             samples = []
@@ -73,18 +73,26 @@ class BuresJKO(GuidedSampler):
             dstd_dt = self.sde.dstd_dt(num_t)
 
             # sample from variational distribution
-            q_t = torch.distributions.MultivariateNormal(
-                mu_t, 0.5 * torch.eye(mu_t.shape[0])
-            )
+            # q_t = torch.distributions.MultivariateNormal(
+            #     mu_t, 0.5 * torch.eye(mu_t.shape[0])
+            # )
             
-            q_t_samples = q_t.sample((N_approx,))
+            # q_t_samples = q_t.sample((N_approx,))
+            
+            # print(q_t_samples.shape)
+            
+            # just use delta
+            # print(mu_t.shape)
+            q_t_samples = mu_t.repeat(N_approx, 1)
+            # print(q_t_samples.shape)
 
             # compute the derivative with Monte Carlo approximation
             sigma_y = self.noiser.sigma
-
+            
+            
             # first compute grad_x (-1/2sigma_y^2 ||y - H(x)||^2)
-            x_t = q_t_samples.reshape(N_approx * self.shape[0], *self.shape[1:])
-
+            x_t = q_t_samples.reshape(N_approx * self.shape[0], *self.shape[1:]).clone().detach()
+            
             # H_func takes input of shape (B, C, H, W)
             # def compute_norm(x):
             #     print(x.shape)
@@ -101,7 +109,7 @@ class BuresJKO(GuidedSampler):
             with torch.enable_grad():
                 x_t.requires_grad_(True)
                 H_x = self.H_func.H(x_t)
-                norm_diff = torch.linalg.norm(y_obs.repeat(N_approx, 1) - H_x) ** 2
+                # norm_diff = torch.linalg.norm(y_obs.repeat(N_approx, 1) - H_x) ** 2
                 norm_diff = torch.linalg.norm(y_obs - H_x.reshape(N_approx, self.shape[0], -1),
                                               dim=-1) ** 2
                 norm_diff_sum = norm_diff.sum(dim=0)
@@ -127,7 +135,7 @@ class BuresJKO(GuidedSampler):
             mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
             # print(mu_t.mean())
 
-        return x_t.reshape(self.shape), self.sde.sample_N
+        return mu_t.reshape(self.shape), self.sde.sample_N
 
     def get_guidance(self):
         raise NotImplementedError("This method is not implemented for Bures-JKO.")
