@@ -40,7 +40,7 @@ class BuresJKO(GuidedSampler):
             - int: The number of function evaluations (NFEs) used in the sampling process.
         """
         # number of particles to estimate the Monte Carlo approximation
-        N_approx = kwargs.get("N_approx", 4)
+        N_approx = kwargs.get("N_approx", 1)
 
         if return_list:
             samples = []
