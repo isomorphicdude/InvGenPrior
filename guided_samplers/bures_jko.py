@@ -58,9 +58,11 @@ class BuresJKO(GuidedSampler):
         ### Uniform
         dt = 1.0 / self.sde.sample_N
         eps = 1e-3  # default: 1e-3
+        
+        print(f"Shape: {self.shape}")
 
         for i in range(self.sde.sample_N):
-            # print(f"Step {i}")
+            print(f"Step {i}")
             num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps
 
             # pass through the model function as (batch * N_approx, C, H, W)
@@ -118,6 +120,7 @@ class BuresJKO(GuidedSampler):
             grad_term = torch.autograd.grad(norm_diff_sum_batched, x_t, create_graph=True)[0]
             grad_term = grad_term.detach()
 
+            print(grad_term.shape)
             # then compute the score at time 0 (true grad_x p(x_0))
             # detach
             x_t = x_t.detach()
@@ -133,7 +136,7 @@ class BuresJKO(GuidedSampler):
                 dim=0,)
             
             mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
-            # print(mu_t.mean())
+            print(mu_t.mean())
 
         return mu_t.reshape(self.shape), self.sde.sample_N
 
