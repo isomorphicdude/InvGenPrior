@@ -50,7 +50,7 @@ def get_config():
     # sampling.use_ode_sampler = "rk45"
     sampling.clamp_to = 1 # gradient clipping for the guidance
     sampling.batch_size = 1
-    sampling.sample_N = 50 # NOTE: tune this
+    sampling.sample_N = 1000 # NOTE: tune this
     sampling.sigma_variance = 1.0 # NOTE: tune this add noise and denoise?
     # does flow models denoise? can it go off the data manifold?
     sampling.starting_time = 0
