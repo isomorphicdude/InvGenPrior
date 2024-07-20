@@ -85,7 +85,7 @@ class BuresJKO(GuidedSampler):
                 
                 # just use delta
                 # print(mu_t.shape)
-                q_t_samples = mu_t.repeat(N_approx, 1)
+                q_t_samples = mu_t.repeat(N_approx, 1) * alpha_t + std_t * torch.randn_like(mu_t.repeat(N_approx, 1))
                 # print(q_t_samples.shape)
 
                 # compute the derivative with Monte Carlo approximation
