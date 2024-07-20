@@ -35,7 +35,7 @@ def get_config():
     degredation.img_dim = 256
     degredation.noiser = "gaussian"
     # degredation.sigma = 0.05
-    degredation.sigma = 0.0
+    degredation.sigma = config.sampling.degredation_sigma
     degredation.device = config.device
     
     
