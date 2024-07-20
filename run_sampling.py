@@ -266,6 +266,16 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
             ]
             logging.info(f"Skipping image {img_sampled_in_batch}.")
             img_counter += config.sampling.batch_size
+            
+        if iter_no % 4 == 0:
+            logging.info(f"Finished {iter_no} batches.")
+        
+            # clear memory
+            torch.cuda.empty_cache()
+            gc.collect()
+            
+            # exit
+            break
 
     logging.info("Sampling finished.")
 
