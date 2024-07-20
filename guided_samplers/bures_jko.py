@@ -166,7 +166,7 @@ class BuresJKO(GuidedSampler):
                     dim=0,
                 )
                 # print(f"dsigma_dt: {dsigma_dt.mean()}")
-                # print(f"sigma_t: {sigma_t.mean()}")
+                print(f"sigma_t: {sigma_t.mean()}")
 
                 mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
                 sigma_t = sigma_t + dt * dsigma_dt.reshape(sigma_t.shape)
