@@ -87,6 +87,7 @@ class BuresJKO(GuidedSampler):
                     dstd_dt = self.sde.dstd_dt(num_t)
 
                     print(f"mu_t: {mu_t.mean()}")
+                    print(f"sigma_t: {sigma_t.mean()}")
                     # sample from variational distribution
                     q_t_samples = mu_t.repeat(N_approx, 1) + torch.sqrt(sigma_t) * torch.randn_like(
                         mu_t.repeat(N_approx, 1)
@@ -95,6 +96,7 @@ class BuresJKO(GuidedSampler):
                     # compute the derivative with Monte Carlo approximation
                     sigma_y = self.noiser.sigma
 
+                    print(f"q_t_samples: {q_t_samples.mean()}")
                     # first compute grad_x (-1/2sigma_y^2 ||y - H(x)||^2)
                     x_t = (
                         q_t_samples.reshape(N_approx * self.shape[0], *self.shape[1:])
