@@ -267,8 +267,8 @@ def get_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"):
                 )
 
                 x = (
-                    alpha_t * x0_pred
-                    + std_t
+                    alpha_t * x0_pred.detach()
+                    + math.sqrt(1 - alpha_t**2)
                     * mutils.convert_flow_to_noise(
                         pred, x, alpha_t, std_t, da_dt, dstd_dt
                     )
