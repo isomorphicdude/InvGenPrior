@@ -75,6 +75,7 @@ def get_tweedie_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"
                     device
                 )
                 x = z0.detach().clone()
+    
             else:
                 x = z
 
@@ -267,6 +268,44 @@ def get_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"):
             x = inverse_scaler(x)
             nfe = sde.sample_N
             return x, nfe
+    def ddim_sampler(model, z=None):
+        print("Using ddim sampler")
+        with torch.no_grad():
+            # Initial sample
+            if z is None:
+                z0 = sde.get_z0(torch.zeros(shape, device=device), train=False).to(
+                    device
+                )
+                x = z0.detach().clone()
+            else:
+                x = z
+
+            model_fn = mutils.get_model_fn(model, train=False)
+
+            ### Uniform
+            dt = 1.0 / sde.sample_N
+            eps = 1e-3  # default: 1e-3
+            for i in range(sde.sample_N):
+                num_t = i / sde.sample_N * (sde.T - eps) + eps
+                t = torch.ones(shape[0], device=device) * num_t
+                pred = model_fn(x, t * 999)  ### Copy from models/utils.py
+
+                # convert to diffusion models if sampling.sigma_variance > 0.0 while perserving the marginal probability
+                alpha_t = sde.alpha_t(num_t)
+                std_t = sde.std_t(num_t)
+                da_dt = sde.da_dt(num_t)
+                dstd_dt = sde.dstd_dt(num_t)
+                
+                x0_pred = mutils.convert_flow_to_x0(pred, x, alpha_t, std_t, da_dt, dstd_dt)
+
+                if i < sde.sample_N - 1:
+                    x = x0_pred + math.sqrt(sde.sigma_t(num_t)) * torch.randn_like(x0_pred).to(device)
+                else:
+                    x = x0_pred
+
+            x = inverse_scaler(x)
+            nfe = sde.sample_N
+            return x, nfe
 
     def rk45_sampler(model, z=None):
         """The probability flow ODE sampler with black-box ODE solver.
@@ -320,11 +359,13 @@ def get_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"):
             x = inverse_scaler(x)
 
             return x, nfe
+        
+        
 
     print("Type of Sampler:", sde.use_ode_sampler)
     if sde.use_ode_sampler == "rk45":
         return rk45_sampler
     elif sde.use_ode_sampler == "euler":
-        return euler_sampler
+        return ddim_sampler
     else:
         assert False, "Not Implemented!"
