@@ -89,9 +89,14 @@ class BuresJKO(GuidedSampler):
                     print(f"mu_t: {mu_t.mean()}")
                     print(f"sigma_t: {sigma_t.mean()}")
                     # sample from variational distribution
-                    q_t_samples = mu_t.repeat(N_approx, 1) + torch.sqrt(sigma_t) * torch.randn_like(
-                        mu_t.repeat(N_approx, 1)
+                    q_t_samples = mu_t.repeat(N_approx, 1)
+                    print(f"q_t_samples: {q_t_samples.mean()}")
+                    q_t_samples += torch.sqrt(sigma_t) * torch.randn_like(
+                        q_t_samples
                     )
+                    print(f"sqrt(sigma_t): {torch.sqrt(sigma_t).mean()}")
+                    
+                    print(f"q_t_samples: {q_t_samples.mean()}")
 
                     # compute the derivative with Monte Carlo approximation
                     sigma_y = self.noiser.sigma
