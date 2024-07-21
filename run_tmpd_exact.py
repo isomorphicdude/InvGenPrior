@@ -158,7 +158,7 @@ for i in range(len(tmpd_samples_dict[0])):
 
 import pickle
 
-with open("tmpd_fixed_cov_samples.pkl", "wb") as f:
+with open("temp/tmpd_fixed_cov_samples.pkl", "wb") as f:
     pickle.dump(tmpd_fixed_cov_samples, f)
 
 for i in range(len(tmpd_fixed_cov_samples)):
@@ -169,9 +169,9 @@ for i in range(len(tmpd_fixed_cov_samples)):
             tmpd_fixed_cov_samples[i][:, 0],
             tmpd_fixed_cov_samples[i][:, 1],
             s=10,
-            alpha=0.5,
+            alpha=0.3,
             color="orange",
         )
         ax.set_xlim(-20, 20)
         ax.set_ylim(-20, 20)
-        plt.savefig(f"gmm_posterior_tmpd_{i}.png")
+        plt.savefig(f"temp/gmm_posterior_tmpd_{i}.png")
