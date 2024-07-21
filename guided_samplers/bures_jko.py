@@ -86,22 +86,22 @@ class BuresJKO(GuidedSampler):
                     da_dt = self.sde.da_dt(num_t)
                     dstd_dt = self.sde.dstd_dt(num_t)
 
-                    print(f"mu_t: {mu_t.mean()}")
-                    print(f"sigma_t: {sigma_t.mean()}")
+                    # print(f"mu_t: {mu_t.mean()}")
+                    # print(f"sigma_t: {sigma_t.mean()}")
                     # sample from variational distribution
                     q_t_samples = mu_t.repeat(N_approx, 1)
-                    print(f"q_t_samples: {q_t_samples.mean()}")
-                    q_t_samples += torch.sqrt(sigma_t) * torch.randn_like(
+                    # print(f"q_t_samples: {q_t_samples.mean()}")
+                    q_t_samples += torch.randn_like(
                         q_t_samples
-                    )
-                    print(f"sqrt(sigma_t): {torch.sqrt(sigma_t).mean()}")
+                    ) * torch.sqrt(torch.clamp(sigma_t, min=1e-6))
+                    # print(f"sqrt(sigma_t): {torch.sqrt(sigma_t).mean()}")
                     
-                    print(f"q_t_samples: {q_t_samples.mean()}")
+                    # print(f"q_t_samples: {q_t_samples.mean()}")
 
                     # compute the derivative with Monte Carlo approximation
                     sigma_y = self.noiser.sigma
 
-                    print(f"q_t_samples: {q_t_samples.mean()}")
+                    # print(f"q_t_samples: {q_t_samples.mean()}")
                     # first compute grad_x (-1/2sigma_y^2 ||y - H(x)||^2)
                     x_t = (
                         q_t_samples.reshape(N_approx * self.shape[0], *self.shape[1:])
@@ -109,7 +109,7 @@ class BuresJKO(GuidedSampler):
                         .detach()
                     )
                     
-                    print(f"x_t: {x_t.mean()}")
+                    # print(f"x_t: {x_t.mean()}")
 
                     with torch.enable_grad():
                         x_t.requires_grad_(True)
@@ -157,7 +157,7 @@ class BuresJKO(GuidedSampler):
                     
                     # print(f"dmu_dt: {dmu_dt.mean()}")
                     
-                    print(f"dsigma_dt: {dsigma_dt.mean()}")
+                    # print(f"dsigma_dt: {dsigma_dt.mean()}")
                     
                     print(f"sigma_t: {sigma_t.mean()}")
 
