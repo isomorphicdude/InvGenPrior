@@ -108,7 +108,6 @@ def get_tweedie_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"
             nfe = sde.sample_N
             return x, nfe
         
-        
     def ddim_sampler(model, z=None):
         print("Using ddim sampler")
         with torch.no_grad():
