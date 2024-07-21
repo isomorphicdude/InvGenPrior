@@ -60,121 +60,95 @@ class BuresJKO(GuidedSampler):
             dt = 1.0 / self.sde.sample_N
             eps = 1e-3  # default: 1e-3
 
-            # print(f"Shape: {self.shape}")
+            # get designated time steps
+            # tau_1, ..., tau_n to target for divide-and-conquer
+            no_taus = 10
+            taus_list = range(0, self.sde.sample_N, self.sde.sample_N // no_taus)
+            
+            # steps_per_tau = self.sde.sample_N // no_taus
+            steps_per_tau = 10
 
-            for i in range(self.sde.sample_N):
-                # print(f"Step {i}")
-                num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps
+            # for i in range(self.sde.sample_N):
+            for tau in taus_list:
+                for _ in range(steps_per_tau):
+                    # num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps
+                    num_t = tau / self.sde.sample_N * (self.sde.T - eps) + eps
 
-                # pass through the model function as (batch * N_approx, C, H, W)
-                t_batched = (
-                    torch.ones(self.shape[0] * N_approx, device=self.device) * num_t
-                )
-
-                alpha_t = self.sde.alpha_t(num_t)
-                std_t = self.sde.std_t(num_t)
-                da_dt = self.sde.da_dt(num_t)
-                dstd_dt = self.sde.dstd_dt(num_t)
-
-                # sample from variational distribution
-                q_t_samples = mu_t.repeat(N_approx, 1) + torch.sqrt(sigma_t) * torch.randn_like(
-                    mu_t.repeat(N_approx, 1)
-                )
-                # print(q_t_samples.shape)
-
-                # compute the derivative with Monte Carlo approximation
-                sigma_y = self.noiser.sigma
-
-                # first compute grad_x (-1/2sigma_y^2 ||y - H(x)||^2)
-                x_t = (
-                    q_t_samples.reshape(N_approx * self.shape[0], *self.shape[1:])
-                    .clone()
-                    .detach()
-                )
-
-                # H_func takes input of shape (B, C, H, W)
-                # def compute_norm(x):
-                #     print(x.shape)
-                #     H_x = self.H_func.H(x)
-                #     print(H_x.shape)
-                #     # norm_diff = torch.linalg.norm(y_obs.repeat(N_approx, 1) - H_x) ** 2
-                #     norm_diff = torch.linalg.norm(y_obs - H_x.reshape(N_approx, self.shape[0], -1),
-                #                                   dim=-1) ** 2
-                #     return norm_diff.sum(dim=0)
-
-                # print(compute_norm(x_t).shape)
-
-                # grad_term = torch.func.vmap(torch.func.grad(compute_norm))(x_t)
-                with torch.enable_grad():
-                    x_t.requires_grad_(True)
-                    H_x = self.H_func.H(x_t)
-                    norm_diff_sum_batched = (
-                        torch.linalg.norm(y_obs.repeat(N_approx, 1) - H_x) ** 2
+                    # pass through the model function as (batch * N_approx, C, H, W)
+                    t_batched = (
+                        torch.ones(self.shape[0] * N_approx, device=self.device) * num_t
                     )
 
-                    # difference between y_obs (N_approx, B*C'*H'*W') and H(x) (N_approx, B*C'*H'*W')
-                    # norm_diff = torch.linalg.norm(y_obs - H_x.reshape(N_approx, self.shape[0], -1),
-                    #                             dim=-1) ** 2
-                    # norm_diff_sum = norm_diff.sum(dim=0)
-                    # norm_diff_sum_batched = norm_diff_sum.sum()
+                    alpha_t = self.sde.alpha_t(num_t)
+                    std_t = self.sde.std_t(num_t)
+                    da_dt = self.sde.da_dt(num_t)
+                    dstd_dt = self.sde.dstd_dt(num_t)
 
-                grad_term = torch.autograd.grad(
-                    norm_diff_sum_batched, x_t, create_graph=True
-                )[0]
-                grad_term = grad_term.detach()
-
-                # print(grad_term.shape)
-                # then compute the score at time 0 (true grad_x p(x_0))
-                # detach
-                x_t = x_t.detach()
-
-                flow_pred = model_fn(
-                    x_t,
-                    t_batched * 999,
-                )
-
-                score_pred = convert_flow_to_score(
-                    flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt
-                )
-
-                dmu_dt = torch.mean(
-                    (score_pred - (0.5 / sigma_y**2) * grad_term).reshape(
-                        N_approx, self.shape[0], -1
-                    ),
-                    dim=0,
-                )
-                
-                # print(f"dmu_dt: {dmu_dt.shape}")
-                # print(f"score_pred: {score_pred.shape}")
-                # print(f"grad_term: {grad_term.shape}")
-                # print(f"x_t: {x_t.shape}")
-                # print(f"mu_t: {mu_t.shape}")
-                
-                mean_diff = x_t.reshape(N_approx, self.shape[0], -1) - mu_t.reshape(self.shape[0], -1).unsqueeze(0)
-                # print(f"mean_diff: {mean_diff.shape}")
-                # print(f"sigma_t: {sigma_t.shape}")
-                
-                dsigma_dt = torch.mean(
-                    (
-                        (score_pred
-                        - (0.5 / sigma_y**2)
-                        * grad_term).reshape(N_approx, self.shape[0], -1)
-                        + ((0.5 / sigma_t).reshape(self.shape[0], -1).unsqueeze(0) 
-                        * mean_diff)
+                    # sample from variational distribution
+                    q_t_samples = mu_t.repeat(N_approx, 1) + torch.sqrt(sigma_t) * torch.randn_like(
+                        mu_t.repeat(N_approx, 1)
                     )
-                    * mean_diff.reshape(N_approx, self.shape[0], -1) * 2,
-                    dim=0,
-                )
-                # print(f"dsigma_dt: {dsigma_dt.mean()}")
-                # print(f"sigma_t: {sigma_t.mean()}")
 
-                mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
-                sigma_t = sigma_t + dt * dsigma_dt.reshape(sigma_t.shape)
-                # sigma_t = num_t * (1 - num_t) * torch.ones_like(sigma_t)
+                    # compute the derivative with Monte Carlo approximation
+                    sigma_y = self.noiser.sigma
+
+                    # first compute grad_x (-1/2sigma_y^2 ||y - H(x)||^2)
+                    x_t = (
+                        q_t_samples.reshape(N_approx * self.shape[0], *self.shape[1:])
+                        .clone()
+                        .detach()
+                    )
+
+                    with torch.enable_grad():
+                        x_t.requires_grad_(True)
+                        H_x = self.H_func.H(x_t)
+                        norm_diff_sum_batched = (
+                            torch.linalg.norm(y_obs.repeat(N_approx, 1) - H_x) ** 2
+                        )
+
+                    grad_term = torch.autograd.grad(
+                        norm_diff_sum_batched, x_t, create_graph=True
+                    )[0]
+                    grad_term = grad_term.detach()
+
+                    x_t = x_t.detach()
+
+                    flow_pred = model_fn(
+                        x_t,
+                        t_batched * 999,
+                    )
+
+                    score_pred = convert_flow_to_score(
+                        flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt
+                    )
+
+                    dmu_dt = torch.mean(
+                        (score_pred - (0.5 / sigma_y**2) * grad_term).reshape(
+                            N_approx, self.shape[0], -1
+                        ),
+                        dim=0,
+                    )
+                    
+                    mean_diff = x_t.reshape(N_approx, self.shape[0], -1) - mu_t.reshape(self.shape[0], -1).unsqueeze(0)
+                    
+                    dsigma_dt = torch.mean(
+                        (
+                            (score_pred
+                            - (0.5 / sigma_y**2)
+                            * grad_term).reshape(N_approx, self.shape[0], -1)
+                            + ((0.5 / sigma_t).reshape(self.shape[0], -1).unsqueeze(0) 
+                            * mean_diff)
+                        )
+                        * mean_diff.reshape(N_approx, self.shape[0], -1) * 2,
+                        dim=0,
+                    )
+                    
+                    print(sigma_t.mean())
+
+                    mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
+                    sigma_t = sigma_t + dt * dsigma_dt.reshape(sigma_t.shape)
 
                 if return_list:
-                    # samples.append(mu_t.reshape(self.shape))
-                    # use one slice of x_t instead
                     samples.append(
                         x_t.reshape(N_approx, self.shape[0], *self.shape[1:])[0]
                     )
