@@ -62,7 +62,7 @@ class BuresJKO(GuidedSampler):
 
             # get designated time steps
             # tau_1, ..., tau_n to target for divide-and-conquer
-            no_taus = 10
+            no_taus = 100
             taus_list = range(0, self.sde.sample_N, self.sde.sample_N // no_taus)
             
             # steps_per_tau = self.sde.sample_N // no_taus
@@ -70,6 +70,7 @@ class BuresJKO(GuidedSampler):
 
             # for i in range(self.sde.sample_N):
             for tau in taus_list:
+                print(f"tau: {tau}")
                 for _ in range(steps_per_tau):
                     # num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps
                     num_t = tau / self.sde.sample_N * (self.sde.T - eps) + eps
