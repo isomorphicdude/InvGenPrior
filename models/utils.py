@@ -229,13 +229,13 @@ def convert_flow_to_x0(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt):
     """
     Convert flow to x0.
 
-    Args:
-    	- u_t: torch.tensor (b, c, h, w), the flow vector.
-		- x_t: torch.tensor (b, c, h, w), the input image.
-		- alpha_t: float, the alpha_t coeff.
-		- std_t: float, the sigma_t coeff.
-		- da_dt: float, derivative of alpha_t coeff (this is alpha bar in DDPM paper).
-		- dstd_dt: float, derivative of sigma_t coeff (see Pokle et al. 2024)
+    Args:  
+      - u_t: torch.tensor (b, c, h, w), the flow vector.
+	  - x_t: torch.tensor (b, c, h, w), the input image.
+      - alpha_t: float, the alpha_t coeff.
+      - std_t: float, the sigma_t coeff.
+      - da_dt: float, derivative of alpha_t coeff (this is alpha bar in DDPM paper).
+      - dstd_dt: float, derivative of sigma_t coeff (see Pokle et al. 2024)
 
     Returns:
 		- x0_hat: torch.tensor (b, c, h, w), the noiseless prediction.

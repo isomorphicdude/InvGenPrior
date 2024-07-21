@@ -297,13 +297,15 @@ def get_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"):
                 dstd_dt = sde.dstd_dt(num_t)
                 
                 x0_pred = mutils.convert_flow_to_x0(pred, x, alpha_t, std_t, da_dt, dstd_dt)
+                
+                x = alpha_t * x0_pred + std_t * torch.randn_like(x0_pred).to(device)
 
-                if i < sde.sample_N - 1:
-                    x = x0_pred + math.sqrt(sde.sigma_t(num_t)) * torch.randn_like(x0_pred).to(device)
-                else:
-                    x = x0_pred
+                # if i < sde.sample_N - 1:
+                #     x = x0_pred + math.sqrt(sde.sigma_t(num_t)) * torch.randn_like(x0_pred).to(device)
+                # else:
+                #     x = x0_pred
 
-            x = inverse_scaler(x)
+            x = inverse_scaler(x0_pred)
             nfe = sde.sample_N
             return x, nfe
 
