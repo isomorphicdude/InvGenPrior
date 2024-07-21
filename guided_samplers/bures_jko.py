@@ -86,7 +86,7 @@ class BuresJKO(GuidedSampler):
                     dstd_dt = self.sde.dstd_dt(num_t)
 
                     # sample from variational distribution
-                    q_t_samples = mu_t.repeat(N_approx, 1) + sigma_t * torch.randn_like(
+                    q_t_samples = mu_t.repeat(N_approx, 1) + torch.sqrt(sigma_t) * torch.randn_like(
                         mu_t.repeat(N_approx, 1)
                     )
 
@@ -99,6 +99,8 @@ class BuresJKO(GuidedSampler):
                         .clone()
                         .detach()
                     )
+                    
+                    print(f"x_t: {x_t.mean()}")
 
                     with torch.enable_grad():
                         x_t.requires_grad_(True)
@@ -144,7 +146,11 @@ class BuresJKO(GuidedSampler):
                         dim=0,
                     )
                     
-                    print(sigma_t.mean())
+                    # print(f"dmu_dt: {dmu_dt.mean()}")
+                    
+                    print(f"dsigma_dt: {dsigma_dt.mean()}")
+                    
+                    print(f"sigma_t: {sigma_t.mean()}")
 
                     mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
                     sigma_t = sigma_t + dt * dsigma_dt.reshape(sigma_t.shape)
