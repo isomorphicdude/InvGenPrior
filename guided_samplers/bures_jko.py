@@ -77,7 +77,7 @@ class BuresJKO(GuidedSampler):
                 dstd_dt = self.sde.dstd_dt(num_t)
 
                 # sample from variational distribution
-                q_t_samples = mu_t.repeat(N_approx, 1) + sigma_t * torch.randn_like(
+                q_t_samples = mu_t.repeat(N_approx, 1) + torch.sqrt(sigma_t) * torch.randn_like(
                     mu_t.repeat(N_approx, 1)
                 )
                 # print(q_t_samples.shape)
@@ -159,7 +159,7 @@ class BuresJKO(GuidedSampler):
                         (score_pred
                         - (0.5 / sigma_y**2)
                         * grad_term).reshape(N_approx, self.shape[0], -1)
-                        + ((0.5 / sigma_t**2).reshape(self.shape[0], -1).unsqueeze(0) 
+                        + ((0.5 / sigma_t).reshape(self.shape[0], -1).unsqueeze(0) 
                         * mean_diff)
                     )
                     * mean_diff.reshape(N_approx, self.shape[0], -1) * 2,
