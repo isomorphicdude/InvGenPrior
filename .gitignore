@@ -6,4 +6,5 @@ notebooks/
 temp/
 run_tmpd_exact.py
 *.pkl
+*.png
 # datasets/lmdb_dataset.py
