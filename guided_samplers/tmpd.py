@@ -107,7 +107,7 @@ class TMPD(GuidedSampler):
         C_yy = (
             coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
             + self.noiser.sigma**2
-        ).sqrt()
+        ).clamp(min=1e-6).sqrt()
 
         # difference
         difference = y_obs - h_x_0
