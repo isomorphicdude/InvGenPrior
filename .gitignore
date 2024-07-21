@@ -7,4 +7,5 @@ temp/
 run_tmpd_exact.py
 *.pkl
 *.png
+*.txt
 # datasets/lmdb_dataset.py
