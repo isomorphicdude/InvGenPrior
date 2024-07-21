@@ -105,7 +105,7 @@ def create_samples(
     start_z = torch.randn(num_samples, gmm_config.dim)
 
     # list of methods
-    methods = ["tmpd", "pgdm", "dps", "reddiff"]
+    methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_exact"]
 
     # samples dictionary
     samples_dict = {method_name: None for method_name in methods}
@@ -145,7 +145,7 @@ def create_samples(
 
 
 def visualise_experiment(
-    config, return_list=True, plot=True, num_samples=1000, seed=42
+    config, return_list=True, plot=True, num_samples=1000, seed=2107
 ):
     """
     Plots the samples and store the GIFs.
@@ -186,7 +186,7 @@ def visualise_experiment(
                         axs[j].scatter(
                             sample[:, 0],
                             sample[:, 1],
-                            alpha=0.5,
+                            alpha=0.3,
                             s=10,
                             label=name.upper(),
                         )
@@ -194,7 +194,7 @@ def visualise_experiment(
                         axs[j].scatter(
                             samples_dict["true_posterior"][:, 0],
                             samples_dict["true_posterior"][:, 1],
-                            alpha=0.5,
+                            alpha=0.3,
                             s=10,
                             color="orange",
                             label="True Posterior",
@@ -261,7 +261,7 @@ def visualise_experiment(
         logging.info("Creating the GIFs...")
         plotting_utils.make_gif_gmm("temp", "temp/GMM.gif", duration=100)
         # remove the images
-        os.system("rm temp/*.png")
+        # os.system("rm temp/*.png")
 
 def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     """
@@ -343,7 +343,7 @@ config_flags.DEFINE_config_file(
 
 flags.DEFINE_string("workdir", "temp", "Work directory.")
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
-flags.DEFINE_boolean("plot", True, "Plot the samples but without saving the GIFs.")
+flags.DEFINE_boolean("plot", False, "Plot the samples but without saving the GIFs.")
 flags.DEFINE_boolean("visualise", True, "Visualise the samples instead of running benchmark.")
 
 
