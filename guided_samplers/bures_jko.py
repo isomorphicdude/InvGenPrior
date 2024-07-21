@@ -9,7 +9,7 @@ import torch
 from models import utils as mutils
 from guided_samplers.base_guidance import GuidedSampler
 from guided_samplers.registry import register_guided_sampler
-from models.utils import convert_flow_to_score
+from models.utils import convert_flow_to_score, convert_flow_to_x0
 
 
 @register_guided_sampler(name="bures_jko")
@@ -64,7 +64,7 @@ class BuresJKO(GuidedSampler):
             # tau_1, ..., tau_n to target for divide-and-conquer
             no_taus = 5
             taus_list = range(0, self.sde.sample_N, self.sde.sample_N // no_taus)
-            
+
             # steps_per_tau = self.sde.sample_N // no_taus
             steps_per_tau = 100
 
@@ -91,11 +91,11 @@ class BuresJKO(GuidedSampler):
                     # sample from variational distribution
                     q_t_samples = mu_t.repeat(N_approx, 1)
                     # print(f"q_t_samples: {q_t_samples.mean()}")
-                    q_t_samples += torch.randn_like(
-                        q_t_samples
-                    ) * torch.sqrt(torch.clamp(sigma_t, min=1e-6))
+                    q_t_samples += torch.randn_like(q_t_samples) * torch.sqrt(
+                        torch.clamp(sigma_t, min=1e-6)
+                    )
                     # print(f"sqrt(sigma_t): {torch.sqrt(sigma_t).mean()}")
-                    
+
                     # print(f"q_t_samples: {q_t_samples.mean()}")
 
                     # compute the derivative with Monte Carlo approximation
@@ -108,7 +108,7 @@ class BuresJKO(GuidedSampler):
                         .clone()
                         .detach()
                     )
-                    
+
                     # print(f"x_t: {x_t.mean()}")
 
                     with torch.enable_grad():
@@ -140,25 +140,34 @@ class BuresJKO(GuidedSampler):
                         ),
                         dim=0,
                     )
-                    
-                    mean_diff = x_t.reshape(N_approx, self.shape[0], -1) - mu_t.reshape(self.shape[0], -1).unsqueeze(0)
-                    
+
+                    mean_diff = x_t.reshape(N_approx, self.shape[0], -1) - mu_t.reshape(
+                        self.shape[0], -1
+                    ).unsqueeze(0)
+
                     dsigma_dt = torch.mean(
                         (
-                            (score_pred
-                            - (0.5 / sigma_y**2)
-                            * grad_term).reshape(N_approx, self.shape[0], -1)
-                            + (((0.5 / sigma_t**2).reshape(self.shape[0], -1).unsqueeze(0))
-                            * mean_diff)
+                            (score_pred - (0.5 / sigma_y**2) * grad_term).reshape(
+                                N_approx, self.shape[0], -1
+                            )
+                            + (
+                                (
+                                    (0.5 / sigma_t**2)
+                                    .reshape(self.shape[0], -1)
+                                    .unsqueeze(0)
+                                )
+                                * mean_diff
+                            )
                         )
-                        * mean_diff.reshape(N_approx, self.shape[0], -1) * 2,
+                        * mean_diff.reshape(N_approx, self.shape[0], -1)
+                        * 2,
                         dim=0,
                     )
-                    
+
                     # print(f"dmu_dt: {dmu_dt.mean()}")
-                    
+
                     # print(f"dsigma_dt: {dsigma_dt.mean()}")
-                    
+
                     print(f"sigma_t: {sigma_t.mean()}")
 
                     mu_t = mu_t + dt * dmu_dt.reshape(mu_t.shape)
@@ -166,16 +175,33 @@ class BuresJKO(GuidedSampler):
 
                 if return_list:
                     samples.append(
-                        x_t.reshape(N_approx, self.shape[0], *self.shape[1:])[0]
+                        # x_t.reshape(N_approx, self.shape[0], *self.shape[1:])[0]
+                        mu_t.reshape(self.shape)
                     )
+        # apply final denoising step to mu_t
+        with torch.no_grad():
+            num_t = (self.sde.sample_N - 1) / self.sde.sample_N * (
+                self.sde.T - eps
+            ) + eps
+            flow_pred = model_fn(
+                mu_t.reshape(self.shape),
+                torch.ones(self.shape[0], device=self.device) * num_t,
+            )
+            alpha_t = self.sde.alpha_t(num_t)
+            std_t = self.sde.std_t(num_t)
+            da_dt = self.sde.da_dt(num_t)
+            dstd_dt = self.sde.dstd_dt(num_t)
+
+            x0_pred = convert_flow_to_x0(
+                flow_pred, mu_t.reshape(self.shape), alpha_t, std_t, da_dt, dstd_dt
+            )
 
         if return_list:
             for i in range(len(samples)):
                 samples[i] = self.inverse_scaler(samples[i])
             return samples, self.sde.sample_N
         else:
-            return self.inverse_scaler(mu_t.reshape(self.shape)), self.sde.sample_N
-
+            return self.inverse_scaler(x0_pred.reshape(self.shape)), self.sde.sample_N
 
     def get_guidance(self):
         raise NotImplementedError("This method is not implemented for Bures-JKO.")
