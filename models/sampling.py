@@ -1,6 +1,8 @@
 """Sampling methods for diffusion and flow models."""
+
 import math
 import torch
+
 # import torchdiffeq
 
 import functools
@@ -45,20 +47,23 @@ def get_sampling_fn(config, sde, shape, inverse_scaler, eps):
             sde=sde, shape=shape, inverse_scaler=inverse_scaler, device=config.device
         )
     elif sampler_name.lower() == "tweedie_rectified_flow":
-            sampling_fn = get_tweedie_rectified_flow_sampler(
-                sde=sde, shape=shape, inverse_scaler=inverse_scaler, device=config.device
-            )
+        sampling_fn = get_tweedie_rectified_flow_sampler(
+            sde=sde, shape=shape, inverse_scaler=inverse_scaler, device=config.device
+        )
     else:
         raise ValueError(f"Sampler name {sampler_name} unknown.")
 
     return sampling_fn
 
 
-def get_tweedie_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda", hyperparams=None):
+def get_tweedie_rectified_flow_sampler(
+    sde, shape, inverse_scaler, device="cuda", hyperparams=None
+):
     """
     Get the rectified flow sampler for tweedie moment matching.
-    
+
     """
+
     def euler_sampler(model, z=None):
         """The probability flow ODE sampler with simple Euler discretization.
 
@@ -75,7 +80,7 @@ def get_tweedie_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"
                     device
                 )
                 x = z0.detach().clone()
-    
+
             else:
                 x = z
 
@@ -108,7 +113,6 @@ def get_tweedie_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"
             x = inverse_scaler(x)
             nfe = sde.sample_N
             return x, nfe
-        
 
     def rk45_sampler(model, z=None):
         """The probability flow ODE sampler with black-box ODE solver.
@@ -173,7 +177,6 @@ def get_tweedie_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"
         assert False, "Not Implemented!"
 
 
-
 def get_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"):
     """
     Get rectified flow sampler
@@ -230,6 +233,7 @@ def get_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"):
             x = inverse_scaler(x)
             nfe = sde.sample_N
             return x, nfe
+
     def ddim_sampler(model, z=None):
         print("Using ddim sampler")
         with torch.no_grad():
@@ -257,15 +261,24 @@ def get_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"):
                 std_t = sde.std_t(num_t)
                 da_dt = sde.da_dt(num_t)
                 dstd_dt = sde.dstd_dt(num_t)
-                
-                x0_pred = mutils.convert_flow_to_x0(pred, x, alpha_t, std_t, da_dt, dstd_dt)
-                
-                # x = alpha_t * x0_pred + std_t * torch.randn_like(x0_pred).to(device)
-                x = (
-                    x.detach().clone()
-                    + pred * dt
-                    + math.sqrt(sde.sigma_t(num_t)) * np.sqrt(dt) * torch.randn_like(x).to(device)
+
+                x0_pred = mutils.convert_flow_to_x0(
+                    pred, x, alpha_t, std_t, da_dt, dstd_dt
                 )
+
+                x = (
+                    alpha_t * x0_pred
+                    + std_t
+                    * mutils.convert_flow_to_noise(
+                        pred, x, alpha_t, std_t, da_dt, dstd_dt
+                    )
+                    + std_t * torch.randn_like(x0_pred).to(device)
+                )
+                # x = (
+                #     x.detach().clone()
+                #     + pred * dt
+                #     + math.sqrt(sde.sigma_t(num_t)) * np.sqrt(dt) * torch.randn_like(x).to(device)
+                # )
 
                 # if i < sde.sample_N - 1:
                 #     x = x0_pred + math.sqrt(sde.sigma_t(num_t)) * torch.randn_like(x0_pred).to(device)
@@ -328,8 +341,6 @@ def get_rectified_flow_sampler(sde, shape, inverse_scaler, device="cuda"):
             x = inverse_scaler(x)
 
             return x, nfe
-        
-        
 
     print("Type of Sampler:", sde.use_ode_sampler)
     if sde.use_ode_sampler == "rk45":
