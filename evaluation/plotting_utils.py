@@ -11,7 +11,7 @@ def make_gif_gmm(img_dir, save_path, duration=1000):
     """
     files = os.listdir(img_dir)
 
-    images = [file for file in files if file.startswith(f"GMM")]
+    images = [file for file in files if file.startswith(f"GMM") and file.endswith('.png')]
 
     images.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]))
 
@@ -22,9 +22,6 @@ def make_gif_gmm(img_dir, save_path, duration=1000):
         frames[0].save(save_path, save_all=True, append_images=frames[1:], loop=0, duration=duration, optimize=False)
     else:
         raise FileNotFoundError("No images found matching the pattern.")
-
-    
-    
 
 
 def make_gif(img_dir,
@@ -43,7 +40,7 @@ def make_gif(img_dir,
     # print(files)
 
     # Filter files that match the pattern
-    images = [file for file in files if file.startswith(f"{batch}_{i}_time")]
+    images = [file for file in files if file.startswith(f"{batch}_{i}_time") and file.endswith('.png')]
 
     # print(images)
     # Sort images by the time component in the filename
@@ -60,6 +57,7 @@ def make_gif(img_dir,
         new_frame.paste(frame, (0, title_height))
 
         draw = ImageDraw.Draw(new_frame)
+        
         # Extract the time from the filename
         time = int(image.split('_')[-1].split('.')[0])
         # Draw the time above the image
@@ -77,3 +75,7 @@ def make_gif(img_dir,
 
     if view:
         display(IPImage(filename=save_path))
+        
+        
+if __name__ == "__main__":
+    make_gif_gmm("temp", "temp/GMM.gif", duration=100)
