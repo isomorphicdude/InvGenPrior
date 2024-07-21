@@ -1,8 +1,12 @@
 """Implements the TMPD guidance functions."""
 
 import math
+
+import pickle
 import torch
 import functorch
+from tqdm import tqdm
+
 from models.utils import convert_flow_to_x0
 from guided_samplers.base_guidance import GuidedSampler
 from guided_samplers.registry import register_guided_sampler
@@ -99,10 +103,11 @@ class TMPD(GuidedSampler):
         #     + self.noiser.sigma**2
         # )
 
+        #NOTE: Simply adding the square root changes a lot!
         C_yy = (
             coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
             + self.noiser.sigma**2
-        )
+        ).sqrt()
 
         # difference
         difference = y_obs - h_x_0
@@ -114,9 +119,6 @@ class TMPD(GuidedSampler):
         # compute gamma_t scaling, used in Pokle et al. 2024
         # gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
 
-        # TMPD does not seem to require this
-        gamma_t = 1.0
-
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
@@ -125,11 +127,11 @@ class TMPD(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None:
-            guided_vec = (scaled_grad * gamma_t).clamp(-clamp_to, clamp_to) + (
+            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (
                 flow_pred
             )
         else:
-            guided_vec = (scaled_grad * gamma_t) + (flow_pred)
+            guided_vec = (scaled_grad) + (flow_pred)
         return guided_vec
 
 
@@ -251,6 +253,8 @@ class TMPD_fixed_cov(GuidedSampler):
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
         # return flow_pred
+
+
 
 
 @register_guided_sampler(name="tmpd_exact")
@@ -380,7 +384,7 @@ class TMPD_exact(GuidedSampler):
                     self.H_func.H_mat.T,
                 )
                 + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
-            )
+            ).sqrt()
 
             # create distribution instance
             likelihood_distr = torch.distributions.MultivariateNormal(
@@ -399,12 +403,74 @@ class TMPD_exact(GuidedSampler):
         # TODO: implement this as derivatives for more generality
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
-        
+        # print(scaled_grad.mean())
         guided_vec = (scaled_grad) + (flow_pred)
-        
+
         return guided_vec
 
+    def sample(
+        self,
+        y_obs,
+        return_list=False,
+        method="euler",
+        clamp_to=1,
+        starting_time=0,
+        z=None,
+        **kwargs
+    ):
+        """
+        Overrides the base class method to include the exact guidance for TMPD.
+        """
+        if z is None:
+            start_z = torch.randn(self.shape, device=self.device)
+        else:
+            start_z = z
 
+        num_samples = y_obs.shape[0]
+
+        chunk_size = 20
+
+        assert num_samples % chunk_size == 0
+
+        num_chunks = num_samples // chunk_size
+
+        # list of samples to store
+        # the t^th element of the list is the samples at the time t
+        tmpd_samples_dict = {i: [] for i in range(num_chunks)}
+
+        for i in tqdm(
+            range(num_chunks), total=num_chunks, desc="TMPD sampling", colour="green"
+        ):
+            start_z_chunk = start_z[i * chunk_size : (i + 1) * chunk_size, :]
+            y_obs_chunk = y_obs[i * chunk_size : (i + 1) * chunk_size, :]
+
+            tmpd_samples_chunk, _ = self.guided_euler_sampler(
+                y_obs=y_obs_chunk, 
+                clamp_to=None,
+                z=start_z_chunk, 
+                return_list=True
+            )
+            tmpd_samples_dict[i] = tmpd_samples_chunk
+            
+        # make the dictionary into a list by stacking
+        tmpd_fixed_cov_samples = []
+
+        for i in range(len(tmpd_samples_dict[0])):
+            temp = torch.cat(
+                [tmpd_samples_dict[chunk_no][i] for chunk_no in range(num_chunks)], dim=0
+            )
+            tmpd_fixed_cov_samples.append(temp)
+            
+        # with open("temp/tmpd_fixed_cov_samples.pkl", "wb") as f:
+        #     pickle.dump(tmpd_fixed_cov_samples, f)
+            
+        if return_list:
+            return tmpd_fixed_cov_samples
+        else:
+            return tmpd_fixed_cov_samples[-1]
+
+
+# Below is the code provided by Ben
 # -------------------------------------------  TMPD  -------------------------------------------#
 # @register_conditioning_method(name="tmp")
 # class TweedieMomentProjection(ConditioningMethod):
