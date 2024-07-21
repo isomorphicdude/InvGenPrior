@@ -71,7 +71,8 @@ class BuresJKO(GuidedSampler):
             # for i in range(self.sde.sample_N):
             for tau in taus_list:
                 print(f"tau: {tau}")
-                for _ in range(steps_per_tau):
+                for step in range(steps_per_tau):
+                    print(f"step: {step}")
                     # num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps
                     num_t = tau / self.sde.sample_N * (self.sde.T - eps) + eps
 
@@ -85,6 +86,7 @@ class BuresJKO(GuidedSampler):
                     da_dt = self.sde.da_dt(num_t)
                     dstd_dt = self.sde.dstd_dt(num_t)
 
+                    print(f"mu_t: {mu_t.mean()}")
                     # sample from variational distribution
                     q_t_samples = mu_t.repeat(N_approx, 1) + torch.sqrt(sigma_t) * torch.randn_like(
                         mu_t.repeat(N_approx, 1)
