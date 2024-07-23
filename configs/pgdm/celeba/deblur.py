@@ -59,7 +59,7 @@ def get_config():
     sampling.use_ode_sampler = "euler"
     sampling.clamp_to = 1 # gradient clipping
     sampling.batch_size = 2 
-    sampling.sample_N = 50
+    sampling.sample_N = 100
     sampling.starting_time = 0
     return config
     

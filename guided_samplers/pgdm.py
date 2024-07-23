@@ -43,9 +43,9 @@ class PiGDM(GuidedSampler):
             # print("x0_hat", x0_hat.mean())
             # using the author's implementation with pseudo inverse
             mat = (self.H_func.H_pinv(y_obs) - self.H_func.H_pinv(self.H_func.H(x0_hat))).reshape(x_t.shape[0], -1)
-            print("mat", mat.mean())
+            
             mat_x = (mat.detach() * x0_hat.reshape(x_t.shape[0], -1)).sum()
-            print("mat_x", mat_x.mean())
+            
             
         grad_term = torch.autograd.grad(mat_x, x_t, retain_graph=True)[0]
         # print("grad_term", grad_term.mean())
