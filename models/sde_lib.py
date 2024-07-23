@@ -27,20 +27,21 @@ class RectifiedFlow:
         self.noise_scale = noise_scale
         self.use_ode_sampler = use_ode_sampler
         self.ode_tol = ode_tol
-        
-        # use the implementation in Albergo et al. 2023 
-        # stochastic version of the interpolants: t * (1 - t) 
+
+        # use the implementation in Albergo et al. 2023
+        # stochastic version of the interpolants: t * (1 - t)
         self.sigma_t = lambda t: t * (1.0 - t) * sigma_var
-        
+
         self.std_t = lambda t: 1.0 - t
         self.dstd_dt = lambda t: -1.0
-        
+
         self.alpha_t = lambda t: t
         self.da_dt = lambda t: 1.0
-        
+
         print("Init. Distribution Variance:", self.noise_scale)
         print("SDE Sampler Variance:", sigma_var)
         print("ODE Tolerence:", self.ode_tol)
+        print("Sampling sigma_var: {}".format(sigma_var))
 
         self.reflow_flag = reflow_flag
         if self.reflow_flag:
@@ -53,6 +54,32 @@ class RectifiedFlow:
                 self.lpips_model = self.lpips_model.cuda()
                 for p in self.lpips_model.parameters():
                     p.requires_grad = False
+        # below is implemented for DDPM ancestral sampling
+        num_steps = self.sample_N
+        beta_min = 0.1
+        beta_max = 15.0
+        # self.discrete_betas = np.linspace(
+        #     beta_min / num_steps, beta_max / num_steps, num_steps
+        # )
+        # print("Discrete Betas:", self.discrete_betas)
+        h = 1.0 / num_steps
+        self.discrete_betas = np.array(
+            [1 - ((1-t)/(1-t+h))**2 for t in np.linspace(h, 1-h, num_steps)]
+        )
+        # print("Discrete Betas:", self.discrete_betas)
+        assert np.all(self.discrete_betas > 0) 
+        assert len(self.discrete_betas) == num_steps
+        
+        # self.discrete_betas = np.linspace(
+        #     1e-3, 1.0-(1e-3), num_steps
+        # )
+        self.alphas = 1.0 - self.discrete_betas
+        self.alphas_cumprod = np.cumprod(self.alphas, axis=0)
+        self.sqrt_alphas_cumprod = np.sqrt(self.alphas_cumprod)
+        self.sqrt_1m_alphas_cumprod = np.sqrt(1.0 - self.alphas_cumprod)
+        self.alphas_cumprod_prev = np.append(1.0, self.alphas_cumprod[:-1])
+        self.sqrt_alphas_cumprod_prev = np.sqrt(self.alphas_cumprod_prev)
+        self.sqrt_1m_alphas_cumprod_prev = np.sqrt(1.0 - self.alphas_cumprod_prev)
 
     @property
     def T(self):
@@ -133,7 +160,7 @@ class RectifiedFlow:
             x = x.detach().clone() + pred * dt
 
         return x
-    
+
     def get_z0(self, batch, train=True):
         # n, c, h, w = batch.shape
 
