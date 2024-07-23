@@ -112,9 +112,14 @@ class H_functions(ABC):
         Multiplies the input vector by the pseudo inverse of H
         """
         temp = self.Ut(vec)
-        print("temp", temp.mean())  
+          
         singulars = self.singulars()
-        print("singulars", singulars.mean())
+        
+        # check zeros in singulars
+        if (singulars == 0).any():
+            print("singulars", singulars)
+            raise ValueError("Singulars have zeros.")
+        
         temp[:, : singulars.shape[0]] = temp[:, : singulars.shape[0]] / singulars
         print("after", temp[:, : singulars.shape[0]].mean())
         
