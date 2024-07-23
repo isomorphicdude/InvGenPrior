@@ -60,7 +60,7 @@ def get_config():
     sampling.clamp_to = 1 # gradient clipping
     sampling.batch_size = 2 
     sampling.sample_N = 50
-    
+    sampling.starting_time = 0
     return config
     
     
