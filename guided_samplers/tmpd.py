@@ -5,8 +5,10 @@ import math
 import pickle
 import torch
 import functorch
+import numpy as np
 from tqdm import tqdm
 
+import models.utils as mutils
 from models.utils import convert_flow_to_x0
 from guided_samplers.base_guidance import GuidedSampler
 from guided_samplers.registry import register_guided_sampler
@@ -103,11 +105,12 @@ class TMPD(GuidedSampler):
         #     + self.noiser.sigma**2
         # )
 
-        #NOTE: Simply adding the square root changes a lot!
+        # NOTE: Simply adding the square root changes a lot!
+        coeff_C_yy = math.sqrt(coeff_C_yy)
         C_yy = (
             coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
             + self.noiser.sigma**2
-        ).clamp(min=1e-6).sqrt()
+        ).clamp(min=1e-6)
 
         # difference
         difference = y_obs - h_x_0
@@ -127,9 +130,114 @@ class TMPD(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None:
-            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (
-                flow_pred
+            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+        else:
+            guided_vec = (scaled_grad) + (flow_pred)
+        return guided_vec
+
+
+@register_guided_sampler(name="tmpd_og")
+class TMPD_og(GuidedSampler):
+    # TMPD does not seem to require any additional hyperparameters
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        """
+        Only difference is the square root in the C_yy calculation.
+        """
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        x_t = x_t.clone().detach()
+
+        def estimate_h_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
             )
+
+            x0_hat_obs = self.H_func.H(x0_hat)
+
+            return (x0_hat_obs, flow_pred)
+
+        # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of shape (d_y,)
+        # so equivalently (∇_x x0_hat) @ H^t @ u
+        h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
+        )
+        # -----------------------------------------
+        # Equation 9 in the TMPD paper, we are viewing the
+        # covariance matrix of p(x_0|x_t) as fixed w.r.t. x_t (this is only an approximation)
+        # so suffice to compute gradient for the scalar term (y-Hx)^t K (y-Hx)
+        # which is (∇_x x0_hat) @ H^t @ (coeff * H @ (∇_x x0_hat) @ H^t + sigma_y^2 I)^{-1} @ (y - Hx)
+        #
+        # Even so, K is still approximated using row sums
+        # namely K ≈ diag (H @ (∇_x x0_hat) @ H^t @ 1 + sigma_y^2 * 1)
+        # -----------------------------------------
+
+        # change this to see the performance change
+        coeff_C_yy = std_t**2 / (alpha_t)
+        # print(coeff_C_yy)
+        # coeff_C_yy = 1.0
+        # coeff_C_yy = std_t / alpha_t
+        # coeff_C_yy = std_t**2 / math.sqrt(alpha_t)
+
+        # C_yy = (
+        #     coeff_C_yy
+        #     * self.H_func.H(
+        #         vjp_estimate_h_x_0(
+        #             self.H_func.H(
+        #                 torch.ones_like(
+        #                     flow_pred
+        #                 )  # why not just torch.ones_like(H_func.H(flow_pred))?
+        #             )  # answer is sparsity? (from Ben Boys)
+        #         )[0]
+        #     )
+        #     + self.noiser.sigma**2
+        # )
+
+        # NOTE: Simply adding the square root changes a lot!
+        # coeff_C_yy = math.sqrt(coeff_C_yy)
+        C_yy = (
+            coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
+            + self.noiser.sigma**2
+        ).clamp(min=1e-6)
+
+        # difference
+        difference = y_obs - h_x_0
+
+        grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
+
+        # print(grad_ll.mean())
+
+        # compute gamma_t scaling, used in Pokle et al. 2024
+        # gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
+
+        # scale gradient for flows
+        # TODO: implement this as derivatives for more generality
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        # print(scaled_grad.mean())
+
+        # clamp to interval
+        if clamp_to is not None:
+            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
             guided_vec = (scaled_grad) + (flow_pred)
         return guided_vec
@@ -255,8 +363,6 @@ class TMPD_fixed_cov(GuidedSampler):
         # return flow_pred
 
 
-
-
 @register_guided_sampler(name="tmpd_exact")
 class TMPD_exact(GuidedSampler):
     def get_guidance(
@@ -375,6 +481,7 @@ class TMPD_exact(GuidedSampler):
             x_0_hat = convert_flow_to_x0(flow_pred, x, alpha_t, std_t, da_dt, dstd_dt)
             h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
 
+            coeff_C_yy = math.sqrt(coeff_C_yy)
             C_yy = (
                 coeff_C_yy
                 * torch.einsum(
@@ -384,7 +491,7 @@ class TMPD_exact(GuidedSampler):
                     self.H_func.H_mat.T,
                 )
                 + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
-            ).sqrt()
+            )
 
             # create distribution instance
             likelihood_distr = torch.distributions.MultivariateNormal(
@@ -445,29 +552,198 @@ class TMPD_exact(GuidedSampler):
             y_obs_chunk = y_obs[i * chunk_size : (i + 1) * chunk_size, :]
 
             tmpd_samples_chunk, _ = self.guided_euler_sampler(
-                y_obs=y_obs_chunk, 
-                clamp_to=None,
-                z=start_z_chunk, 
-                return_list=True
+                y_obs=y_obs_chunk, clamp_to=None, z=start_z_chunk, return_list=True
             )
             tmpd_samples_dict[i] = tmpd_samples_chunk
-            
+
         # make the dictionary into a list by stacking
         tmpd_fixed_cov_samples = []
 
         for i in range(len(tmpd_samples_dict[0])):
             temp = torch.cat(
-                [tmpd_samples_dict[chunk_no][i] for chunk_no in range(num_chunks)], dim=0
+                [tmpd_samples_dict[chunk_no][i] for chunk_no in range(num_chunks)],
+                dim=0,
             )
             tmpd_fixed_cov_samples.append(temp)
-            
+
         # with open("temp/tmpd_fixed_cov_samples.pkl", "wb") as f:
         #     pickle.dump(tmpd_fixed_cov_samples, f)
-            
+
         if return_list:
             return tmpd_fixed_cov_samples
         else:
             return tmpd_fixed_cov_samples[-1]
+
+
+@register_guided_sampler(name="tmpd_d")
+class TMPD_d(GuidedSampler):
+    """The DDPM implementation of the TMPD guidance function."""
+
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        x_t = x_t.clone().detach()
+
+        # print("x_t:", x_t.mean())
+
+        def estimate_h_x_0(x):
+            """assume the model fn is a score model instead of a flow model."""
+            score_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = (1 / alpha_t) * (x + std_t**2 * score_pred)
+
+            x0_hat_obs = self.H_func.H(x0_hat)
+
+            return (x0_hat_obs, score_pred)
+
+        # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of shape (d_y,)
+        # so equivalently (∇_x x0_hat) @ H^t @ u
+        h_x_0, vjp_estimate_h_x_0, score_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
+        )
+
+        # print("score_pred:", score_pred.mean())
+        # print("h_x_0:", h_x_0.mean())
+        # print(
+        #     "vjp_estimate_h_x_0:", vjp_estimate_h_x_0(torch.ones_like(y_obs))[0].mean()
+        # )
+
+        # change this to see the performance change
+        coeff_C_yy = std_t**2 / (alpha_t)
+
+        C_yy = (
+            coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
+            + self.noiser.sigma**2
+        )
+
+        # print("C_yy:", C_yy.mean())
+        
+        # difference
+        difference = y_obs - h_x_0
+        # print("difference:", difference.mean())
+
+        grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
+        # print("grad_ll:", grad_ll.mean())
+
+        # print(grad_ll.mean())
+
+        scaled_grad = grad_ll.detach()
+
+        guided_vec = scaled_grad  # + (x0_hat)
+
+        return guided_vec, score_pred
+        # return score_pred
+
+    def guided_euler_sampler(
+        self, y_obs, z=None, return_list=False, clamp_to=1, **kwargs
+    ):
+        if return_list:
+            samples = []
+
+        # Initial sample
+        with torch.no_grad():
+            if z is None:
+                # default Gaussian latent
+                z0 = self.sde.get_z0(
+                    torch.zeros(self.shape, device=self.device), train=False
+                ).to(self.device)
+                x = z0.detach().clone()
+            else:
+                # latent variable taken to be alpha_t y + sigma_t \epsilon
+                x = z
+
+            model_fn = mutils.get_model_fn(self.model, train=False)
+
+            eps = 1e-3  # default: 1e-3
+
+            for timestep in range(self.sde.sample_N - 1, 0, -1):
+                # sampling steps default to 1000
+                num_t = 1 - (
+                    timestep / self.sde.sample_N * (self.sde.T - eps) + eps
+                )  # scalar time
+
+                m = self.sde.sqrt_alphas_cumprod[timestep]  # sqrt of cumulative alpha_t
+
+                sqrt_1m_alpha = self.sde.sqrt_1m_alphas_cumprod[timestep]
+                v = sqrt_1m_alpha**2
+                alpha = m**2
+                m_prev = self.sde.sqrt_alphas_cumprod_prev[timestep]
+                v_prev = self.sde.sqrt_1m_alphas_cumprod_prev[timestep] ** 2
+                alpha_prev = m_prev**2
+
+
+                # guidance x_0t which is equivalent to the term in Bayesian update
+                alpha_t = m
+                std_t = sqrt_1m_alpha   
+                da_dt = 1.0  # TODO: the whole guidance function can be changed
+                dstd_dt = -1.0  # those two are just placeholders
+                
+                # # getting guidance
+                guidance_vec, score_pred = self.get_guidance(
+                    model_fn,
+                    x,
+                    num_t,
+                    y_obs,
+                    alpha_t,
+                    std_t,
+                    da_dt,
+                    dstd_dt,
+                    clamp_to=clamp_to,
+                    **kwargs,
+                )
+                
+                # getting from network
+                # score_pred_mo = model_fn(x, torch.ones_like(x) * 999 * num_t)
+                noise_pred = -math.sqrt(v) * score_pred
+                
+                # print("score_pred:", score_pred.mean())
+                
+                # x_0 prediction
+                # print(m)
+                x_0 = (x - sqrt_1m_alpha * noise_pred) / m
+
+                x_0 += guidance_vec * (v / m)
+                
+                # uses eta=1.0 as in the paper
+                coeff1 = 1.0 * np.sqrt((v_prev / v) * (1 - alpha / alpha_prev))
+                coeff2 = np.sqrt(v_prev - coeff1**2)
+                
+                x_mean = m_prev * x_0 + coeff2 * noise_pred
+                # print("x_mean:", x_mean.mean())
+                
+                # print(f"After guidance: {x_mean.mean()}")
+                
+                # update x by adding noise
+                std = coeff1
+                x = x_mean + std * torch.randn_like(x_mean)
+                # print(f"New x after noising: {x.mean()}")
+                
+                if return_list:
+                    samples.append(x_mean.detach().clone())
+
+        if return_list:
+            for i in range(len(samples)):
+                samples[i] = self.inverse_scaler(samples[i])
+            nfe = self.sde.sample_N
+            return samples, nfe
+        else:
+            assert x_mean is not None
+            x_mean = self.inverse_scaler(x_mean)
+            nfe = self.sde.sample_N
+            return x_mean, nfe
 
 
 # Below is the code provided by Ben
