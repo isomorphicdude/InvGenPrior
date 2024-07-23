@@ -113,17 +113,10 @@ class H_functions(ABC):
         """
         temp = self.Ut(vec)
           
-        singulars = self.singulars()
-        
-        # check zeros in singulars
-        if (singulars == 0).any():
-            print("singulars", singulars)
-            raise ValueError("Singulars have zeros.")
+        singulars = self.singulars() + 1e-6
         
         temp[:, : singulars.shape[0]] = temp[:, : singulars.shape[0]] / singulars
-        print("after", temp[:, : singulars.shape[0]].mean())
         
-        print("V", self.V(self.add_zeros(temp)).mean())
         return self.V(self.add_zeros(temp))
     
     def get_degraded_image(self, vec):
