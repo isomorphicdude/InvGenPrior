@@ -114,7 +114,7 @@ class H_functions(ABC):
         temp = self.Ut(vec)
           
         singulars = self.singulars()
-        
+        print(singulars)
         # replace zeros by ones
         singulars = torch.where(singulars == 0, torch.ones_like(singulars), singulars)
         
