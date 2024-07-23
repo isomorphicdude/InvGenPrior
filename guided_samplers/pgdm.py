@@ -40,13 +40,15 @@ class PiGDM(GuidedSampler):
                 dstd_dt=dstd_dt,
             )
 
+            print("x0_hat", x0_hat.mean())
             # using the author's implementation with pseudo inverse
             mat = (self.H_func.H_pinv(y_obs) - self.H_func.H_pinv(self.H_func.H(x0_hat))).reshape(x_t.shape[0], -1)
-                
 
             mat_x = (mat.detach() * x0_hat.reshape(x_t.shape[0], -1)).sum()
+            print("mat_x", mat_x.mean())
             
         grad_term = torch.autograd.grad(mat_x, x_t, retain_graph=True)[0]
+        print("grad_term", grad_term.mean())
         
         # time r_t^2
         r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
@@ -58,7 +60,7 @@ class PiGDM(GuidedSampler):
         # print(gamma_t)
         scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
          
-        print(scaled_grad.mean())
+        print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None:
             scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
         
