@@ -44,7 +44,7 @@ def get_config():
     gmm_config.singulars = S
     gmm_config.V_mat = V
 
-    gmm_config.sigma = 0.1
+    gmm_config.sigma = 0.5
     gmm_config.device = 'cpu'
     gmm_config.sampling_eps = 1e-3
     
