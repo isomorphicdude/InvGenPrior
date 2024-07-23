@@ -113,7 +113,10 @@ class H_functions(ABC):
         """
         temp = self.Ut(vec)
           
-        singulars = self.singulars() + 1e-6
+        singulars = self.singulars()
+        
+        # replace zeros by ones
+        singulars = torch.where(singulars == 0, torch.ones_like(singulars), singulars)
         
         temp[:, : singulars.shape[0]] = temp[:, : singulars.shape[0]] / singulars
         
