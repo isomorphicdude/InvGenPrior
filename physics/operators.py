@@ -111,16 +111,23 @@ class H_functions(ABC):
         """
         Multiplies the input vector by the pseudo inverse of H
         """
-        temp = self.Ut(vec)
+        # temp = self.Ut(vec)
           
-        singulars = self.singulars()
-        print(singulars)
-        # replace zeros by ones
-        singulars = torch.where(singulars == 0, torch.ones_like(singulars), singulars)
+        # singulars = self.singulars()
+        # print(singulars)
+        # # replace zeros by ones
+        # singulars = torch.where(singulars == 0, torch.ones_like(singulars), singulars)
         
-        temp[:, : singulars.shape[0]] = temp[:, : singulars.shape[0]] / singulars
+        # temp[:, : singulars.shape[0]] = temp[:, : singulars.shape[0]] / singulars
         
-        return self.V(self.add_zeros(temp))
+        # return self.V(self.add_zeros(temp))
+        temp = self.Ut(vec)  # (b, m) - > (b, m)
+        singulars = self.singulars()  # (mxm, )
+        # temp[:, :singulars.shape[0]] = temp[:, :singulars.shape[0]] / singulars
+        nonzero_idx = singulars.nonzero().flatten()
+        temp[:, nonzero_idx] = temp[:, nonzero_idx] / singulars[nonzero_idx]
+
+        # return self.V(self.add_zeros(temp))
     
     def get_degraded_image(self, vec):
         """
