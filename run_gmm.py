@@ -105,7 +105,8 @@ def create_samples(
     start_z = torch.randn(num_samples, gmm_config.dim)
 
     # list of methods
-    methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_exact"]
+    # methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_exact"]
+    methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_og"]
 
     # samples dictionary
     samples_dict = {method_name: None for method_name in methods}
@@ -145,7 +146,7 @@ def create_samples(
 
 
 def visualise_experiment(
-    config, return_list=True, plot=True, num_samples=1000, seed=2107
+    config, return_list=True, plot=True, num_samples=1000, seed=123
 ):
     """
     Plots the samples and store the GIFs.
@@ -183,21 +184,21 @@ def visualise_experiment(
                         sample = samples[i]
 
                         axs[j].clear()
-                        axs[j].scatter(
-                            sample[:, 0],
-                            sample[:, 1],
-                            alpha=0.3,
-                            s=10,
-                            label=name.upper(),
-                        )
                         # also plot the true posterior
                         axs[j].scatter(
                             samples_dict["true_posterior"][:, 0],
                             samples_dict["true_posterior"][:, 1],
-                            alpha=0.3,
+                            alpha=0.2,
                             s=10,
                             color="orange",
                             label="True Posterior",
+                        )
+                        axs[j].scatter(
+                            sample[:, 0],
+                            sample[:, 1],
+                            alpha=0.2,
+                            s=10,
+                            label=name.upper(),
                         )
                         axs[j].set_title(f"{name.upper()} time step {i}")
                         axs[j].set_xlim(-20, 20)
@@ -234,17 +235,17 @@ def visualise_experiment(
                         axs[j].legend()
                     else:
                         sample = samples[i]
-                        axs[j].scatter(
-                            sample[:, 0], sample[:, 1], alpha=0.5, s=10, label=name.upper()
-                        )
                         # also plot the true posterior
                         axs[j].scatter(
                             samples_dict["true_posterior"][:, 0],
                             samples_dict["true_posterior"][:, 1],
-                            alpha=0.5,
+                            alpha=0.3,
                             s=10,
                             color="orange",
                             label="True Posterior",
+                        )
+                        axs[j].scatter(
+                            sample[:, 0], sample[:, 1], alpha=0.5, s=10, label=name.upper()
                         )
                         axs[j].set_title(f"{name.upper()} time step {i}")
                         axs[j].set_xlim(-20, 20)
@@ -284,7 +285,7 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
 
     results_dict = {name: {
         tup: [] for tup in product_list
-    } for name in ["tmpd", "pgdm", "dps", "reddiff"]}
+    } for name in ["tmpd", "pgdm", "dps", "reddiff"]} #NOTE: add "tmpd_exact" if needed
 
 
     # to compute the confidence intervals
@@ -363,7 +364,7 @@ def main(argv):
     # visualise the samples
     if FLAGS.visualise:
         visualise_experiment(
-            FLAGS.config, return_list=True, plot=FLAGS.plot, num_samples=1000, seed=42
+            FLAGS.config, return_list=True, plot=FLAGS.plot, num_samples=1000, seed=42 # change to 10
         )
         
     # run the experiment
