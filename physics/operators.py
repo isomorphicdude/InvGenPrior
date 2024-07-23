@@ -127,7 +127,7 @@ class H_functions(ABC):
         nonzero_idx = singulars.nonzero().flatten()
         temp[:, nonzero_idx] = temp[:, nonzero_idx] / singulars[nonzero_idx]
 
-        # return self.V(self.add_zeros(temp))
+        return self.V(self.add_zeros(temp))
     
     def get_degraded_image(self, vec):
         """
