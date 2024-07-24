@@ -78,7 +78,8 @@ class H_functions(ABC):
     @abstractmethod
     def singulars(self):
         """
-        Returns a vector containing the singular values. The shape of the vector should be the same as the smaller dimension (like U)
+        Returns a vector containing the singular values. 
+        The shape of the vector should be the same as the smaller dimension (like U)
         """
         raise NotImplementedError()
 
@@ -128,6 +129,29 @@ class H_functions(ABC):
         temp[:, nonzero_idx] = temp[:, nonzero_idx] / singulars[nonzero_idx]
 
         return self.V(self.add_zeros(temp))
+    
+    def HHt_inv(self, vec, r_t_2 = 1.0, sigma_y_2 = 1.0):
+        """
+        Multiplies the vector v by (H @ H^T)^{-1}.
+        assuming vec of dim (B, d_y)
+        
+        Args:  
+            - vec (torch.Tensor): The vector to multiply. (B, d_y)
+            - r_t_2 (float): The ratio of the noise variance to the signal variance.
+            - sigma_y_2 (float): The noise variance, sigma_y^2.
+        """
+        singulars = self.singulars()
+        assert vec.shape[1] == singulars.shape[0]
+        
+        # compute U^T @ vec
+        temp = self.Ut(vec)
+        modified_singulars = r_t_2 * (singulars**2) + sigma_y_2
+        nonzero_idx = modified_singulars.nonzero().flatten()
+        temp[:, nonzero_idx] = temp[:, nonzero_idx] / modified_singulars[nonzero_idx]
+        
+        return self.U(temp)
+        
+        
     
     def get_degraded_image(self, vec):
         """
