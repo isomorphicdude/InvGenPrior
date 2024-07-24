@@ -37,11 +37,9 @@ from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 def create_and_compare(config, workdir, data_index = 53):
 
     # create a different config for each sampler
-    configs_copies = {
-        sampler_name: None
-        for sampler_name in __GUIDED_SAMPLERS__
-        if sampler_name not in ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]
-    }
+    ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]
+    config_keys = [sampler_name for sampler_name in __GUIDED_SAMPLERS__ if sampler_name not in ignore_list]
+    configs_copies = {sampler_name: None for sampler_name in config_keys}
 
     logging.info("Creating configs for each sampler")
     print("Available samplers: ", list(configs_copies.keys()))
@@ -148,7 +146,7 @@ def create_and_compare(config, workdir, data_index = 53):
         current_config = configs_copies[sampler_name]
         logging.info(f"Sampling using {current_config.sampling.gudiance_method} guided sampler.")
         guided_sampler = get_guided_sampler(
-            name=sampler_name,
+            name=current_config.sampling.gudiance_method,
             model=score_model,
             sde=sde,
             shape=sampling_shape,
@@ -159,7 +157,7 @@ def create_and_compare(config, workdir, data_index = 53):
             sampling_eps=sampling_eps,
         )
         # dumping the config setting into a txt
-        with open(os.path.join(eval_dir, f"{sampler_name}_config.txt"), "w") as f:
+        with open(os.path.join(eval_dir, f"{current_config.sampling.gudiance_method}_config.txt"), "w") as f:
             f.write(f"{current_config}")
             
         # run the sampler
