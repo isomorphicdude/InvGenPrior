@@ -240,6 +240,8 @@ def main(argv):
     logger.setLevel("INFO")
     
     # run
+    torch.manual_seed(0)
+    np.random.seed(0)
     create_and_compare(
         FLAGS.config,
         FLAGS.workdir,
