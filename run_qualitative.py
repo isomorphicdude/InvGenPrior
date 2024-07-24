@@ -40,17 +40,17 @@ def create_and_compare(config, workdir, data_index = 53):
     ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]
     config_keys = [sampler_name for sampler_name in __GUIDED_SAMPLERS__ if sampler_name not in ignore_list]
     print("Available samplers: ", config_keys)
+    
     configs_copies = {sampler_name: None for sampler_name in config_keys}
 
     logging.info("Creating configs for each sampler")
     print("Available samplers: ", list(configs_copies.keys()))
+    
     for sampler_name in config_keys:
         print(f"Creating config for {sampler_name}")
         new_config = ml_collections.ConfigDict()
         new_config = config
         new_config.sampling.guidance_method = sampler_name
-        
-        print(new_config.sampling.guidance_method)
         
         if sampler_name == "reddiff":
             new_config.sampling.clamp_to = None
@@ -70,6 +70,7 @@ def create_and_compare(config, workdir, data_index = 53):
         transform=None,  # overridden by child class
     )
     logging.info(f"Using dataset {config.data.name}.")
+    data_index = int(data_index)
     logging.info(f"Sampling imge number {data_index}.")
 
     # scaler and inverse ([-1, 1] and [0, 1])
@@ -143,33 +144,24 @@ def create_and_compare(config, workdir, data_index = 53):
     
     # common initializations
     start_z = torch.randn(sampling_shape).to(config.device)
-    
-    
-    #check if update is successful
-    for sampler_name in configs_copies.keys():
-        print("Checking if update is successful")
-        print(configs_copies[sampler_name].sampling.guidance_method)
 
     for sampler_name in configs_copies.keys():
-        # get individual config
-        current_config = configs_copies[sampler_name]
-        print(current_config.sampling.guidance_method)
-        logging.info(f"Sampling using {current_config.sampling.gudiance_method} guided sampler.")
+        logging.info(f"Sampling using {sampler_name} guided sampler.")
         
         guided_sampler = get_guided_sampler(
-            name=current_config.sampling.gudiance_method,
+            name=sampler_name,
             model=score_model,
             sde=sde,
             shape=sampling_shape,
             inverse_scaler=inverse_scaler,
             H_func=H_func,
             noiser=noiser,
-            device=current_config.device,
+            device=config.device,
             sampling_eps=sampling_eps,
         )
         # dumping the config setting into a txt
-        with open(os.path.join(eval_dir, f"{current_config.sampling.gudiance_method}_config.txt"), "w") as f:
-            f.write(f"{current_config}")
+        with open(os.path.join(eval_dir, f"{sampler_name}_config.txt"), "w") as f:
+            f.write(f"{sampler_name}")
             
         # run the sampler
         score_model.eval()
@@ -179,12 +171,17 @@ def create_and_compare(config, workdir, data_index = 53):
         y_obs = y_obs.clone().detach()
         
         # pass to guided sampler
+        if sampler_name == "reddiff":
+            clamp_to = None
+        else:
+            clamp_to = 1.0
+               
         current_sample = guided_sampler.sample(
             y_obs=y_obs,
             z=start_z,  # maybe can use latent encoding
             return_list=False,
             method=config.sampling.use_ode_sampler,  # euler by default
-            clamp_to=config.sampling.clamp_to,
+            clamp_to=clamp_to,
             starting_time=config.sampling.starting_time,
         )
         
@@ -218,7 +215,7 @@ config_flags.DEFINE_config_file(
     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 )
 
-# flags.DEFINE_integer("data_index", 53, "Index of the data to sample.")
+flags.DEFINE_integer("data_index", 53, "Index of the data to sample.")
 
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
@@ -247,7 +244,7 @@ def main(argv):
     create_and_compare(
         FLAGS.config,
         FLAGS.workdir,
-        data_index=53,
+        data_index=FLAGS.data_index,
     )
 
 
