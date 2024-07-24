@@ -43,7 +43,7 @@ def create_and_compare(config, workdir, data_index = 53):
 
     logging.info("Creating configs for each sampler")
     print("Available samplers: ", list(configs_copies.keys()))
-    for sampler_name in __GUIDED_SAMPLERS__:
+    for sampler_name in config_keys:
         # if sampler_name in ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]:
         #     # skip these samplers for now
         #     continue
@@ -145,6 +145,7 @@ def create_and_compare(config, workdir, data_index = 53):
         # get individual config
         current_config = configs_copies[sampler_name]
         logging.info(f"Sampling using {current_config.sampling.gudiance_method} guided sampler.")
+        
         guided_sampler = get_guided_sampler(
             name=current_config.sampling.gudiance_method,
             model=score_model,
