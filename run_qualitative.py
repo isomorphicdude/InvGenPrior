@@ -136,7 +136,7 @@ def create_and_compare(config, workdir, data_index = 53):
 
     # shared
     sampling_shape = (
-        config.sampling.batch_size,
+        1,
         config.data.num_channels,
         config.data.image_size,
         config.data.image_size,
