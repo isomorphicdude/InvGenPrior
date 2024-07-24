@@ -209,6 +209,8 @@ config_flags.DEFINE_config_file(
     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 )
 
+flags.DEFINE_integer("data_index", 53, "Index of the data to sample.")
+
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
 flags.DEFINE_string(
@@ -231,6 +233,13 @@ def main(argv):
     logger = logging.getLogger()
     logger.addHandler(handler)
     logger.setLevel("INFO")
+    
+    # run
+    create_and_compare(
+        FLAGS.config,
+        FLAGS.workdir,
+        data_index=FLAGS.data_index,
+    )
 
 
 if __name__ == "__main__":
