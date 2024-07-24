@@ -71,7 +71,7 @@ def create_and_compare(config, workdir, data_index = 53):
     )
     logging.info(f"Using dataset {config.data.name}.")
     data_index = int(data_index)
-    logging.info(f"Sampling imge number {data_index}.")
+    logging.info(f"Sampling image number {data_index}.")
 
     # scaler and inverse ([-1, 1] and [0, 1])
     scaler = lmdb_dataset.get_data_scaler(config)
@@ -165,7 +165,6 @@ def create_and_compare(config, workdir, data_index = 53):
             
         # run the sampler
         score_model.eval()
-        logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
         
         start_time = time.time()
         y_obs = y_obs.clone().detach()
@@ -204,7 +203,7 @@ def create_and_compare(config, workdir, data_index = 53):
     axs[1].set_title("Degraded Image")
     for i, sampler_name in enumerate(configs_copies.keys()):
         axs[i+2].imshow(plt.imread(os.path.join(eval_dir, f"{sampler_name}_sample.png")))
-        axs[i+2].set_title(f"{sampler_name} Sample")
+        axs[i+2].set_title(f"{sampler_name.upper()} Sample")
         
     plt.savefig(os.path.join(eval_dir, "comparison.png"))
         
