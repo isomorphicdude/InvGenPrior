@@ -40,8 +40,7 @@ def create_and_compare(config, workdir, data_index = 53):
     configs_copies = {
         sampler_name: None
         for sampler_name in __GUIDED_SAMPLERS__
-        and sampler_name
-        not in ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]
+        if sampler_name not in ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]
     }
 
     logging.info("Creating configs for each sampler")
