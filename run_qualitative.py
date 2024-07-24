@@ -69,7 +69,7 @@ def create_and_compare(config, workdir, data_index = 53):
         transform=None,  # overridden by child class
     )
     logging.info(f"Using dataset {config.data.name}.")
-    logging.info("Sampling the index: ", data_index)
+    logging.info(f"Sampling imge number {data_index}.")
 
     # scaler and inverse ([-1, 1] and [0, 1])
     scaler = lmdb_dataset.get_data_scaler(config)
@@ -113,9 +113,7 @@ def create_and_compare(config, workdir, data_index = 53):
     
     # get the image
     true_img = dset[data_index][0]
-    print(true_img.shape)
-    print(true_img.min(), true_img.max())
-    print(true_img)
+    true_img = true_img.unsqueeze(0)
     true_img = true_img.to(config.device)
     
     # save true image
