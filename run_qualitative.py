@@ -143,10 +143,17 @@ def create_and_compare(config, workdir, data_index = 53):
     
     # common initializations
     start_z = torch.randn(sampling_shape).to(config.device)
+    
+    
+    #check if update is successful
+    for sampler_name in configs_copies.keys():
+        print("Checking if update is successful")
+        print(configs_copies[sampler_name].sampling.guidance_method)
 
     for sampler_name in configs_copies.keys():
         # get individual config
         current_config = configs_copies[sampler_name]
+        print(current_config.sampling.guidance_method)
         logging.info(f"Sampling using {current_config.sampling.gudiance_method} guided sampler.")
         
         guided_sampler = get_guided_sampler(
