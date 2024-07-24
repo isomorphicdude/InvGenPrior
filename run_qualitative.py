@@ -39,6 +39,7 @@ def create_and_compare(config, workdir, data_index = 53):
     # create a different config for each sampler
     ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]
     config_keys = [sampler_name for sampler_name in __GUIDED_SAMPLERS__ if sampler_name not in ignore_list]
+    print("Available samplers: ", config_keys)
     configs_copies = {sampler_name: None for sampler_name in config_keys}
 
     logging.info("Creating configs for each sampler")
