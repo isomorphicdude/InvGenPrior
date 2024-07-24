@@ -47,7 +47,7 @@ def create_and_compare(config, workdir, data_index = 53):
     for sampler_name in config_keys:
         print(f"Creating config for {sampler_name}")
         new_config = ml_collections.ConfigDict()
-        new_config.update(config)
+        new_config = config.copy()
         new_config.sampling.guidance_method = sampler_name
         
         print(new_config.sampling.guidance_method)
