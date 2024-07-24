@@ -44,7 +44,7 @@ def create_and_compare(config, workdir, data_index = 53):
     }
 
     logging.info("Creating configs for each sampler")
-    logging.info("Available samplers: ", configs_copies.keys())
+    logging.info("Available samplers: ", list(configs_copies.keys()))
     for sampler_name in __GUIDED_SAMPLERS__:
         # if sampler_name in ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]:
         #     # skip these samplers for now
@@ -112,7 +112,7 @@ def create_and_compare(config, workdir, data_index = 53):
     noiser = get_noise(name=config.degredation.noiser, config=config.degredation)
     
     # get the image
-    true_img = dset[data_index]
+    true_img = dset[data_index][0]
     true_img = true_img.to(config.device)
     
     # save true image
