@@ -146,8 +146,9 @@ def create_and_compare(config, workdir, data_index = 53):
     for sampler_name in configs_copies.keys():
         # get individual config
         current_config = configs_copies[sampler_name]
+        logging.info(f"Sampling using {current_config.sampling.gudiance_method} guided sampler.")
         guided_sampler = get_guided_sampler(
-            name=current_config.sampling.gudiance_method,
+            name=sampler_name,
             model=score_model,
             sde=sde,
             shape=sampling_shape,
@@ -163,7 +164,6 @@ def create_and_compare(config, workdir, data_index = 53):
             
         # run the sampler
         score_model.eval()
-        logging.info(f"Using {sampler_name} guided sampler.")
         logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
         
         start_time = time.time()
