@@ -45,14 +45,16 @@ def create_and_compare(config, workdir, data_index = 53):
     logging.info("Creating configs for each sampler")
     print("Available samplers: ", list(configs_copies.keys()))
     for sampler_name in config_keys:
-        # if sampler_name in ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]:
-        #     # skip these samplers for now
-        #     continue
+        print(f"Creating config for {sampler_name}")
         new_config = ml_collections.ConfigDict()
         new_config.update(config)
         new_config.sampling.guidance_method = sampler_name
+        
+        print(new_config.sampling.guidance_method)
+        
         if sampler_name == "reddiff":
             new_config.sampling.clamp_to = None
+            
         configs_copies[sampler_name] = new_config
 
     # create a folder for saving the results
