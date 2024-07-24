@@ -44,7 +44,7 @@ def create_and_compare(config, workdir, data_index = 53):
     }
 
     logging.info("Creating configs for each sampler")
-    logging.info("Available samplers: ", list(configs_copies.keys()))
+    print("Available samplers: ", list(configs_copies.keys()))
     for sampler_name in __GUIDED_SAMPLERS__:
         # if sampler_name in ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]:
         #     # skip these samplers for now
@@ -113,6 +113,9 @@ def create_and_compare(config, workdir, data_index = 53):
     
     # get the image
     true_img = dset[data_index][0]
+    print(true_img.shape)
+    print(true_img.min(), true_img.max())
+    print(true_img)
     true_img = true_img.to(config.device)
     
     # save true image
@@ -208,7 +211,7 @@ config_flags.DEFINE_config_file(
     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 )
 
-flags.DEFINE_integer("data_index", 53, "Index of the data to sample.")
+# flags.DEFINE_integer("data_index", 53, "Index of the data to sample.")
 
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
@@ -237,7 +240,7 @@ def main(argv):
     create_and_compare(
         FLAGS.config,
         FLAGS.workdir,
-        data_index=FLAGS.data_index,
+        data_index=53,
     )
 
 
