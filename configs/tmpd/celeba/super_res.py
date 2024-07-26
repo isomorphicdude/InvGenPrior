@@ -32,21 +32,19 @@ def get_config():
     config.degredation = degredation = ml_collections.ConfigDict()
     degredation.name = "super_resolution"
     degredation.task_name = degredation.name
-    degredation.channels = 3
-    degredation.img_dim = 256
-    degredation.noiser = "gaussian"
-    # degredation.sigma = 0.05
+    degredation.channels = config.data.num_channels
+    degredation.img_dim = config.data.image_size
+    degredation.noiser = config.sampling.degredation_noiser
     degredation.sigma = config.sampling.degredation_sigma
     degredation.device = config.device
-    degredation.ratio = 4 # super resolution ratio
+    
+    # super resolution ratio
+    degredation.ratio = 4 
     
     # sampling config
     sampling = config.sampling
     sampling.gudiance_method = "tmpd"
-    sampling.use_ode_sampler = "euler"
     sampling.clamp_to = 1 # gradient clipping
-    sampling.batch_size = 2 
-    sampling.sample_N = 50
     
     return config
     

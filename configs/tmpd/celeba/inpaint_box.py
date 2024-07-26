@@ -32,10 +32,9 @@ def get_config():
     config.degredation = degredation = ml_collections.ConfigDict()
     degredation.name = "inpainting"
     degredation.task_name = "inpainting_box"
-    degredation.channels = 3
-    degredation.img_dim = 256
-    degredation.noiser = "gaussian"
-    # degredation.sigma = 0.05
+    degredation.channels = config.data.num_channels
+    degredation.img_dim = config.data.image_size
+    degredation.noiser = config.sampling.degredation_noiser
     degredation.sigma = config.sampling.degredation_sigma
     degredation.device = config.device
     
@@ -46,13 +45,8 @@ def get_config():
     # sampling config
     sampling = config.sampling
     sampling.gudiance_method = "tmpd"
-    sampling.use_ode_sampler = "euler"
     sampling.clamp_to = 1 # gradient clipping for the guidance
-    sampling.batch_size = 2
-    sampling.sample_N = 50 # NOTE: tune this
-    sampling.sigma_variance = 1.0 # NOTE: tune this add noise and denoise?
-    # does flow models denoise? can it go off the data manifold?
-    sampling.starting_time = 0
+    
     return config
     
     

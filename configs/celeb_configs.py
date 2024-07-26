@@ -37,11 +37,22 @@ def get_config():
     sampling.method = "rectified_flow"
     sampling.init_type = "gaussian"
     sampling.init_noise_scale = 1.0
-    sampling.use_ode_sampler = "rk45"
+    
+    # configure the guided sampler for inverse problems
+    sampling.use_ode_sampler = "euler" # changed for inverse problems
     sampling.batch_size = 1
+    
+    # sampling starting time, 0.2, 0.4 in the paper
     sampling.starting_time = 0
-    # sampling.gudiance_method = "tmpd" # newly added for inverseproblems
+    # noise to add during sampling
+    sampling.sigma_variance = 1.0 # NOTE: tune this add noise and denoise?
+    
+    # number of steps to run the sampler
+    sampling.sample_N = 50 # NOTE: tune this
+    
+    # inverse problem settings
     sampling.degredation_sigma = 0.1
+    sampling.degredation_noiser = "gaussian"
     
     # data
     data = config.data
