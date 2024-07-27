@@ -60,21 +60,20 @@ class GMM(object):
             validate_args=False,
         )
 
-    def prior_distr_t(self, a_t, std_t = None):
+    def prior_distr_t(self, t):
         """
         Returns the prior distribution at time t, which is a mixture
         of Gaussians with degraded mean and unit variance.
 
         Args:
-            - a_t (torch.Tensor): the degredation in N(x_t; a_t x_0, std_t I)
-            in the forward process.
-            - std_t (torch.Tensor): the standard deviation of the Gaussian
+            - t (float): the discretized time step.
 
         NOTE: the a_t coeff in DDPM/IM is the square root of alpha_t while
         it is just t in rectified flows.
         """
-        if std_t is None:
-            std_t = 1 - a_t
+        a_t = self.sde.alpha_t(t)
+        std_t = self.sde.std_t(t)
+        
         component_t = torch.distributions.MultivariateNormal(
             loc=a_t * self.means,
             covariance_matrix=torch.eye(self.dim).repeat(self.n_components, 1, 1) * (a_t**2 + std_t**2),
@@ -95,11 +94,8 @@ class GMM(object):
             - t (float): the discretized time step.
         """
 
-        a_t = self.sde.alpha_t(t)
-        std_t = self.sde.std_t(t)
-
         def p_t(x):
-            return self.prior_distr_t(a_t, std_t=std_t).log_prob(x).sum()
+            return self.prior_distr_t(t).log_prob(x).sum()
 
         score = torch.func.grad(p_t)(x_t)
         
@@ -210,8 +206,8 @@ class GMM(object):
     def sample_from_prior(self, n_samples):
         return self.prior_distr.sample((n_samples,))
 
-    def sample_from_prior_t(self, n_samples, a_t):
-        return self.prior_distr_t(a_t).sample((n_samples,))
+    def sample_from_prior_t(self, n_samples, t):
+        return self.prior_distr_t(t).sample((n_samples,))
 
     def plot_prior(self, ax, n_samples, dims_tuple=(0, 1)):
         """
@@ -239,13 +235,13 @@ class GMM(object):
         ax.set_title("Posterior samples")
         
 
-    def plot_prior_t(self, n_samples, a_t, dims_tuple=(0, 1)):
-        samples = self.sample_from_prior_t(n_samples, a_t)
-        plt.scatter(
+    def plot_prior_t(self, ax, n_samples, t, dims_tuple=(0, 1)):
+        samples = self.sample_from_prior_t(n_samples, t)
+        ax.scatter(
             samples[:, dims_tuple[0]], samples[:, dims_tuple[1]], s=10, alpha=0.5
         )
-        plt.title("Prior samples at time t")
-        plt.show()
+        ax.set_title("Prior samples at t = {}".format(t))
+        
         
     def sample_from_posterior(self, n_samples, y_obs, H_mat, sigma_y):
         samples = self.get_posterior(y_obs, H_mat, sigma_y).sample((n_samples,))
