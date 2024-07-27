@@ -49,6 +49,7 @@ def get_config():
     
     # number of steps to run the sampler
     sampling.sample_N = 50 # NOTE: tune this
+    sampling.clamp_to = 1.0 # gradient clipping for the guidance
     
     # inverse problem settings
     sampling.degredation_sigma = 0.1
