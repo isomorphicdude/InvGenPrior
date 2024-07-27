@@ -39,7 +39,6 @@ class RectifiedFlow:
         self.da_dt = lambda t: 1.0
 
         print("Init. Distribution Variance:", self.noise_scale)
-        print("SDE Sampler Variance:", sigma_var)
         print("ODE Tolerence:", self.ode_tol)
         print("Sampling sigma_var: {}".format(sigma_var))
 
