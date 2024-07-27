@@ -81,8 +81,12 @@ class PiGDM(GuidedSampler):
         grad_term = grad_term.detach()
         
         # compute gamma_t scaling
-        gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
-        # gamma_t = 1.0
+        # only use for images but not GMM example
+        # (using OT path)
+        if len(y_obs.shape) > 2:
+            gamma_t = 1.0
+        else:
+            gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
         
         # print(gamma_t)
         scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
