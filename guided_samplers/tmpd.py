@@ -88,12 +88,12 @@ class TMPD(GuidedSampler):
         coeff_C_yy = std_t**2 / (alpha_t)
 
         # NOTE: Simply adding the square root changes a lot!
-        # coeff_C_yy = math.sqrt(coeff_C_yy)
+        coeff_C_yy = math.sqrt(coeff_C_yy)
 
         C_yy = (
             coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
             + self.noiser.sigma**2
-        ).clamp(min=1e-3)
+        ).clamp(min=1e-6)
         # C_yy = (
         #     coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(
         #         self.H_func.H(torch.ones_like(flow_pred))
