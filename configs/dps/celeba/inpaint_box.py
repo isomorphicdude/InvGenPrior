@@ -45,7 +45,7 @@ def get_config():
     # sampling config
     sampling = config.sampling
     sampling.gudiance_method = "dps"
-    sampling.clamp_to = 1 # gradient clipping for the guidance
+    # sampling.clamp_to = 1 # gradient clipping for the guidance
     
     return config
     
