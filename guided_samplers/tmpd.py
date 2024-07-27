@@ -52,7 +52,7 @@ class TMPD(GuidedSampler):
 
         x_t = x_t.clone().detach()
         
-        print("Clamp to:", clamp_to)
+        # print("Clamp to:", clamp_to)
 
         def estimate_h_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
