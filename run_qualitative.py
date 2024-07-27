@@ -161,7 +161,7 @@ def create_and_compare(config, workdir, data_index = 53):
         )
         # dumping the config setting into a txt
         with open(os.path.join(eval_dir, f"{sampler_name}_config.txt"), "w") as f:
-            f.write(config)
+            f.write(f"{config}\n")
             
         # run the sampler
         score_model.eval()
