@@ -93,7 +93,7 @@ class TMPD(GuidedSampler):
         C_yy = (
             coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
             + self.noiser.sigma**2
-        ).clamp(min=1e-6)
+        ).clamp(min=1e-3)
         # C_yy = (
         #     coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(
         #         self.H_func.H(torch.ones_like(flow_pred))
@@ -123,6 +123,7 @@ class TMPD(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None:
+            print(scaled_grad.mean())
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
             guided_vec = (scaled_grad) + (flow_pred)
