@@ -90,15 +90,15 @@ class TMPD(GuidedSampler):
         # NOTE: Simply adding the square root changes a lot!
         # coeff_C_yy = math.sqrt(coeff_C_yy)
         
-        C_yy = (
-            coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
-            + self.noiser.sigma**2
-        )
-        
         # C_yy = (
-        #     coeff_C_yy * torch.ones_like(y_obs)
+        #     coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
         #     + self.noiser.sigma**2
         # )
+        
+        C_yy = (
+            coeff_C_yy * torch.ones_like(y_obs)
+            + self.noiser.sigma**2
+        )
         # print(C_yy.mean())
 
         # difference
