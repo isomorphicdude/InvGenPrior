@@ -48,7 +48,7 @@ def get_config():
     sampling.sigma_variance = 1.0 # NOTE: tune this add noise and denoise?
     
     # number of steps to run the sampler
-    sampling.sample_N = 100 # NOTE: tune this
+    sampling.sample_N = 50 # NOTE: tune this
     sampling.clamp_to = 1.0 # gradient clipping for the guidance
     
     # inverse problem settings
