@@ -37,7 +37,7 @@ from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 def create_and_compare(config, workdir, data_index = 53):
 
     # create a different config for each sampler
-    ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d"]
+    ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d", "tmpd_cd"]
     config_keys = [sampler_name for sampler_name in __GUIDED_SAMPLERS__ if sampler_name not in ignore_list]
     print("Available samplers: ", config_keys)
     
@@ -161,7 +161,7 @@ def create_and_compare(config, workdir, data_index = 53):
         )
         # dumping the config setting into a txt
         with open(os.path.join(eval_dir, f"{sampler_name}_config.txt"), "w") as f:
-            f.write(f"{sampler_name}")
+            f.write(config)
             
         # run the sampler
         score_model.eval()
