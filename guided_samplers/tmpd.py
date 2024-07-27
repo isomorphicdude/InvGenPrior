@@ -89,6 +89,8 @@ class TMPD(GuidedSampler):
 
         # NOTE: Simply adding the square root changes a lot!
         coeff_C_yy = math.sqrt(coeff_C_yy)
+        
+        coeff_C_yy = 1.0
 
         C_yy = (
             coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
@@ -115,11 +117,12 @@ class TMPD(GuidedSampler):
         # print(grad_ll.mean())
 
         # compute gamma_t scaling, used in Pokle et al. 2024
-        # gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
+        gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
+        # gamma_t = 1.0
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
 
         # clamp to interval
         if clamp_to is not None:
