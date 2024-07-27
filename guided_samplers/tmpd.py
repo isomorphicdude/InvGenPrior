@@ -51,8 +51,6 @@ class TMPD(GuidedSampler):
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
         x_t = x_t.clone().detach()
-        
-        # print("Clamp to:", clamp_to)
 
         def estimate_h_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
@@ -90,19 +88,19 @@ class TMPD(GuidedSampler):
         coeff_C_yy = std_t**2 / (alpha_t)
 
         # NOTE: Simply adding the square root changes a lot!
-        coeff_C_yy = math.sqrt(coeff_C_yy)
-        
+        # coeff_C_yy = math.sqrt(coeff_C_yy)
+
         C_yy = (
             coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
             + self.noiser.sigma**2
-        )
+        ).clamp(min=1e-4)
         # C_yy = (
         #     coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(
         #         self.H_func.H(torch.ones_like(flow_pred))
         #         )[0])
         #     + self.noiser.sigma**2
         # )
-        
+
         # C_yy = (
         #     coeff_C_yy * torch.ones_like(y_obs)
         #     + self.noiser.sigma**2
@@ -128,7 +126,7 @@ class TMPD(GuidedSampler):
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
             guided_vec = (scaled_grad) + (flow_pred)
-            
+
         return guided_vec
         # return flow_pred
 
@@ -185,7 +183,7 @@ class TMPD_cd(GuidedSampler):
         )
 
         coeff_C_yy = std_t**2 / (alpha_t)
-        
+
         coeff_C_yy = math.sqrt(coeff_C_yy)
 
         C_yy = (
@@ -195,7 +193,7 @@ class TMPD_cd(GuidedSampler):
 
         # difference
         difference = y_obs - h_x_0
-        
+
         grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
 
         # NOTE: here we follow the discrete guidance in DDPM
@@ -215,7 +213,7 @@ class TMPD_cd(GuidedSampler):
         if clamp_to is not None:
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to)
         else:
-            guided_vec = (scaled_grad)
+            guided_vec = scaled_grad
 
         return guided_vec, x0_hat_pred
 
@@ -271,11 +269,13 @@ class TMPD_cd(GuidedSampler):
                     clamp_to=clamp_to,
                     **kwargs,
                 )
-                
+
                 # forming a new vector field, parametrised by x0_hat_pred
                 updated_x0 = x0_hat_pred + guided_vec
-                
-                updated_guided_vec = da_dt * updated_x0 + dstd_dt * (x - alpha_t * updated_x0) / std_t
+
+                updated_guided_vec = (
+                    da_dt * updated_x0 + dstd_dt * (x - alpha_t * updated_x0) / std_t
+                )
 
                 print(updated_guided_vec.mean())
                 x = (
@@ -503,7 +503,7 @@ class TMPD_fixed_cov(GuidedSampler):
             C_yy,
             difference,
         )  # (B, d_y)
-        
+
         # C_yy_diff = difference / torch.diag(C_yy).reshape(-1, 1)
 
         # (B, D, D) @ (D, d_y) @ (B, d_y) -> (B, D)
@@ -667,9 +667,17 @@ class TMPD_exact(GuidedSampler):
             #     loc=h_x_0, covariance_matrix=C_yy,
             #     validate_args=False
             # )
-            
-            log_likelihood = -1 * (self.H_func.H_mat.shape[0] / 2) * math.log(2*math.pi) - 0.5 * torch.einsum(
-                    "bi, bi -> b", y_obs - h_x_0, torch.linalg.solve(C_yy, y_obs - h_x_0)) - 0.5 * torch.linalg.slogdet(C_yy)[1]
+
+            log_likelihood = (
+                -1 * (self.H_func.H_mat.shape[0] / 2) * math.log(2 * math.pi)
+                - 0.5
+                * torch.einsum(
+                    "bi, bi -> b",
+                    y_obs - h_x_0,
+                    torch.linalg.solve(C_yy, y_obs - h_x_0),
+                )
+                - 0.5 * torch.linalg.slogdet(C_yy)[1]
+            )
 
             # only single sample (no sum over batch dimension)
             # log_likelihood = likelihood_distr.log_prob(y_obs)
