@@ -45,14 +45,14 @@ def get_config():
     # sampling starting time, 0.2, 0.4 in the paper
     sampling.starting_time = 0
     # noise to add during sampling
-    sampling.sigma_variance = 1.0 # NOTE: tune this add noise and denoise?
+    sampling.sigma_variance = 0.0 # NOTE: tune this add noise and denoise?
     
     # number of steps to run the sampler
     sampling.sample_N = 50 # NOTE: tune this
-    sampling.clamp_to = 1.0 # gradient clipping for the guidance
+    sampling.clamp_to = 1 # gradient clipping for the guidance
     
     # inverse problem settings
-    sampling.degredation_sigma = 0.0
+    sampling.degredation_sigma = 0.1
     sampling.degredation_noiser = "gaussian"
     
     # data
