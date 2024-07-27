@@ -51,6 +51,8 @@ class TMPD(GuidedSampler):
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
         x_t = x_t.clone().detach()
+        
+        print("Clamp to:", clamp_to)
 
         def estimate_h_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
@@ -90,16 +92,16 @@ class TMPD(GuidedSampler):
         # NOTE: Simply adding the square root changes a lot!
         # coeff_C_yy = math.sqrt(coeff_C_yy)
         
-        # C_yy = (
-        #     coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
-        #     + self.noiser.sigma**2
-        # )
         C_yy = (
-            coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(
-                self.H_func.H(torch.ones_like(flow_pred))
-                )[0])
+            coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
             + self.noiser.sigma**2
         )
+        # C_yy = (
+        #     coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(
+        #         self.H_func.H(torch.ones_like(flow_pred))
+        #         )[0])
+        #     + self.noiser.sigma**2
+        # )
         
         # C_yy = (
         #     coeff_C_yy * torch.ones_like(y_obs)
