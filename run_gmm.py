@@ -105,8 +105,9 @@ def create_samples(
     start_z = torch.randn(num_samples, gmm_config.dim)
 
     # list of methods
-    # methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_exact"]
-    methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_og"]
+    methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_exact"]
+    # methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_og"]
+    # methods = ["tmpd", "pgdm", "dps", "tmpd_fixed_cov"]
 
     # samples dictionary
     samples_dict = {method_name: None for method_name in methods}
@@ -344,7 +345,7 @@ config_flags.DEFINE_config_file(
 
 flags.DEFINE_string("workdir", "temp", "Work directory.")
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
-flags.DEFINE_boolean("plot", False, "Plot the samples but without saving the GIFs.")
+flags.DEFINE_boolean("plot", True, "Plot the samples but without saving the GIFs.")
 flags.DEFINE_boolean("visualise", True, "Visualise the samples instead of running benchmark.")
 
 
