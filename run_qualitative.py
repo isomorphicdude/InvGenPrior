@@ -34,8 +34,10 @@ from guided_samplers import tmpd, dps, pgdm, reddiff, bures_jko
 from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 
 
-def create_and_compare(config, workdir, data_index = 53):
-
+def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
+    """
+    Creates a result for each method and compare them.
+    """
     # create a different config for each sampler
     ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d", "tmpd_cd"]
     config_keys = [sampler_name for sampler_name in __GUIDED_SAMPLERS__ if sampler_name not in ignore_list]
@@ -103,7 +105,7 @@ def create_and_compare(config, workdir, data_index = 53):
             use_ode_sampler=config.sampling.use_ode_sampler,
             sigma_var=config.sampling.sigma_variance,
             ode_tol=config.sampling.ode_tol,
-            sample_N=config.sampling.sample_N,
+            sample_N=sample_N, # number of steps, here does not defined by the config
         )
         sampling_eps = 1e-3
     else:
@@ -216,6 +218,8 @@ config_flags.DEFINE_config_file(
 
 flags.DEFINE_integer("data_index", 53, "Index of the data to sample.")
 
+flags.DEFINE_integer("sample_N", 100, "Number of sampling steps.")
+
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
 flags.DEFINE_string(
@@ -246,6 +250,7 @@ def main(argv):
         FLAGS.config,
         FLAGS.workdir,
         data_index=FLAGS.data_index,
+        sample_N=FLAGS.sample_N,
     )
 
 
