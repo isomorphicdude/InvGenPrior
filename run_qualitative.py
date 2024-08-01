@@ -39,7 +39,7 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
     Creates a result for each method and compare them.
     """
     # create a different config for each sampler
-    ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d", "tmpd_cd"]
+    ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d", "tmpd_cd", "pgdm_mod"]
     config_keys = [sampler_name for sampler_name in __GUIDED_SAMPLERS__ if sampler_name not in ignore_list]
     print("Available samplers: ", config_keys)
     
