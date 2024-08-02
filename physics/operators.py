@@ -172,11 +172,11 @@ class H_functions(ABC):
          
         modified_singulars = singulars_zero * self.Vt(diag) * self.V(singulars_zero) + sigma_y_2
         modified_singulars = modified_singulars[:, :singulars.shape[0]]
-        nonzero_idx = modified_singulars.nonzero()
+        # nonzero_idx = modified_singulars.nonzero()
         
-        temp[nonzero_idx] = temp[nonzero_idx] / modified_singulars[nonzero_idx]
+        # temp[nonzero_idx] = temp[nonzero_idx] / modified_singulars[nonzero_idx]
         
-        return self.U(temp)
+        return self.U(temp/modified_singulars)
     
     def get_degraded_image(self, vec):
         """
