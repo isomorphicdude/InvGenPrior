@@ -68,48 +68,50 @@ class TMPD(GuidedSampler):
             x0_hat_obs = self.H_func.H(x0_hat)
 
             return (x0_hat_obs, flow_pred)
+        
+        def estimate_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+            
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            
+            return x0_hat
 
-        # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of shape (d_y,)
-        # so equivalently (∇_x x0_hat) @ H^t @ u
         h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
             estimate_h_x_0, x_t, has_aux=True
         )
-        # -----------------------------------------
-        # Equation 9 in the TMPD paper, we are viewing the
-        # covariance matrix of p(x_0|x_t) as fixed w.r.t. x_t (this is only an approximation)
-        # so suffice to compute gradient for the scalar term (y-Hx)^t K (y-Hx)
-        # which is (∇_x x0_hat) @ H^t @ (coeff * H @ (∇_x x0_hat) @ H^t + sigma_y^2 I)^{-1} @ (y - Hx)
-        #
-        # Even so, K is still approximated using row sums
-        # namely K ≈ diag (H @ (∇_x x0_hat) @ H^t @ 1 + sigma_y^2 * 1)
-        # -----------------------------------------
-
-        # change this to see the performance change
+        
+        x_0_hat, vjp_estimate_x_0 = torch.func.vjp(
+            estimate_x_0, x_t, has_aux=False
+        )
+       
         coeff_C_yy = std_t**2 / (alpha_t)
 
-        # NOTE: Simply adding the square root changes a lot!
-        # coeff_C_yy = math.sqrt(coeff_C_yy)
+        # sigma_0t = coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
         
-        # coeff_C_yy = 1.0
-
-        C_yy = (
-            coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
-            + self.noiser.sigma**2
-        ).clamp(min=1e-6)
-
+        # C_yy = (
+        #     sigma_0t
+        #     + self.noiser.sigma**2
+        # ).clamp(min=1e-6)
+        
+        
         # difference
         difference = y_obs - h_x_0
 
-        grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
+        vjp_product = self.H_func.HHt_inv_diag(vec=difference, 
+                                               diag=coeff_C_yy * vjp_estimate_x_0(torch.ones_like(x_t))[0],
+                                               sigma_y_2=self.noiser.sigma**2)
+        
+        grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
 
-        # print(grad_ll.mean())
-
-        # compute gamma_t scaling, used in Pokle et al. 2024
-        # gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
         gamma_t = 1.0
 
-        # scale gradient for flows
-        # TODO: implement this as derivatives for more generality
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
 
         # clamp to interval
@@ -119,8 +121,116 @@ class TMPD(GuidedSampler):
         else:
             guided_vec = (scaled_grad) + (flow_pred)
 
-        return guided_vec
-        # return flow_pred
+        if not self.return_cov:
+            return guided_vec
+        else:
+            x0_pred = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x_t,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            assert self.H_func.H_mat is not None
+            # out_C_yy = self.H_func.H_mat @ 
+            out_C_yy = torch.zeros_like(x0_pred)
+            return guided_vec, x0_pred.mean(axis=0), out_C_yy
+        
+        
+@register_guided_sampler(name="tmpd_ensemble")
+class TMPD_ensemble(GuidedSampler):
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        num_particles=10,
+        **kwargs
+    ):
+        """
+        TMPD guidance for OT path.
+        Returns ∇ log p(y|x_t) approximation with diagonal covariance matrix approximation
+        using ensemble Kalman filter-like algorithm.
+        """
+        # record the batch size for reshaping
+        batch_size = x_t.shape[0]
+        
+        t_batched = torch.ones(batch_size * num_particles, device=self.device) * num_t
+
+        x_t = x_t.clone().detach()
+
+        def estimate_h_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            
+
+            x0_hat_obs = self.H_func.H(x0_hat)
+
+            return (x0_hat_obs, flow_pred)
+
+        # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of shape (d_y,)
+        # so equivalently (∇_x x0_hat) @ H^t @ u
+        h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
+        )
+
+        coeff_C_yy = std_t**2 / (alpha_t)
+        
+        sigma_0t = coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
+        
+        C_yy = (
+            sigma_0t
+            + self.noiser.sigma**2
+        ).clamp(min=1e-6)
+
+        difference = y_obs - h_x_0
+
+        grad_ll = vjp_estimate_h_x_0(difference / C_yy)[0]
+        
+        gamma_t = 1.0
+
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
+
+        # clamp to interval
+        if clamp_to is not None:
+            # print(scaled_grad.mean())
+            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+        else:
+            guided_vec = (scaled_grad) + (flow_pred)
+
+        if not self.return_cov:
+            return guided_vec
+        else:
+            x0_pred = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x_t,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            assert self.H_func.H_mat is not None
+
+            return guided_vec, x0_pred.mean(axis=0), C_yy.mean(axis=0)
+        
+    def guided_euler_sampler(self, y_obs, z=None, return_list=False, clamp_to=1, **kwargs):
+        return super().guided_euler_sampler(y_obs, z, return_list, clamp_to, **kwargs)
 
 
 @register_guided_sampler(name="tmpd_cd")
@@ -353,24 +463,7 @@ class TMPD_og(GuidedSampler):
 
         # change this to see the performance change
         coeff_C_yy = std_t**2 / (alpha_t)
-        # print(coeff_C_yy)
-        # coeff_C_yy = 1.0
-        # coeff_C_yy = std_t / alpha_t
-        # coeff_C_yy = std_t**2 / math.sqrt(alpha_t)
-
-        # C_yy = (
-        #     coeff_C_yy
-        #     * self.H_func.H(
-        #         vjp_estimate_h_x_0(
-        #             self.H_func.H(
-        #                 torch.ones_like(
-        #                     flow_pred
-        #                 )  # why not just torch.ones_like(H_func.H(flow_pred))?
-        #             )  # answer is sparsity? (from Ben Boys)
-        #         )[0]
-        #     )
-        #     + self.noiser.sigma**2
-        # )
+       
 
         # NOTE: Simply adding the square root changes a lot!
         # coeff_C_yy = math.sqrt(coeff_C_yy)
@@ -669,6 +762,174 @@ class TMPD_exact(GuidedSampler):
                     torch.linalg.solve(C_yy, y_obs - h_x_0),
                 )
                 - 0.5 * torch.linalg.slogdet(C_yy)[1]
+            )
+
+            # only single sample (no sum over batch dimension)
+            # log_likelihood = likelihood_distr.log_prob(y_obs)
+
+            return log_likelihood.sum(), C_yy
+            # return log_likelihood.sum(), flow_pred
+
+        # compute gradient of log likelihood
+        grad_ll, C_yy = torch.func.grad(log_likelihood_fn, has_aux=True)(x_t)
+        # print(C_yy.shape)
+        # grad_ll, flow_pred = torch.func.grad(log_likelihood_fn, has_aux=True)(x_t)
+        
+        flow_pred = model_fn(x_t, t_batched * 999)
+        
+        # scale gradient for flows
+        # TODO: implement this as derivatives for more generality
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        # print(scaled_grad.mean())
+        guided_vec = (scaled_grad) + (flow_pred)
+
+        if not self.return_cov:
+            return guided_vec
+        else:
+            x0_pred = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x_t,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            return guided_vec, x0_pred.mean(axis=0), C_yy.mean(axis=0)
+
+    def sample(
+        self,
+        y_obs,
+        return_list=False,
+        method="euler",
+        clamp_to=1,
+        starting_time=0,
+        z=None,
+        **kwargs
+    ):
+        """
+        Overrides the base class method to include the exact guidance for TMPD.
+        """
+        return self.chunkwise_sampling(
+            y_obs=y_obs,
+            return_list=return_list,
+            method=method,
+            clamp_to=clamp_to,
+            starting_time=starting_time,
+            z=z,
+        )
+        # if z is None:
+        #     start_z = torch.randn(self.shape, device=self.device)
+        # else:
+        #     start_z = z
+
+        # num_samples = y_obs.shape[0]
+
+        # chunk_size = 20
+        # assert num_samples % chunk_size == 0
+
+        # num_chunks = num_samples // chunk_size
+
+        # # list of samples to store
+        # # the t^th element of the list is the samples at the time t
+        # tmpd_samples_dict = {i: [] for i in range(num_chunks)}
+
+        # for i in tqdm(
+        #     range(num_chunks), total=num_chunks, desc="TMPD sampling", colour="green"
+        # ):
+        #     start_z_chunk = start_z[i * chunk_size : (i + 1) * chunk_size, :]
+        #     y_obs_chunk = y_obs[i * chunk_size : (i + 1) * chunk_size, :]
+
+        #     if not self.return_cov:
+        #         tmpd_samples_chunk, _ = self.guided_euler_sampler(
+        #             y_obs=y_obs_chunk, clamp_to=None, z=start_z_chunk, return_list=True
+        #         )
+        #     else:
+        #         tmpd_samples_chunk, list_mean_0t_chunk, list_cov_yt_chunk = self.guided_euler_sampler(
+        #             y_obs=y_obs_chunk, clamp_to=None, z=start_z_chunk, return_list=True
+        #         )
+        #         tmpd_samples_dict[i] = tmpd_samples_chunk
+        
+        # tmpd_fixed_cov_samples = self.convert_dict_to_list(tmpd_samples_dict, num_chunks)
+
+
+        # if return_list:
+        #     return tmpd_fixed_cov_samples
+        # else:
+        #     return tmpd_fixed_cov_samples[-1]
+        
+        
+@register_guided_sampler(name="tmpd_row_exact")
+class TMPD_row_exact(GuidedSampler):
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        """
+        TMPD guidance for OT path, but with row-sum approximation.
+        """
+        assert hasattr(
+            self.H_func, "H_mat"
+        ), "H_func must have H_mat attribute for now."
+
+        # if len(x_t.shape) > 1:
+        #     raise NotImplementedError("Only single sample supported for now.")
+
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+
+        def log_likelihood_fn(x):
+            def estimate_h_x_0(xi):
+                flow_pred = model_fn(xi, t_batched * 999)
+                # pass to model to get x0_hat prediction
+                x0_hat = convert_flow_to_x0(
+                    u_t=flow_pred,
+                    x_t=xi,
+                    alpha_t=alpha_t,
+                    std_t=std_t,
+                    da_dt=da_dt,
+                    dstd_dt=dstd_dt,
+                )
+
+                x0_hat_obs = self.H_func.H(x0_hat)
+
+                return (x0_hat_obs, flow_pred)
+
+            h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
+            )
+
+            coeff_C_yy = std_t**2 / alpha_t
+            
+            # sigma_0t = coeff_C_yy * self.H_func.H(vjp_estimate_h_x_0(torch.ones_like(y_obs))[0])
+            sigma_0t = coeff_C_yy * torch.ones_like(y_obs)
+                        
+
+            # coeff_C_yy = math.sqrt(coeff_C_yy)
+            C_yy = (
+                sigma_0t
+                + self.noiser.sigma**2
+            )
+            
+            
+            log_likelihood = (
+                -1 * (self.H_func.H_mat.shape[0] / 2) * math.log(2 * math.pi)
+                - 0.5
+                * torch.einsum(
+                    "bi, bi -> b",
+                    y_obs - h_x_0,
+                    (y_obs - h_x_0) / C_yy
+                )
+                - 0.5 * torch.log(torch.prod(C_yy, dim=1))
             )
 
             # only single sample (no sum over batch dimension)
