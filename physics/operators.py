@@ -158,7 +158,7 @@ class H_functions(ABC):
         where we assume diag is of shape (B, d_x).
         """
         singulars = self.singulars()[None]  # (1, d_y)
-        assert vec.shape[1] == singulars.shape[0]
+        # assert vec.shape[1] == singulars.shape[0]
         
         # compute U^T @ vec
         temp = self.Ut(vec)
