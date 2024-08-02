@@ -412,7 +412,19 @@ class GMM(object):
                 lists_to_return[i].append(val)
                 
         return lists_to_return
+    
+    def rowsum_list(self, list_of_tensors):
+        """
+        Same as `flatten_list` but returns the row sums of the tensors.
+        That is, if the tensor has shape (n, m), it will be turned to (n,)
+        and then `flatten_list` will be applied.
+        """
+        temp = []
         
+        for tensor in list_of_tensors:
+            temp.append(tensor.sum(axis=1)) # sum along the rows
+            
+        return self.flatten_list(temp)        
     
     def sample_from_prior(self, n_samples):
         return self.prior_distr.sample((n_samples,))
