@@ -278,11 +278,18 @@ class Inpainting(H_functions):
         return self._singulars
 
     def add_zeros(self, vec):
-        temp = torch.zeros(
-            (vec.shape[0], self.channels * self.img_dim**2), device=vec.device
-        )
-        reshaped = vec.clone().reshape(vec.shape[0], -1)
-        temp[:, : reshaped.shape[1]] = reshaped
+        if len(vec.shape)>=2:    
+            temp = torch.zeros(
+                (vec.shape[0], self.channels * self.img_dim**2), device=vec.device
+            )
+            reshaped = vec.clone().reshape(vec.shape[0], -1)
+            temp[:, : reshaped.shape[1]] = reshaped
+        elif len(vec.shape)==1:
+            temp = torch.zeros(self.channels * self.img_dim**2, device=vec.device)
+            reshaped = vec.clone().reshape(-1)
+            temp[: reshaped.shape[0]] = reshaped
+        else:
+            raise ValueError(f"Input shape not recognized, got {vec.shape}")
         return temp
     
     
@@ -542,11 +549,20 @@ class SuperResolution(H_functions):
 
     def add_zeros(self, vec):
         # assumes vec is lower dim
-        reshaped = vec.clone().reshape(vec.shape[0], -1)
-        temp = torch.zeros(
-            (vec.shape[0], reshaped.shape[1] * self.ratio**2), device=vec.device
-        )
-        temp[:, : reshaped.shape[1]] = reshaped
+        if len(vec.shape) >= 2:
+            reshaped = vec.clone().reshape(vec.shape[0], -1)
+            temp = torch.zeros(
+                (vec.shape[0], reshaped.shape[1] * self.ratio**2), device=vec.device
+            )
+            temp[:, : reshaped.shape[1]] = reshaped
+        elif len(vec.shape)==1:
+            reshaped = vec.clone().reshape(-1)
+            temp = torch.zeros(
+                reshaped.shape[0] * self.ratio**2, device=vec.device
+            )
+            temp[: reshaped.shape[0]] = reshaped
+        else:
+            raise ValueError(f"Input shape not recognized, got {vec.shape}")
         return temp
     
     def get_degraded_image(self, vec):
