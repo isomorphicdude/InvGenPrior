@@ -34,29 +34,42 @@ from guided_samplers import tmpd, dps, pgdm, reddiff, bures_jko
 from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 
 
-def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
+def create_and_compare(config, workdir, data_index=53, sample_N=100):
     """
     Creates a result for each method and compare them.
     """
     # create a different config for each sampler
-    ignore_list = ["bures_jko", "tmpd_og", "tmpd_fixed_cov", "tmpd_exact", "tmpd_d", "tmpd_cd", "pgdm_mod"]
-    config_keys = [sampler_name for sampler_name in __GUIDED_SAMPLERS__ if sampler_name not in ignore_list]
+    ignore_list = [
+        "bures_jko",
+        "tmpd_og",
+        "tmpd_fixed_cov",
+        "tmpd_exact",
+        "tmpd_d",
+        "tmpd_cd",
+        "pgdm_mod",
+        "tmpd_row_exact"
+    ]
+    config_keys = [
+        sampler_name
+        for sampler_name in __GUIDED_SAMPLERS__
+        if sampler_name not in ignore_list
+    ]
     print("Available samplers: ", config_keys)
-    
+
     configs_copies = {sampler_name: None for sampler_name in config_keys}
 
     logging.info("Creating configs for each sampler")
     print("Available samplers: ", list(configs_copies.keys()))
-    
+
     for sampler_name in config_keys:
         print(f"Creating config for {sampler_name}")
         new_config = ml_collections.ConfigDict()
         new_config = config
         new_config.sampling.guidance_method = sampler_name
-        
+
         if sampler_name == "reddiff":
             new_config.sampling.clamp_to = None
-            
+
         configs_copies[sampler_name] = new_config
 
     # create a folder for saving the results
@@ -64,7 +77,7 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
     tf.io.gfile.makedirs(eval_dir)
 
     ### below is shared for all samplers ###
-    
+
     # use a dataset but we choose an index
     dset = lmdb_dataset.get_dataset(
         name=config.data.name,
@@ -105,7 +118,7 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
             use_ode_sampler=config.sampling.use_ode_sampler,
             sigma_var=config.sampling.sigma_variance,
             ode_tol=config.sampling.ode_tol,
-            sample_N=sample_N, # number of steps, here does not defined by the config
+            sample_N=sample_N,  # number of steps, here does not defined by the config
         )
         sampling_eps = 1e-3
     else:
@@ -114,15 +127,15 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
     # build degredation operator
     H_func = get_operator(name=config.degredation.name, config=config.degredation)
     noiser = get_noise(name=config.degredation.noiser, config=config.degredation)
-    
+
     # get the image
     true_img = dset[data_index][0]
     true_img = true_img.unsqueeze(0)
     true_img = true_img.to(config.device)
-    
+
     # save true image
     save_image(true_img, os.path.join(eval_dir, "true_image.png"))
-    
+
     # apply scaler for using the model
     true_img = scaler(true_img)
     # apply degredation operator
@@ -130,7 +143,7 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
 
     # apply noiser
     y_obs = noiser(y_obs)
-    
+
     # save degraded image
     degraded_img = H_func.get_degraded_image(y_obs)
     degraded_img = inverse_scaler(degraded_img)
@@ -143,13 +156,13 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
         config.data.image_size,
         config.data.image_size,
     )
-    
+
     # common initializations
     start_z = torch.randn(sampling_shape).to(config.device)
 
     for sampler_name in configs_copies.keys():
         logging.info(f"Sampling using {sampler_name} guided sampler.")
-        
+
         guided_sampler = get_guided_sampler(
             name=sampler_name,
             model=score_model,
@@ -164,19 +177,19 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
         # dumping the config setting into a txt
         with open(os.path.join(eval_dir, f"{sampler_name}_config.txt"), "w") as f:
             f.write(f"{config}\n")
-            
+
         # run the sampler
         score_model.eval()
-        
+
         start_time = time.time()
         y_obs = y_obs.clone().detach()
-        
+
         # pass to guided sampler
         if sampler_name == "reddiff":
             clamp_to = None
         else:
             clamp_to = 1.0
-               
+
         current_sample = guided_sampler.sample(
             y_obs=y_obs,
             z=start_z,  # maybe can use latent encoding
@@ -185,18 +198,18 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
             clamp_to=clamp_to,
             starting_time=config.sampling.starting_time,
         )
-        
+
         # save
         save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample.png"))
-        
+
         end_time = time.time()
         logging.info(f"Sampling took {end_time - start_time} seconds.")
-        
+
         # clear memory
         torch.cuda.empty_cache()
-        
+
     logging.info("Sampling Done.")
-    
+
     # plot the images side by side
     fig, axs = plt.subplots(1, len(configs_copies.keys()) + 2, figsize=(20, 10))
     axs[0].imshow(plt.imread(os.path.join(eval_dir, "true_image.png")))
@@ -204,11 +217,13 @@ def create_and_compare(config, workdir, data_index = 53, sample_N = 100):
     axs[1].imshow(plt.imread(os.path.join(eval_dir, "degraded_image.png")))
     axs[1].set_title("Degraded Image")
     for i, sampler_name in enumerate(configs_copies.keys()):
-        axs[i+2].imshow(plt.imread(os.path.join(eval_dir, f"{sampler_name}_sample.png")))
-        axs[i+2].set_title(f"{sampler_name.upper()} Sample")
-        
+        axs[i + 2].imshow(
+            plt.imread(os.path.join(eval_dir, f"{sampler_name}_sample.png"))
+        )
+        axs[i + 2].set_title(f"{sampler_name.upper()} Sample")
+
     plt.savefig(os.path.join(eval_dir, "comparison.png"))
-        
+
 
 FLAGS = flags.FLAGS
 
@@ -242,7 +257,7 @@ def main(argv):
     logger = logging.getLogger()
     logger.addHandler(handler)
     logger.setLevel("INFO")
-    
+
     # run
     torch.manual_seed(0)
     np.random.seed(0)
