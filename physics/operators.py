@@ -132,7 +132,7 @@ class H_functions(ABC):
     
     def HHt_inv(self, vec, r_t_2 = 1.0, sigma_y_2 = 1.0):
         """
-        Multiplies the vector v by (H @ H^T)^{-1}.
+        Multiplies the vector v by (H @ H^T + sigma_y^2 I)^{-1}.
         assuming vec of dim (B, d_y)
         
         Args:  
@@ -150,8 +150,33 @@ class H_functions(ABC):
         temp[:, nonzero_idx] = temp[:, nonzero_idx] / modified_singulars[nonzero_idx]
         
         return self.U(temp)
+    
+    
+    def HHt_inv_diag(self, vec, diag, sigma_y_2=1.0):
+        """
+        Multiplies the vector v by (H @ D @ H^T + sigma_y^2 I)^{-1},
+        where we assume diag is of shape (B, d_x).
+        """
+        singulars = self.singulars()
+        assert vec.shape[1] == singulars.shape[0]
         
+        # compute U^T @ vec
+        temp = self.Ut(vec)
         
+        # compute V^T @ diag @ V
+        singulars_zero = self.add_zeros(singulars)[None] # now singulars have length d_x (larger dimension)
+        # print(f"temp: {temp.shape}")
+        # print(f"singulars_zero: {singulars_zero.shape}")
+        # print(f"self vt diag: {self.Vt(diag).shape}")
+        # print(f"self V: {self.V(singulars_zero).shape}")
+         
+        modified_singulars = singulars_zero * self.Vt(diag) * self.V(singulars_zero) + sigma_y_2
+        modified_singulars = modified_singulars[:, :singulars.shape[0]]
+        nonzero_idx = modified_singulars.nonzero()
+        
+        temp[nonzero_idx] = temp[nonzero_idx] / modified_singulars[nonzero_idx]
+        
+        return self.U(temp)
     
     def get_degraded_image(self, vec):
         """
@@ -533,8 +558,7 @@ class SuperResolution(H_functions):
        return vec.reshape(vec.shape[0], self.channels, self.y_dim, self.y_dim)
     
     
-
-
+    
 
 # Colorization
 @register_operator(name="colorization")
@@ -723,8 +747,14 @@ class H_func_gmm(H_functions):
         return self._singulars
     
     def add_zeros(self, vec):
-        temp = torch.zeros((vec.shape[0], self.dim))
-        temp[:, :vec.shape[1]] = vec
+        if len(vec.shape)>=2:
+            temp = torch.zeros((vec.shape[0], self.dim))
+            temp[:, :vec.shape[1]] = vec
+        elif len(vec.shape)==1:
+            temp = torch.zeros(self.dim)
+            temp[:vec.shape[0]] = vec
+        else:
+            raise ValueError(f"Input shape not recognized, got {vec.shape}")
         return temp        
 
 @register_operator(name="deblurring")
