@@ -171,6 +171,7 @@ class H_functions(ABC):
         # print(f"self V: {self.V(singulars_zero).shape}")
          
         modified_singulars = singulars_zero * self.Vt(diag) * self.V(singulars_zero) + sigma_y_2
+        print(singulars.shape)
         modified_singulars = modified_singulars[:, :singulars.shape[0]]
         # nonzero_idx = modified_singulars.nonzero()
         
