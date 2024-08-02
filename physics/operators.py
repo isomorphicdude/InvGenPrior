@@ -157,14 +157,14 @@ class H_functions(ABC):
         Multiplies the vector v by (H @ D @ H^T + sigma_y^2 I)^{-1},
         where we assume diag is of shape (B, d_x).
         """
-        singulars = self.singulars()
+        singulars = self.singulars()[None]  # (1, d_y)
         assert vec.shape[1] == singulars.shape[0]
         
         # compute U^T @ vec
         temp = self.Ut(vec)
         
         # compute V^T @ diag @ V
-        singulars_zero = self.add_zeros(singulars)[None] # now singulars have length d_x (larger dimension)
+        singulars_zero = self.add_zeros(singulars) # now singulars have length d_x (larger dimension)
         # print(f"temp: {temp.shape}")
         # print(f"singulars_zero: {singulars_zero.shape}")
         # print(f"self vt diag: {self.Vt(diag).shape}")
@@ -872,7 +872,12 @@ class Deblurring(H_functions):
         return self._singulars.repeat(1, 3).reshape(-1).to(self.device)
 
     def add_zeros(self, vec):
-        return vec.clone().reshape(vec.shape[0], -1).to(self.device)
+        if len(vec.shape)>=2:
+            return vec.clone().reshape(vec.shape[0], -1).to(self.device)
+        elif len(vec.shape)==1:
+            return vec.clone().reshape(-1).to(self.device)
+        else:
+            raise ValueError(f"Input shape not recognized, got {vec.shape}")
     
     def get_degraded_image(self, vec):
         # print(vec)
