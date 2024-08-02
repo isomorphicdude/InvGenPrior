@@ -185,6 +185,7 @@ class H_functions(ABC):
         # temp[nonzero_idx] = temp[nonzero_idx] / modified_singulars[nonzero_idx]
         
         modified_singulars = torch.where(modified_singulars != 0, modified_singulars, 1.0)
+        temp = temp / modified_singulars
         
         return self.U(temp)
     
