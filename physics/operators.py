@@ -174,8 +174,11 @@ class H_functions(ABC):
         
         modified_singulars = modified_singulars[:, :vec.shape[1]]
         
-        nonzero_idx = modified_singulars.nonzero()
-        temp[nonzero_idx] = temp[nonzero_idx] / modified_singulars[nonzero_idx]
+        # nonzero_idx = modified_singulars.nonzero()
+        # 
+        # temp[nonzero_idx] = temp[nonzero_idx] / modified_singulars[nonzero_idx]
+        
+        modified_singulars = torch.where(modified_singulars == 0, torch.ones_like(modified_singulars), modified_singulars)
         
         return self.U(temp)
     
