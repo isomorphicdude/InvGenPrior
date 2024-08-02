@@ -26,6 +26,7 @@ class PiGDM(GuidedSampler):
         **kwargs
     ):
         """Compute the PiGDM guidance (Song et al., 2022)."""
+            
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
         # r_t_2 as in Song et al. 2022
@@ -104,7 +105,15 @@ class PiGDM(GuidedSampler):
         if clamp_to is not None:
             scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
 
-        return scaled_grad + flow_pred
+        guided_vec = scaled_grad + flow_pred
+        if not self.return_cov:
+            return guided_vec
+        else:
+            # re-compute the C_yy matrix here
+            assert self.H_func.H_mat is not None
+            C_yy = r_t_2 * self.H_func.H_mat @ self.H_func.H_mat.T + sigma_y**2
+            # note here C_yy is shared across the batch
+            return guided_vec, x0_hat.detach().mean(dim=0), C_yy
 
 
 @register_guided_sampler(name="pgdm_mod")
@@ -219,15 +228,18 @@ class PiGDM_modified(GuidedSampler):
         grad_term = grad_term.detach()
         
         # also compute the flow prediction using diffusion path
-        flow_pred = mutils.convert_x0_to_flow(
-            x0_hat=x0_hat.detach(),
-            x_t=x_t / t_batched,
-            alpha_t=sample_time,
-            std_t=math.sqrt(1 - sample_time**2),
-            da_dt=1.0,
-            dstd_dt= -sample_time / math.sqrt(1 - sample_time**2)
-        )
+        # flow_pred = mutils.convert_x0_to_flow(
+        #     x0_hat=x0_hat.detach(),
+        #     x_t=x_t / t_batched,
+        #     alpha_t=sample_time,
+        #     std_t=math.sqrt(1 - sample_time**2),
+        #     da_dt=1.0,
+        #     dstd_dt= -sample_time / math.sqrt(1 - sample_time**2)
+        # )
+        
+        flow_pred = model_fn(x_t, num_t *torch.ones(x_t.shape[0], device=self.device) * 999)
 
+        # print((flow_pred - flow_pred2).mean())
         # compute gamma_t scaling
         # only use for images but not GMM example
         # (using OT path)
