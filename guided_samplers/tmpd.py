@@ -138,7 +138,7 @@ class TMPD(GuidedSampler):
             return guided_vec, x0_pred.mean(axis=0), out_C_yy
         
         
-@register_guided_sampler(name="tmpd_ensemble")
+# @register_guided_sampler(name="tmpd_ensemble")
 class TMPD_ensemble(GuidedSampler):
     def get_guidance(
         self,
