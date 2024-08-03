@@ -157,11 +157,26 @@ class H_functions(ABC):
         
         return self.U(temp)
     
+    def SVt(self, vec):
+        """
+        Returns the output as S @ V.T @ vec.
+        """
+        singulars = self.singulars()
+        singulars_zero = self.add_zeros(singulars)[None]
+        
+        temp = self.Vt(vec)
+        
+        return temp * singulars_zero
+    
     
     def HHt_inv_diag(self, vec, diag, sigma_y_2=1.0):
         """
         Multiplies the vector v by (H @ D @ H^T + sigma_y^2 I)^{-1},
         where we assume diag is of shape (B, d_x).
+        
+        Here the diagonal D is assumed to V L V^T where L is a diagonal matrix,
+        so that what we acutally computes is
+        U @ (L @ singulars**2 + sigma_y^2 I)^{-1} @ U^T @ vec.
         """
         singulars = self.singulars()  # (1, d_y)
         assert vec.shape[1] == singulars.shape[0]
@@ -171,18 +186,10 @@ class H_functions(ABC):
         
         # compute V^T @ diag @ V
         singulars_zero = self.add_zeros(singulars)[None] # now singulars have length d_x (larger dimension)
-        # print(f"temp: {temp.shape}")
-        # print(f"singulars_zero: {singulars_zero.shape}")
-        # print(f"self vt diag: {self.Vt(diag).shape}")
-        # print(f"self V: {self.V(singulars_zero).shape}")
          
-        modified_singulars = singulars_zero * self.Vt(diag) * self.V(singulars_zero) + sigma_y_2
+        modified_singulars =  diag * (singulars_zero**2) + sigma_y_2
         
         modified_singulars = modified_singulars[:, :vec.shape[1]]
-        
-        # nonzero_idx = modified_singulars.nonzero()
-        # 
-        # temp[nonzero_idx] = temp[nonzero_idx] / modified_singulars[nonzero_idx]
         
         modified_singulars = torch.where(modified_singulars != 0, modified_singulars, 1.0)
         temp = temp / modified_singulars
