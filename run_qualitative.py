@@ -41,13 +41,14 @@ def create_and_compare(config, workdir, data_index=53, sample_N=100):
     # create a different config for each sampler
     ignore_list = [
         "bures_jko",
-        "tmpd_og",
+        # "tmpd_og",
         "tmpd_fixed_cov",
         "tmpd_exact",
         "tmpd_d",
         "tmpd_cd",
         "pgdm_mod",
-        "tmpd_row_exact"
+        "tmpd_row_exact",
+        "tmpd_trace"
     ]
     config_keys = [
         sampler_name
