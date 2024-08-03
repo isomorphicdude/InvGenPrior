@@ -214,13 +214,16 @@ def create_and_compare(config, workdir, data_index=53, sample_N=100):
     fig, axs = plt.subplots(1, len(configs_copies.keys()) + 2, figsize=(20, 10))
     axs[0].imshow(plt.imread(os.path.join(eval_dir, "true_image.png")))
     axs[0].set_title("True Image")
+    axs[0].axis("off")
     axs[1].imshow(plt.imread(os.path.join(eval_dir, "degraded_image.png")))
     axs[1].set_title("Degraded Image")
+    axs[1].axis("off")
     for i, sampler_name in enumerate(configs_copies.keys()):
         axs[i + 2].imshow(
             plt.imread(os.path.join(eval_dir, f"{sampler_name}_sample.png"))
         )
         axs[i + 2].set_title(f"{sampler_name.upper()} Sample")
+        axs[i + 2].axis("off")
 
     plt.savefig(os.path.join(eval_dir, "comparison.png"))
 
