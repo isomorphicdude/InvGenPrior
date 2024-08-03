@@ -196,7 +196,7 @@ class TMPD_trace(GuidedSampler):
         clamp_to,
         **kwargs
     ):
-        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 10)
+        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 40)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
