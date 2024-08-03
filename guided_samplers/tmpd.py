@@ -33,7 +33,7 @@ class TMPD(GuidedSampler):
         """
         TMPD guidance for OT path.
         Returns ∇ log p(y|x_t) approximation with diagonal of Jacobian approximation.
-        
+
         The diagonal is estimated using Bekas et al. 2005
 
         Args:
@@ -51,7 +51,7 @@ class TMPD(GuidedSampler):
          - guided_vec: guidance vector with flow prediction and guidance combined
         """
         num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 80)
-        
+
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
         x_t = x_t.clone().detach()
@@ -72,8 +72,7 @@ class TMPD(GuidedSampler):
             x0_hat_obs = self.H_func.H(x0_hat)
 
             return (x0_hat_obs, flow_pred)
-        
-        
+
         def estimate_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
 
@@ -84,27 +83,31 @@ class TMPD(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            ).reshape(self.shape[0], -1) #flatten
+            ).reshape(
+                self.shape[0], -1
+            )  # flatten
 
             return x0_hat, flow_pred
 
         h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
             estimate_h_x_0, x_t, has_aux=True
         )
-        
-        x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(estimate_x_0, x_t, has_aux=True)
-        
+
+        x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
+            estimate_x_0, x_t, has_aux=True
+        )
+
         def v_vjp_est(x):
             # return self.H_func.V(vjp_estimate_v_x_0(x)[0])
             return self.H_func.Vt(vjp_estimate_x_0(self.H_func.V(x))[0])
-        
+
         # compute the diagonal of the Jacobian
-        diagonal_est = self.hutchinson_diag_est(
+        diagonal_est = self.parallel_hutchinson_diag_est(
             vjp_est=v_vjp_est,
             shape=(self.shape[0], math.prod(self.shape[1:])),
-            num_samples=num_hutchinson_samples
+            num_samples=num_hutchinson_samples,
         )
-        
+
         coeff_C_yy = std_t**2 / (alpha_t)
 
         # difference
@@ -119,7 +122,7 @@ class TMPD(GuidedSampler):
 
         # grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
         grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
-        
+
         gamma_t = 1.0
 
         scaled_grad = (
@@ -148,32 +151,50 @@ class TMPD(GuidedSampler):
             # out_C_yy = self.H_func.H_mat @
             out_C_yy = torch.zeros_like(x0_pred)
             return guided_vec, x0_pred.mean(axis=0), out_C_yy
-        
-        
+
     def hutchinson_diag_est(self, vjp_est, shape, num_samples=10):
         """
         Returns the diagonal of the Jacobian using Hutchinson's diagonal estimator.
 
-        Args:  
+        Args:
           vjp_est (torch.func.vjp): Function that computes the Jacobian-vector product, takes input of shape (B, D), in practice we use V(vjp(Vt(x)))
-            
-          shape (tuple): Shape of the Jacobian matrix, (B, *D) e.g. (B, 3, 256, 256) for image data.  
-            
-          num_samples (int): Number of samples to use for the estimator.  
 
-        Returns:  
+          shape (tuple): Shape of the Jacobian matrix, (B, *D) e.g. (B, 3, 256, 256) for image data.
+
+          num_samples (int): Number of samples to use for the estimator.
+
+        Returns:
           torch.Tensor: shape (batch, D), estimated diagonal for each batch.
         """
         res = torch.zeros((shape[0], shape[1]), device=self.device)
-        
+
         for i in range(num_samples):
-            z = 2 * torch.randint(0, 2, size=(shape[0], shape[1]), device=self.device)- 1
+            z = (
+                2 * torch.randint(0, 2, size=(shape[0], shape[1]), device=self.device)
+                - 1
+            )
             z = z.float()
             vjpz = vjp_est(z)
             res += z * vjpz
-            
+
         return res / num_samples
-        
+
+    def parallel_hutchinson_diag_est(self, vjp_est, shape, num_samples=10):
+        z = (
+            2
+            * torch.randint(
+                0, 2, size=(num_samples, shape[0], shape[1]), device=self.device
+            )
+            - 1
+        )
+        z = z.float()
+
+        # map across the first dimension
+        vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
+
+        vjpz = torch.sum(z * vmapped_vjp, dim=0)
+
+        return vjpz / num_samples
 
 
 @register_guided_sampler(name="tmpd_trace")
@@ -183,6 +204,7 @@ class TMPD_trace(GuidedSampler):
     The variance is computed using the average trace of the Jacobian matrix,
     which is computed using Hutchinson's trace estimator.
     """
+
     def get_guidance(
         self,
         model_fn,
@@ -201,7 +223,7 @@ class TMPD_trace(GuidedSampler):
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
         x_t = x_t.clone().detach()
-        
+
         def estimate_h_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
 
@@ -214,7 +236,7 @@ class TMPD_trace(GuidedSampler):
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
             )
-            
+
             h_x_0_hat = self.H_func.H(x0_hat)
 
             return h_x_0_hat
@@ -236,16 +258,14 @@ class TMPD_trace(GuidedSampler):
 
         # this computes a function vjp(u) = u^t @ (∇_x x0_hat)
 
-        _, vjp_estimate_x_0, flow_pred = torch.func.vjp(
-            estimate_x_0, x_t, has_aux=True
-        )
-        
+        _, vjp_estimate_x_0, flow_pred = torch.func.vjp(estimate_x_0, x_t, has_aux=True)
+
         h_x_0_hat, vjp_estimate_h_x_0 = torch.func.vjp(
             estimate_h_x_0, x_t, has_aux=False
         )
 
         # use Hutchinson's trace estimator to compute the average trace of the Jacobian
-        hull_trace = self.hutchinson_trace_est(
+        hull_trace = self.parallel_hutchinson_trace_est(
             vjp_estimate_x_0, shape=self.shape, num_samples=num_hutchinson_samples
         )[:, None]
 
@@ -259,7 +279,7 @@ class TMPD_trace(GuidedSampler):
             diag=coeff_C_yy * hull_trace,
             sigma_y_2=self.noiser.sigma**2,
         )
-        
+
         grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
 
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
@@ -290,13 +310,40 @@ class TMPD_trace(GuidedSampler):
         res = torch.zeros(shape[0], device=self.device)
 
         for i in range(num_samples):
-            z = 2 * torch.randint(0, 2, size=(shape[0], *shape[1:]), device=self.device) - 1
+            z = (
+                2 * torch.randint(0, 2, size=(shape[0], *shape[1:]), device=self.device)
+                - 1
+            )
             # z= torch.randn(shape)
             z = z.float()
             vjpz = vjp_est(z)[0]
-            res += (torch.sum(vjpz.view(shape[0], -1) * z.view(shape[0], -1), dim=-1)) / math.prod(shape[1:])
+            res += (
+                torch.sum(vjpz.view(shape[0], -1) * z.view(shape[0], -1), dim=-1)
+            ) / math.prod(shape[1:])
 
         return res / num_samples
+
+    def parallel_hutchinson_trace_est(self, vjp_est, shape, num_samples=10):
+        z = (
+            2
+            * torch.randint(
+                0, 2, size=(num_samples, shape[0], *shape[1:]), device=self.device
+            )
+            - 1
+        )
+        z = z.float()
+
+        # map across the first dimension
+        vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(
+            z.view(num_samples, shape[0], *shape[1:])
+        )[0]
+
+        vjpz = (
+            torch.sum(z * vmapped_vjp.view(num_samples, shape[0], *shape[1:]), dim=0)
+            / num_samples
+        )
+
+        return torch.sum(vjpz.view(shape[0], -1), dim=-1) / math.prod(shape[1:])
 
 
 # @register_guided_sampler(name="tmpd_ensemble")
@@ -806,18 +853,18 @@ class TMPD_fixed_cov(GuidedSampler):
         )  # (B, d_y)
 
         ################ below is for testing, comment out later ############################
-        
+
         # compute V @ jac @ V^t and extract diagonal
         # vjvt = torch.einsum("ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat)
         # vjvt = torch.einsum("ij, bjk, kl -> bil", self.H_func.V_mat, jac_x_0, self.H_func.V_mat.T)
-        
+
         # use diagonal hutchinson estimator
         # diag_est = self.hutchinson_diag_est(
         #     vjp_est = lambda x: torch.einsum("bij, bj -> bi", vjvt, x),
         #     shape = self.shape,
         #     num_samples = 100
         # )
-        
+
         # C_yy_diff = self.H_func.HHt_inv_diag(
         #     vec = difference,
         #     # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
@@ -852,29 +899,29 @@ class TMPD_fixed_cov(GuidedSampler):
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
         # return flow_pred
-        
+
     def hutchinson_diag_est(self, vjp_est, shape, num_samples=10):
         """
         Returns the diagonal of the Jacobian using Hutchinson's diagonal estimator.
 
-        Args:  
+        Args:
           vjp_est (torch.func.vjp): Function that computes the Jacobian-vector product, takes input of shape (B, D), in practice we use V(vjp(Vt(x)))
-            
-          shape (tuple): Shape of the Jacobian matrix, (B, *D) e.g. (B, 3, 256, 256) for image data.  
-            
-          num_samples (int): Number of samples to use for the estimator.  
 
-        Returns:  
+          shape (tuple): Shape of the Jacobian matrix, (B, *D) e.g. (B, 3, 256, 256) for image data.
+
+          num_samples (int): Number of samples to use for the estimator.
+
+        Returns:
           torch.Tensor: shape (batch, D), estimated diagonal for each batch.
         """
         res = torch.zeros((shape[0], *shape[1:]))
-        
+
         for i in range(num_samples):
             z = 2 * torch.randint(0, 2, size=(shape[0], *shape[1:])) - 1
             z = z.float()
             vjpz = vjp_est(z)
             res += z * vjpz
-            
+
         return res / num_samples
 
 
