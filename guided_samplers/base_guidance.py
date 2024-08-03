@@ -148,8 +148,11 @@ class GuidedSampler(ABC):
                     list_cov_yt.append(cov_yt)
 
                 # print name
-                # if self.__class__.__name__ == "TMPD_exact" and i % 10 == 0:
-                # print(f"Iteration {i} of {self.sde.sample_N} completed.")
+                if self.__class__.__name__ == "TMPD" and i % 10 == 0 and len(self.shape)>2:
+                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
+                    
+                elif self.__class__.__name__ == "TMPD_trace" and i % 10 == 0 and len(self.shape)>2:
+                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
         # print(self.return_cov)
         if not self.return_cov:
             if return_list:
