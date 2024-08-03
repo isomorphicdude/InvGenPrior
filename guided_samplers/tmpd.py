@@ -183,7 +183,6 @@ class TMPD_trace(GuidedSampler):
     The variance is computed using the average trace of the Jacobian matrix,
     which is computed using Hutchinson's trace estimator.
     """
-
     def get_guidance(
         self,
         model_fn,
@@ -288,10 +287,10 @@ class TMPD_trace(GuidedSampler):
         Returns:
           torch.Tensor: shape (batch,), estimated average trace for each batch.
         """
-        res = torch.zeros(shape[0])
+        res = torch.zeros(shape[0], device=self.device)
 
         for i in range(num_samples):
-            z = 2 * torch.randint(0, 2, size=(shape[0], *shape[1:])) - 1
+            z = 2 * torch.randint(0, 2, size=(shape[0], *shape[1:]), device=self.device) - 1
             # z= torch.randn(shape)
             z = z.float()
             vjpz = vjp_est(z)[0]
@@ -736,17 +735,17 @@ class TMPD_fixed_cov(GuidedSampler):
         h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
         difference = y_obs - h_x_0
 
-        # C_yy = (
-        #     coeff_C_yy
-        #     * torch.einsum(
-        #         "ij, bjk, kl -> bil",
-        #         self.H_func.H_mat,
-        #         jac_x_0,
-        #         # torch.diag_embed(torch.diagonal(jac_x_0, dim1=-2, dim2=-1)),
-        #         self.H_func.H_mat.T,
-        #     )
-        #     + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
-        # )
+        C_yy = (
+            coeff_C_yy
+            * torch.einsum(
+                "ij, bjk, kl -> bil",
+                self.H_func.H_mat,
+                jac_x_0,
+                # torch.diag_embed(torch.diagonal(jac_x_0, dim1=-2, dim2=-1)),
+                self.H_func.H_mat.T,
+            )
+            + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
+        )
 
         # avg_trace = torch.mean(torch.diagonal(jac_x_0, dim1=-2, dim2=-1), dim=1)[:, None, None]
 
@@ -801,30 +800,30 @@ class TMPD_fixed_cov(GuidedSampler):
         #     + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
         # )
 
-        # C_yy_diff = torch.linalg.solve(
-        #     C_yy,
-        #     difference,
-        # )  # (B, d_y)
+        C_yy_diff = torch.linalg.solve(
+            C_yy,
+            difference,
+        )  # (B, d_y)
 
         ################ below is for testing, comment out later ############################
         
         # compute V @ jac @ V^t and extract diagonal
-        vjvt = torch.einsum("ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat)
+        # vjvt = torch.einsum("ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat)
         # vjvt = torch.einsum("ij, bjk, kl -> bil", self.H_func.V_mat, jac_x_0, self.H_func.V_mat.T)
         
         # use diagonal hutchinson estimator
-        diag_est = self.hutchinson_diag_est(
-            vjp_est = lambda x: torch.einsum("bij, bj -> bi", vjvt, x),
-            shape = self.shape,
-            num_samples = 100
-        )
+        # diag_est = self.hutchinson_diag_est(
+        #     vjp_est = lambda x: torch.einsum("bij, bj -> bi", vjvt, x),
+        #     shape = self.shape,
+        #     num_samples = 100
+        # )
         
-        C_yy_diff = self.H_func.HHt_inv_diag(
-            vec = difference,
-            # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
-            diag = diag_est * coeff_C_yy,
-            sigma_y_2 = self.noiser.sigma**2,
-        )
+        # C_yy_diff = self.H_func.HHt_inv_diag(
+        #     vec = difference,
+        #     # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
+        #     diag = diag_est * coeff_C_yy,
+        #     sigma_y_2 = self.noiser.sigma**2,
+        # )
         #####################################################################################
 
         # C_yy_diff = difference / torch.diag(C_yy).reshape(-1, 1)
