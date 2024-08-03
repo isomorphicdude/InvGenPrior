@@ -50,7 +50,7 @@ class TMPD(GuidedSampler):
         Returns:
          - guided_vec: guidance vector with flow prediction and guidance combined
         """
-        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 30)
+        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 100)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
@@ -179,22 +179,28 @@ class TMPD(GuidedSampler):
 
         return res / num_samples
 
-    def parallel_hutchinson_diag_est(self, vjp_est, shape, num_samples=10):
-        z = (
-            2
-            * torch.randint(
-                0, 2, size=(num_samples, shape[0], shape[1]), device=self.device
+    def parallel_hutchinson_diag_est(self, vjp_est, shape, num_samples=10, chunk_size=10):
+        output = torch.zeros((shape[0], shape[1]), device=self.device)
+        assert num_samples % chunk_size == 0
+
+        for i in range(num_samples // chunk_size):
+            z = (
+                2
+                * torch.randint(
+                    0, 2, size=(chunk_size, shape[0], shape[1]), device=self.device
+                )
+                - 1
             )
-            - 1
-        )
-        z = z.float()
+            z = z.float()
 
-        # map across the first dimension
-        vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
+            # map across the first dimension
+            vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
 
-        vjpz = torch.sum(z * vmapped_vjp, dim=0)
+            vjpz = torch.sum(z * vmapped_vjp, dim=0)
+            
+            output += vjpz
 
-        return vjpz / num_samples
+        return output / num_samples
 
 
 @register_guided_sampler(name="tmpd_trace")
@@ -218,7 +224,7 @@ class TMPD_trace(GuidedSampler):
         clamp_to,
         **kwargs
     ):
-        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 30)
+        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 100)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
@@ -293,6 +299,7 @@ class TMPD_trace(GuidedSampler):
             guided_vec = (scaled_grad) + (flow_pred)
         return guided_vec
 
+
     def hutchinson_trace_est(self, vjp_est, shape, num_samples=10):
         """
         Returns the average trace of the Jacobian using Hutchinson's trace estimator.
@@ -323,27 +330,31 @@ class TMPD_trace(GuidedSampler):
 
         return res / num_samples
 
-    def parallel_hutchinson_trace_est(self, vjp_est, shape, num_samples=10):
-        z = (
-            2
-            * torch.randint(
-                0, 2, size=(num_samples, shape[0], *shape[1:]), device=self.device
+    def parallel_hutchinson_trace_est(self, vjp_est, shape, num_samples=10, chunk_size=10):
+        output = torch.zeros(shape[0], device=self.device)
+        assert num_samples % chunk_size == 0
+        for i in range(num_samples // chunk_size):
+            z = (
+                2
+                * torch.randint(
+                    0, 2, size=(chunk_size, shape[0], *shape[1:]), device=self.device
+                )
+                - 1
             )
-            - 1
-        )
-        z = z.float()
+            z = z.float()
 
-        # map across the first dimension
-        vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(
-            z.view(num_samples, shape[0], *shape[1:])
-        )[0]
+            # map across the first dimension
+            vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(
+                z.view(chunk_size, shape[0], *shape[1:])
+            )[0]
 
-        vjpz = (
-            torch.sum(z * vmapped_vjp.view(num_samples, shape[0], *shape[1:]), dim=0)
-            / num_samples
-        )
+            vjpz = (
+                torch.sum(z * vmapped_vjp.view(chunk_size, shape[0], *shape[1:]), dim=0)
+            )
+            
+            output += torch.sum(vjpz.view(shape[0], -1), dim=-1) / math.prod(shape[1:])
 
-        return torch.sum(vjpz.view(shape[0], -1), dim=-1) / math.prod(shape[1:])
+        return output / num_samples
 
 
 # @register_guided_sampler(name="tmpd_ensemble")
