@@ -56,36 +56,22 @@ class TMPD(GuidedSampler):
 
         x_t = x_t.clone().detach()
 
-        # def estimate_h_x_0(x):
-        #     flow_pred = model_fn(x, t_batched * 999)
+        def estimate_h_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
 
-        #     # pass to model to get x0_hat prediction
-        #     x0_hat = convert_flow_to_x0(
-        #         u_t=flow_pred,
-        #         x_t=x,
-        #         alpha_t=alpha_t,
-        #         std_t=std_t,
-        #         da_dt=da_dt,
-        #         dstd_dt=dstd_dt,
-        #     )
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
 
-        #     x0_hat_obs = self.H_func.H(x0_hat)
+            x0_hat_obs = self.H_func.H(x0_hat)
 
-        #     return (x0_hat_obs, flow_pred)
-        
-        # def estimate_v_x_0(x):
-        #     flow_pred = model_fn(x, t_batched * 999)
-
-        #     x0_hat = convert_flow_to_x0(
-        #         u_t=flow_pred,
-        #         x_t=x,
-        #         alpha_t=alpha_t,
-        #         std_t=std_t,
-        #         da_dt=da_dt,
-        #         dstd_dt=dstd_dt,
-        #     ).reshape(x.shape[0], -1) #flatten
-
-        #     return self.H_func.V(x0_hat)
+            return (x0_hat_obs, flow_pred)
         
         
         def estimate_x_0(x):
@@ -98,15 +84,13 @@ class TMPD(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            )
+            ).reshape(self.shape[0], -1) #flatten
 
             return x0_hat, flow_pred
 
-        # h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
-        #     estimate_h_x_0, x_t, has_aux=True
-        # )
-
-        # _out, vjp_estimate_v_x_0 = torch.func.vjp(estimate_v_x_0, x_t, has_aux=False)
+        h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
+        )
         
         x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(estimate_x_0, x_t, has_aux=True)
         
@@ -117,14 +101,14 @@ class TMPD(GuidedSampler):
         # compute the diagonal of the Jacobian
         diagonal_est = self.hutchinson_diag_est(
             vjp_est=v_vjp_est,
-            shape=self.shape,
+            shape=(self.shape[0], math.prod(self.shape[1:])),
             num_samples=num_hutchinson_samples
         )
         
         coeff_C_yy = std_t**2 / (alpha_t)
 
         # difference
-        difference = y_obs - self.H_func.H(x_0_pred)
+        difference = y_obs - h_x_0
 
         #
         vjp_product = self.H_func.HHt_inv_diag(
@@ -133,8 +117,9 @@ class TMPD(GuidedSampler):
             sigma_y_2=self.noiser.sigma**2,
         )
 
-        grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
-
+        # grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
+        grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
+        
         gamma_t = 1.0
 
         scaled_grad = (
@@ -179,10 +164,10 @@ class TMPD(GuidedSampler):
         Returns:  
           torch.Tensor: shape (batch, D), estimated diagonal for each batch.
         """
-        res = torch.zeros((shape[0], *shape[1:]), device=self.device)
+        res = torch.zeros((shape[0], shape[1]), device=self.device)
         
         for i in range(num_samples):
-            z = 2 * torch.randint(0, 2, size=(shape[0], *shape[1:]), device=self.device)- 1
+            z = 2 * torch.randint(0, 2, size=(shape[0], shape[1]), device=self.device)- 1
             z = z.float()
             vjpz = vjp_est(z)
             res += z * vjpz
