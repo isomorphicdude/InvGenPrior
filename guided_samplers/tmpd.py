@@ -50,7 +50,7 @@ class TMPD(GuidedSampler):
         Returns:
          - guided_vec: guidance vector with flow prediction and guidance combined
         """
-        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 100)
+        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 50)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
@@ -289,7 +289,7 @@ class TMPD(GuidedSampler):
         **kwargs
     ):
         # condition on the time
-        if num_t < 0.5:
+        if num_t < 2:
             return self._get_guidance(
                 model_fn,
                 x_t,
