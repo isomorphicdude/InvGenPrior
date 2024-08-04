@@ -289,7 +289,7 @@ class TMPD(GuidedSampler):
         **kwargs
     ):
         # condition on the time
-        if num_t < 0.2:
+        if num_t < 0.5:
             return self._get_guidance(
                 model_fn,
                 x_t,
