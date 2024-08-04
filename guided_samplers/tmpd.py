@@ -180,7 +180,7 @@ class TMPD(GuidedSampler):
         return res / num_samples
 
     def parallel_hutchinson_diag_est(
-        self, vjp_est, shape, num_samples=10, chunk_size=100
+        self, vjp_est, shape, num_samples=10, chunk_size=10
     ):
         output = torch.zeros((shape[0], shape[1]), device=self.device)
         assert num_samples % chunk_size == 0
