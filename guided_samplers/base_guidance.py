@@ -25,6 +25,7 @@ class GuidedSampler(ABC):
         noiser,
         device,
         return_cov=False,
+        alt_guidance=False,
         **kwargs,
     ):
         self.model = model
@@ -32,6 +33,7 @@ class GuidedSampler(ABC):
         self.shape = shape
         self.sampling_eps = sampling_eps
         self.return_cov = return_cov
+        self.alt_guidance = alt_guidance
 
         if inverse_scaler is None:
             # if no inverse scaler is provided, default to identity
@@ -101,6 +103,7 @@ class GuidedSampler(ABC):
                 dstd_dt = self.sde.dstd_dt(num_t)
 
                 if self.return_cov:
+                    # for now there is no alternative guidance for the covariance return
                     guided_vec, mean_0t, cov_yt = self.get_guidance(
                         model_fn,
                         x,
