@@ -17,7 +17,7 @@ from guided_samplers.registry import register_guided_sampler
 @register_guided_sampler(name="tmpd")
 class TMPD(GuidedSampler):
     # TMPD does not seem to require any additional hyperparameters
-    def get_guidance(
+    def _get_guidance(
         self,
         model_fn,
         x_t,
@@ -179,7 +179,9 @@ class TMPD(GuidedSampler):
 
         return res / num_samples
 
-    def parallel_hutchinson_diag_est(self, vjp_est, shape, num_samples=10, chunk_size=10):
+    def parallel_hutchinson_diag_est(
+        self, vjp_est, shape, num_samples=10, chunk_size=100
+    ):
         output = torch.zeros((shape[0], shape[1]), device=self.device)
         assert num_samples % chunk_size == 0
 
@@ -197,10 +199,124 @@ class TMPD(GuidedSampler):
             vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
 
             vjpz = torch.sum(z * vmapped_vjp, dim=0)
-            
+
             output += vjpz
 
         return output / num_samples
+
+    def _get_alt_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        """
+        An alternative guidance function to use before/after reaching a certain time.
+
+        Here we take it to be PiGDM.
+        """
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        # r_t_2 as in Song et al. 2022
+        r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
+
+        # get the noise level of observation
+        sigma_y = self.noiser.sigma
+
+        with torch.enable_grad():
+            x_t = x_t.clone().to(x_t.device).requires_grad_()
+            flow_pred = model_fn(x_t, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x_t,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            # get Sigma_^-1 @ vec
+            s_times_vec = self.H_func.HHt_inv(
+                y_obs - self.H_func.H(x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
+            )
+            # get vec.T @ Sigma_^-1 @ vec
+            mat = (
+                ((y_obs - self.H_func.H(x0_hat)).reshape(x_t.shape[0], -1))
+                * s_times_vec
+            ).sum()
+
+        grad_term = torch.autograd.grad(mat, x_t, retain_graph=True)[0] * (-1)
+        grad_term = grad_term.detach()
+
+        # compute gamma_t scaling
+        # only use for images but not GMM example
+        # (using OT path)
+        if len(y_obs.shape) > 2:
+            gamma_t = 1.0
+        else:
+            gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
+
+        # print(gamma_t)
+        scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
+
+        # print("scaled_grad", scaled_grad.mean())
+        if clamp_to is not None:
+            scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
+
+        guided_vec = scaled_grad + flow_pred
+        # return guided_vec
+        return flow_pred
+    
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        # condition on the time
+        if num_t < 0.2:
+            return self._get_guidance(
+                model_fn,
+                x_t,
+                num_t,
+                y_obs,
+                alpha_t,
+                std_t,
+                da_dt,
+                dstd_dt,
+                clamp_to,
+                **kwargs,
+            )
+
+        else:
+            # print(f"Using alternative guidance after time {num_t}")
+            return self._get_alt_guidance(
+                model_fn,
+                x_t,
+                num_t,
+                y_obs,
+                alpha_t,
+                std_t,
+                da_dt,
+                dstd_dt,
+                clamp_to,
+                **kwargs,
+            )
 
 
 @register_guided_sampler(name="tmpd_trace")
@@ -299,7 +415,6 @@ class TMPD_trace(GuidedSampler):
             guided_vec = (scaled_grad) + (flow_pred)
         return guided_vec
 
-
     def hutchinson_trace_est(self, vjp_est, shape, num_samples=10):
         """
         Returns the average trace of the Jacobian using Hutchinson's trace estimator.
@@ -330,7 +445,9 @@ class TMPD_trace(GuidedSampler):
 
         return res / num_samples
 
-    def parallel_hutchinson_trace_est(self, vjp_est, shape, num_samples=10, chunk_size=10):
+    def parallel_hutchinson_trace_est(
+        self, vjp_est, shape, num_samples=10, chunk_size=10
+    ):
         output = torch.zeros(shape[0], device=self.device)
         assert num_samples % chunk_size == 0
         for i in range(num_samples // chunk_size):
@@ -348,10 +465,10 @@ class TMPD_trace(GuidedSampler):
                 z.view(chunk_size, shape[0], *shape[1:])
             )[0]
 
-            vjpz = (
-                torch.sum(z * vmapped_vjp.view(chunk_size, shape[0], *shape[1:]), dim=0)
+            vjpz = torch.sum(
+                z * vmapped_vjp.view(chunk_size, shape[0], *shape[1:]), dim=0
             )
-            
+
             output += torch.sum(vjpz.view(shape[0], -1), dim=-1) / math.prod(shape[1:])
 
         return output / num_samples
