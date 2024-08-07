@@ -45,7 +45,7 @@ def get_config():
     # sampling starting time, 0.2, 0.4 in the paper
     sampling.starting_time = 0
     # noise to add during sampling
-    sampling.sigma_variance = 0.0 # NOTE: tune this add noise and denoise?
+    sampling.sigma_variance = 1.0 # NOTE: tune this add noise and denoise?
     
     # number of steps to run the sampler
     sampling.sample_N = 100 # NOTE: tune this
