@@ -107,6 +107,9 @@ class TMPD(GuidedSampler):
             shape=(self.shape[0], math.prod(self.shape[1:])),
             num_samples=num_hutchinson_samples,
         )
+        
+        # use row-sum instead
+        # diagonal_est = v_vjp_est(torch.ones_like(x_t))
 
         coeff_C_yy = std_t**2 / (alpha_t)
 
@@ -272,8 +275,8 @@ class TMPD(GuidedSampler):
             scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
 
         guided_vec = scaled_grad + flow_pred
-        # return guided_vec
-        return flow_pred
+        return guided_vec
+        # return flow_pred
     
     def get_guidance(
         self,
@@ -289,7 +292,7 @@ class TMPD(GuidedSampler):
         **kwargs
     ):
         # condition on the time
-        if num_t < 2:
+        if num_t < 0.5:
             return self._get_guidance(
                 model_fn,
                 x_t,
