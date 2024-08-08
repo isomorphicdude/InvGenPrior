@@ -48,7 +48,7 @@ def create_and_compare(config, workdir, data_index=53, sample_N=100):
         "tmpd_cd",
         "pgdm_mod",
         "tmpd_row_exact",
-        "tmpd_trace"
+        "tmpd_trace",
     ]
     config_keys = [
         sampler_name
@@ -74,7 +74,13 @@ def create_and_compare(config, workdir, data_index=53, sample_N=100):
         configs_copies[sampler_name] = new_config
 
     # create a folder for saving the results
-    eval_dir = os.path.join(workdir, "qualitative_eval", str(data_index))
+    eval_dir = os.path.join(
+        workdir,
+        "qualitative_eval",
+        config.data.name,
+        config.degredation.task_name,
+        "image_" + str(data_index),
+    )
     tf.io.gfile.makedirs(eval_dir)
 
     ### below is shared for all samplers ###
