@@ -102,7 +102,7 @@ class TMPD(GuidedSampler):
             return self.H_func.Vt(vjp_estimate_x_0(self.H_func.V(x))[0])
 
         # compute the diagonal of the Jacobian
-        diagonal_est = self.parallel_hutchinson_diag_est(
+        diagonal_est = self.hutchinson_diag_est(
             vjp_est=v_vjp_est,
             shape=(self.shape[0], math.prod(self.shape[1:])),
             num_samples=num_hutchinson_samples,
