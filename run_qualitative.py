@@ -34,7 +34,8 @@ from guided_samplers import tmpd, dps, pgdm, reddiff, bures_jko
 from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 
 
-def create_and_compare(config, workdir, data_index=53, sample_N=100):
+def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
+                       sample_N=100):
     """
     Creates a result for each method and compare them.
     """
@@ -133,7 +134,13 @@ def create_and_compare(config, workdir, data_index=53, sample_N=100):
 
     # build degredation operator
     H_func = get_operator(name=config.degredation.name, config=config.degredation)
-    noiser = get_noise(name=config.degredation.noiser, config=config.degredation)
+    
+    # option to change the noise sigma
+    noise_config = ml_collections.ConfigDict()
+    noise_config.sigma = noise_sigma
+    noise_config.device = config.device
+    noiser = get_noise(name=config.degredation.noiser, 
+                       config=noise_config)
 
     # get the image
     true_img = dset[data_index][0]
@@ -245,6 +252,8 @@ flags.DEFINE_integer("data_index", 53, "Index of the data to sample.")
 
 flags.DEFINE_integer("sample_N", 100, "Number of sampling steps.")
 
+flags.DEFINE_float("noise_sigma", 0.05, "Noise sigma for the degradation.")
+
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
 flags.DEFINE_string(
@@ -275,6 +284,7 @@ def main(argv):
         FLAGS.config,
         FLAGS.workdir,
         data_index=FLAGS.data_index,
+        noise_sigma=FLAGS.noise_sigma,
         sample_N=FLAGS.sample_N,
     )
 
