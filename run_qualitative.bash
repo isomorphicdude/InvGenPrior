@@ -10,7 +10,7 @@
 
 sigma_list=(0.0 0.01 0.05)
 # sigma_list=(0.05)
-sample_N=200
+sample_N=100
 
 for sigma in ${sigma_list[@]}; do
     echo "Running qualitative evaluation for sigma = $sigma for AFHQ dataset"
