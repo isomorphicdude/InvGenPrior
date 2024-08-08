@@ -40,8 +40,11 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     Creates a result for each method and compare them.
     """
     # create a different config for each sampler
+    # comment out tmpd and reddiff
     ignore_list = [
         "bures_jko",
+        "tmpd",
+        "reddiff",
         # "tmpd_og",
         "tmpd_fixed_cov",
         "tmpd_exact",
