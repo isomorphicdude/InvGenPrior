@@ -1,4 +1,4 @@
-"""Configuration for box-masked inpainting on AFHQ-cats using TMPD."""
+"""Configuration for box-masked inpainting on CelebA using TMPD."""
 import os
 import sys
 
@@ -31,7 +31,7 @@ def get_config():
     # degredation config
     config.degredation = degredation = ml_collections.ConfigDict()
     degredation.name = "inpainting"
-    degredation.task_name = "inpainting_box"
+    degredation.task_name = "inpainting_pixel"
     degredation.channels = config.data.num_channels
     degredation.img_dim = config.data.image_size
     degredation.noiser = config.sampling.degredation_noiser
@@ -39,7 +39,7 @@ def get_config():
     degredation.device = config.device
     
     # load mask from masks/
-    mask_path = "masks/square_box_mask.npz"
+    mask_path = "masks/random_pixel_mask.npz"
     degredation.missing_indices = load_mask(mask_path, device=config.degredation.device)[1]
     
     # sampling config
