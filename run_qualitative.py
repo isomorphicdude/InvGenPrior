@@ -43,8 +43,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     # comment out tmpd and reddiff
     ignore_list = [
         "bures_jko",
-        "tmpd",
-        "reddiff",
+        # "tmpd",
+        # "reddiff",
         # "tmpd_og",
         "tmpd_fixed_cov",
         "tmpd_exact",
