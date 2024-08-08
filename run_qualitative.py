@@ -74,7 +74,7 @@ def create_and_compare(config, workdir, data_index=53, sample_N=100):
         configs_copies[sampler_name] = new_config
 
     # create a folder for saving the results
-    eval_dir = os.path.join(workdir, "qualitative_eval")
+    eval_dir = os.path.join(workdir, "qualitative_eval", str(data_index))
     tf.io.gfile.makedirs(eval_dir)
 
     ### below is shared for all samplers ###
