@@ -165,7 +165,7 @@ def main():
 
     logging.info("Creating random pixel mask...")
     pixel_mask, pixel_missing_indices, pixel_kept_indices, pixel_coordinates_mask = (
-        random_pixel_mask(ratio_to_mask=0.9, D_OR=(3, 256, 256), device=DEVICE)
+        random_pixel_mask(ratio_to_mask=0.7, D_OR=(3, 256, 256), device=DEVICE)
     )
 
     # save masks to npz files
