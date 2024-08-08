@@ -80,7 +80,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         "qualitative_eval",
         config.data.name,
         config.degredation.task_name,
-        "image_" + str(data_index),
+        config.degredation.sigma,
+        "image_" + str(data_index)
     )
     tf.io.gfile.makedirs(eval_dir)
 
