@@ -118,18 +118,32 @@ class GuidedSampler(ABC):
                     )
 
                 else:
-                    guided_vec = self.get_guidance(
-                        model_fn,
-                        x.clamp(-1.0, 1.0),
-                        num_t,
-                        y_obs,
-                        alpha_t,
-                        std_t,
-                        da_dt,
-                        dstd_dt,
-                        clamp_to=clamp_to,
-                        **kwargs,
-                    )
+                    if i==0 and self.__class__.__name__ != "REDdiff":
+                        guided_vec = self.get_guidance(
+                            model_fn,
+                            x,
+                            num_t,
+                            y_obs,
+                            alpha_t,
+                            std_t,
+                            da_dt,
+                            dstd_dt,
+                            clamp_to=1.0,
+                            **kwargs,
+                        )
+                    else:
+                        guided_vec = self.get_guidance(
+                            model_fn,
+                            x,
+                            num_t,
+                            y_obs,
+                            alpha_t,
+                            std_t,
+                            da_dt,
+                            dstd_dt,
+                            clamp_to=clamp_to,
+                            **kwargs,
+                        )
 
                 x = (
                     x.detach().clone()
