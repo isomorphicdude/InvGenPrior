@@ -118,7 +118,7 @@ class GuidedSampler(ABC):
                     )
 
                 else:
-                    if i==0 and self.__class__.__name__ != "REDdiff":
+                    if i<=self.sde.sample_N//2 and self.__class__.__name__ != "REDdiff":
                         guided_vec = self.get_guidance(
                             model_fn,
                             x,
