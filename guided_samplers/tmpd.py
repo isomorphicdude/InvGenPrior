@@ -28,6 +28,7 @@ class TMPD(GuidedSampler):
         da_dt,
         dstd_dt,
         clamp_to,
+        clamp_condition,
         **kwargs
     ):
         """
@@ -133,7 +134,7 @@ class TMPD(GuidedSampler):
         )
 
         # clamp to interval
-        if clamp_to is not None:
+        if clamp_to is not None and clamp_condition:
             # print(scaled_grad.mean())
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
@@ -218,6 +219,7 @@ class TMPD(GuidedSampler):
         da_dt,
         dstd_dt,
         clamp_to,
+        clamp_condition,
         **kwargs
     ):
         """
@@ -289,6 +291,7 @@ class TMPD(GuidedSampler):
         da_dt,
         dstd_dt,
         clamp_to,
+        clamp_condition,
         **kwargs
     ):
         # condition on the time
@@ -303,6 +306,7 @@ class TMPD(GuidedSampler):
                 da_dt,
                 dstd_dt,
                 clamp_to,
+                clamp_condition,
                 **kwargs,
             )
 
@@ -318,6 +322,7 @@ class TMPD(GuidedSampler):
                 da_dt,
                 dstd_dt,
                 clamp_to,
+                clamp_condition,
                 **kwargs,
             )
 
@@ -761,6 +766,7 @@ class TMPD_og(GuidedSampler):
         da_dt,
         dstd_dt,
         clamp_to,
+        clamp_condition,
         **kwargs
     ):
         """
@@ -829,7 +835,7 @@ class TMPD_og(GuidedSampler):
         # print(scaled_grad.mean())
 
         # clamp to interval
-        if clamp_to is not None:
+        if clamp_to is not None and clamp_condition:
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
             guided_vec = (scaled_grad) + (flow_pred)

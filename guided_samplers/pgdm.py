@@ -22,6 +22,7 @@ class PiGDM(GuidedSampler):
         da_dt,
         dstd_dt,
         clamp_to,
+        clamp_condition,
         noiseless=False,
         **kwargs
     ):
@@ -102,7 +103,7 @@ class PiGDM(GuidedSampler):
         scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
 
         # print("scaled_grad", scaled_grad.mean())
-        if clamp_to is not None:
+        if clamp_to is not None and clamp_condition:
             scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
 
         guided_vec = scaled_grad + flow_pred

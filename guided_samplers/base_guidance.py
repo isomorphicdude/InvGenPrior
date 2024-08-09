@@ -118,32 +118,53 @@ class GuidedSampler(ABC):
                     )
 
                 else:
-                    if i<=self.sde.sample_N//2 and self.__class__.__name__ != "REDdiff":
-                        guided_vec = self.get_guidance(
-                            model_fn,
-                            x,
-                            num_t,
-                            y_obs,
-                            alpha_t,
-                            std_t,
-                            da_dt,
-                            dstd_dt,
-                            clamp_to=1.0,
-                            **kwargs,
-                        )
+                    if (
+                        i <= self.sde.sample_N // 2
+                        and self.__class__.__name__ != "REDdiff"
+                    ):
+                        clamp_condition = True
                     else:
-                        guided_vec = self.get_guidance(
-                            model_fn,
-                            x,
-                            num_t,
-                            y_obs,
-                            alpha_t,
-                            std_t,
-                            da_dt,
-                            dstd_dt,
-                            clamp_to=clamp_to,
-                            **kwargs,
-                        )
+                        clamp_condition = False
+
+                    guided_vec = self.get_guidance(
+                        model_fn,
+                        x,
+                        num_t,
+                        y_obs,
+                        alpha_t,
+                        std_t,
+                        da_dt,
+                        dstd_dt,
+                        clamp_to=clamp_to,
+                        clamp_condition=clamp_condition,
+                        **kwargs,
+                    )
+                    # if i<=self.sde.sample_N//2 and self.__class__.__name__ != "REDdiff":
+                    #     guided_vec = self.get_guidance(
+                    #         model_fn,
+                    #         x,
+                    #         num_t,
+                    #         y_obs,
+                    #         alpha_t,
+                    #         std_t,
+                    #         da_dt,
+                    #         dstd_dt,
+                    #         clamp_to=1.0,
+                    #         **kwargs,
+                    #     )
+                    # else:
+                    #     guided_vec = self.get_guidance(
+                    #         model_fn,
+                    #         x,
+                    #         num_t,
+                    #         y_obs,
+                    #         alpha_t,
+                    #         std_t,
+                    #         da_dt,
+                    #         dstd_dt,
+                    #         clamp_to=clamp_to,
+                    #         **kwargs,
+                    #     )
 
                 x = (
                     x.detach().clone()
@@ -165,10 +186,18 @@ class GuidedSampler(ABC):
                     list_cov_yt.append(cov_yt)
 
                 # print name
-                if self.__class__.__name__ == "TMPD" and i % 10 == 0 and len(self.shape)>2:
+                if (
+                    self.__class__.__name__ == "TMPD"
+                    and i % 10 == 0
+                    and len(self.shape) > 2
+                ):
                     print(f"Iteration {i} of {self.sde.sample_N} completed.")
-                    
-                elif self.__class__.__name__ == "TMPD_trace" and i % 10 == 0 and len(self.shape)>2:
+
+                elif (
+                    self.__class__.__name__ == "TMPD_trace"
+                    and i % 10 == 0
+                    and len(self.shape) > 2
+                ):
                     print(f"Iteration {i} of {self.sde.sample_N} completed.")
         # print(self.return_cov)
         if not self.return_cov:
@@ -338,7 +367,7 @@ class GuidedSampler(ABC):
 
         Each entry in the dictionary is a list of samples of length T (timesteps)
         for a given chunk.
-        
+
         Returns a list of samples of length T.
         """
         # make the dictionary into a list by stacking
@@ -351,15 +380,14 @@ class GuidedSampler(ABC):
             )
             samples.append(temp)
         return samples
-    
-    
+
     def aggregate_cov_dict(self, cov_dict, num_chunks=50, chunk_size=20):
         """
-        Aggregate the covariance dictionary into a list by taking average over 
+        Aggregate the covariance dictionary into a list by taking average over
         the batch dimension.
         """
         cov_list = []
-        
+
         for i in range(len(cov_dict[0])):
             # print(cov_dict[0][i][None].shape)
             temp = torch.cat(
@@ -368,9 +396,8 @@ class GuidedSampler(ABC):
             )
             # print(temp.shape)
             cov_list.append(torch.mean(temp, dim=0))
-            
+
         return cov_list
-        
 
     def chunkwise_sampling(
         self,
@@ -390,15 +417,15 @@ class GuidedSampler(ABC):
 
         num_samples = y_obs.shape[0]
         assert num_samples % chunk_size == 0
-        
+
         num_chunks = num_samples // chunk_size
-        
+
         samples_dict = {i: [] for i in range(num_chunks)}
-        
+
         if self.return_cov:
             mean_0t_dict = {i: [] for i in range(num_chunks)}
             cov_yt_dict = {i: [] for i in range(num_chunks)}
-            
+
         for i in tqdm(
             range(num_chunks), total=num_chunks, desc="Sampling", colour="green"
         ):
@@ -410,20 +437,25 @@ class GuidedSampler(ABC):
                     y_obs=y_obs_chunk, clamp_to=None, z=start_z_chunk, return_list=True
                 )
             else:
-                samples_chunk, list_mean_0t_chunk, list_cov_yt_chunk = self.guided_euler_sampler(
-                    y_obs=y_obs_chunk, clamp_to=None, z=start_z_chunk, return_list=True
+                samples_chunk, list_mean_0t_chunk, list_cov_yt_chunk = (
+                    self.guided_euler_sampler(
+                        y_obs=y_obs_chunk,
+                        clamp_to=None,
+                        z=start_z_chunk,
+                        return_list=True,
+                    )
                 )
                 mean_0t_dict[i] = list_mean_0t_chunk
                 cov_yt_dict[i] = list_cov_yt_chunk
-                
+
             samples_dict[i] = samples_chunk
-                
+
         samples = self.convert_dict_to_list(samples_dict, num_chunks)
-        
+
         if self.return_cov:
             mean_0t = self.aggregate_cov_dict(mean_0t_dict, num_chunks, chunk_size)
             cov_yt = self.aggregate_cov_dict(cov_yt_dict, num_chunks, chunk_size)
-        
+
         if not self.return_cov:
             if return_list:
                 return samples
@@ -431,4 +463,3 @@ class GuidedSampler(ABC):
                 return samples[-1]
         else:
             return samples, mean_0t, cov_yt
-                

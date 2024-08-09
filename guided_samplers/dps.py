@@ -21,6 +21,7 @@ class DPS(GuidedSampler):
         da_dt,
         dstd_dt,
         clamp_to,
+        clamp_condition,
         **kwargs
     ):
         """Compute the DPS guidance (Chung et al., 2022)."""
@@ -61,7 +62,7 @@ class DPS(GuidedSampler):
         
         corrected_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t)
         
-        if clamp_to is not None:
+        if clamp_to is not None and clamp_condition:
             return (dps_scaling_const * corrected_grad).clamp(-clamp_to, clamp_to) + flow_pred
         else:
             return (dps_scaling_const * corrected_grad) + flow_pred
