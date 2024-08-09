@@ -43,8 +43,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     # comment out tmpd and reddiff
     ignore_list = [
         "bures_jko",
-        # "tmpd",
-        # "reddiff",
+        "tmpd",
+        "reddiff",
         # "tmpd_og",
         "tmpd_fixed_cov",
         "tmpd_exact",
@@ -207,7 +207,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         if sampler_name == "reddiff":
             clamp_to = None
         else:
-            clamp_to = 1.0
+            clamp_to = None
 
         current_sample = guided_sampler.sample(
             y_obs=y_obs,
