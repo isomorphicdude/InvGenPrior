@@ -68,7 +68,7 @@ class TMPD(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            )
+            ).clamp(-1, 1)
 
             x0_hat_obs = self.H_func.H(x0_hat)
 
@@ -86,7 +86,7 @@ class TMPD(GuidedSampler):
                 dstd_dt=dstd_dt,
             ).reshape(
                 self.shape[0], -1
-            )  # flatten
+            ).clamp(-1, 1)
 
             return x0_hat, flow_pred
 
