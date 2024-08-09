@@ -39,7 +39,7 @@ def get_config():
     degredation.device = config.device
     
     # super resolution ratio
-    degredation.ratio = 8
+    degredation.ratio = 4
     
     # sampling config
     sampling = config.sampling
