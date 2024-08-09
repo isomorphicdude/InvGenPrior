@@ -227,7 +227,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         # clear memory
         torch.cuda.empty_cache()
 
-    logging.info("Sampling Done.")
+    logging.info("Sampling Done, saving comparison image.")
 
     # plot the images side by side
     fig, axs = plt.subplots(1, len(configs_copies.keys()) + 2, figsize=(20, 10))
@@ -245,7 +245,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         axs[i + 2].axis("off")
 
     plt.savefig(os.path.join(eval_dir, "comparison.png"))
-
+    # plt.close()
+    logging.info("Comparison image saved.")
 
 FLAGS = flags.FLAGS
 
