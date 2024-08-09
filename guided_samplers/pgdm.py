@@ -51,7 +51,7 @@ class PiGDM(GuidedSampler):
                     std_t=std_t,
                     da_dt=da_dt,
                     dstd_dt=dstd_dt,
-                ).clamp(-1, 1)
+                )
                 mat = (
                     self.H_func.H_pinv(y_obs)
                     - self.H_func.H_pinv(self.H_func.H(x0_hat))
@@ -76,7 +76,7 @@ class PiGDM(GuidedSampler):
                     std_t=std_t,
                     da_dt=da_dt,
                     dstd_dt=dstd_dt,
-                ).clamp(-1, 1)
+                )
                 # get Sigma_^-1 @ vec
                 s_times_vec = self.H_func.HHt_inv(
                     y_obs - self.H_func.H(x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
@@ -104,6 +104,7 @@ class PiGDM(GuidedSampler):
 
         # print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None and clamp_condition:
+            clamp_to = flow_pred.flatten().abs().max().item()   
             scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
 
         guided_vec = scaled_grad + flow_pred

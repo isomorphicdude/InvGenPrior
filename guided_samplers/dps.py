@@ -42,7 +42,7 @@ class DPS(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            ).clamp(-1, 1)
+            )
             # NOTE: while the authors claim that the stepsize is 1/||y-H(x0_hat)||^2
             # we note that this does not work well for GMM (? maybe the seed is bad)
             # but we will use the official implementation for images
@@ -63,6 +63,7 @@ class DPS(GuidedSampler):
         corrected_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t)
         
         if clamp_to is not None and clamp_condition:
+            clamp_to = flow_pred.flatten().abs().max().item()
             return (dps_scaling_const * corrected_grad).clamp(-clamp_to, clamp_to) + flow_pred
         else:
             return (dps_scaling_const * corrected_grad) + flow_pred
