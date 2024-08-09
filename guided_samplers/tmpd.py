@@ -836,6 +836,7 @@ class TMPD_og(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
+            clamp_to = flow_pred.flatten().max().item()
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
             guided_vec = (scaled_grad) + (flow_pred)
