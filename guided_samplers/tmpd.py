@@ -787,7 +787,7 @@ class TMPD_og(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            )
+            ).clamp(min=-1.0, max=1.0)
 
             x0_hat_obs = self.H_func.H(x0_hat)
 
