@@ -137,7 +137,7 @@ class GuidedSampler(ABC):
                     + sigma_t
                     * math.sqrt(dt)
                     * torch.randn_like(guided_vec).to(self.device)
-                )
+                ).clamp(-1.0, 1.0)
 
                 # if return_list and i % (self.sde.sample_N // 10) == 0:
                 #     samples.append(x.detach().clone())
