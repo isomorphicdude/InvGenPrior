@@ -119,7 +119,7 @@ class GuidedSampler(ABC):
 
                 else:
                     if (
-                        i <=1
+                        i <=0
                         and self.__class__.__name__ != "REDdiff"
                     ):
                         clamp_condition = True
