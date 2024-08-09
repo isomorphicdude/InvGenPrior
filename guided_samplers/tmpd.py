@@ -274,6 +274,7 @@ class TMPD(GuidedSampler):
 
         # print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None:
+            clamp_to = flow_pred.flatten().abs().max().item()
             scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
 
         guided_vec = scaled_grad + flow_pred
