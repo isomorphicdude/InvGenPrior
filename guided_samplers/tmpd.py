@@ -51,7 +51,7 @@ class TMPD(GuidedSampler):
         Returns:
          - guided_vec: guidance vector with flow prediction and guidance combined
         """
-        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 40)
+        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 100)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
@@ -103,11 +103,20 @@ class TMPD(GuidedSampler):
             return self.H_func.Vt(vjp_estimate_x_0(self.H_func.V(x))[0])
 
         # compute the diagonal of the Jacobian
-        diagonal_est = self.hutchinson_diag_est(
-            vjp_est=v_vjp_est,
-            shape=(self.shape[0], math.prod(self.shape[1:])),
-            num_samples=num_hutchinson_samples,
-        )
+        if len(self.shape) > 2:
+            diagonal_est = self.hutchinson_diag_est(
+                vjp_est=v_vjp_est,
+                shape=(self.shape[0], math.prod(self.shape[1:])),
+                num_samples=num_hutchinson_samples,
+            )
+            
+        elif len(self.shape) <= 2:
+            diagonal_est = self.parallel_hutchinson_diag_est(
+                vjp_est=v_vjp_est,
+                shape=(self.shape[0], math.prod(self.shape[1:])),
+                num_samples=num_hutchinson_samples,
+                chunk_size=50,
+            )
         
         # use row-sum instead
         # diagonal_est = v_vjp_est(torch.ones_like(x_t))
