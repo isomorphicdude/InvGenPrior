@@ -19,6 +19,7 @@ import pandas as pd
 import tensorflow as tf
 from absl import app, flags
 import matplotlib
+
 # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from ml_collections.config_flags import config_flags
@@ -105,7 +106,7 @@ def create_samples(
     start_z = torch.randn(num_samples, gmm_config.dim)
 
     # list of methods
-    methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_exact"]
+    methods = ["tmpd", "pgdm", "dps", "tmpd_og"]
     # methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_og"]
     # methods = ["tmpd", "pgdm", "dps", "tmpd_fixed_cov"]
 
@@ -139,7 +140,9 @@ def create_samples(
         )
         # convert to numpy
         if return_list:
-            samples_dict[method_name] = [sample.detach().numpy() for sample in batched_list_samples]
+            samples_dict[method_name] = [
+                sample.detach().numpy() for sample in batched_list_samples
+            ]
         else:
             samples_dict[method_name] = batched_list_samples.detach().numpy()
 
@@ -246,7 +249,11 @@ def visualise_experiment(
                             label="True Posterior",
                         )
                         axs[j].scatter(
-                            sample[:, 0], sample[:, 1], alpha=0.5, s=10, label=name.upper()
+                            sample[:, 0],
+                            sample[:, 1],
+                            alpha=0.5,
+                            s=10,
+                            label=name.upper(),
                         )
                         axs[j].set_title(f"{name.upper()} time step {i}")
                         axs[j].set_xlim(-20, 20)
@@ -257,13 +264,14 @@ def visualise_experiment(
                 del fig
                 gc.collect(generation=2)
                 plt.close("all")
-                
+
     # calling the function to create the GIF
     if not plot:
         logging.info("Creating the GIFs...")
         plotting_utils.make_gif_gmm("temp", "temp/GMM.gif", duration=100)
         # remove the images
         # os.system("rm temp/*.png")
+
 
 def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     """
@@ -277,17 +285,18 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     # dim_list = [8, 80, 800]
     # obs_dim_list = [1, 2, 4]
     # noise_list = [0.01, 0.1, 1.0]
-    dim_list = [80]
-    obs_dim_list = [1]
+    dim_list = [800]
+    obs_dim_list = [4]
     noise_list = [0.05]
 
     # get cartesian product of the lists
     product_list = list(itertools.product(dim_list, obs_dim_list, noise_list))
 
-    results_dict = {name: {
-        tup: [] for tup in product_list
-    } for name in ["tmpd", "pgdm", "dps", "reddiff"]} #NOTE: add "tmpd_exact" if needed
-
+    # also removed reddiff
+    results_dict = {
+        name: {tup: [] for tup in product_list}
+        for name in ["tmpd", "pgdm", "dps", "tmpd_og"]
+    }  # NOTE: add "tmpd_exact" if needed
 
     # to compute the confidence intervals
     num_iters = 1
@@ -295,7 +304,9 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
         logging.info(f"Iteration {iter}...")
         for tup in product_list:
             dim, obs_dim, sigma_y = tup
-            logging.info(f"Running for dim={dim}, obs_dim={obs_dim}, sigma_y={sigma_y}...")
+            logging.info(
+                f"Running for dim={dim}, obs_dim={obs_dim}, sigma_y={sigma_y}..."
+            )
             samples_dict = create_samples(
                 config,
                 return_list=return_list,
@@ -329,8 +340,7 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
                 "mean": np.mean(swd_list),
                 "std": np.std(swd_list),
             }
-    
-    
+
     # store the results to a CSV file
     results_df = pd.DataFrame(results_dict).T
 
@@ -340,13 +350,18 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
 FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file(
-    "config", "configs/gmm_configs.py", "Sampling configuration.", lock_config=False  # might want to lock
+    "config",
+    "configs/gmm_configs.py",
+    "Sampling configuration.",
+    lock_config=False,  # might want to lock
 )
 
 flags.DEFINE_string("workdir", "temp", "Work directory.")
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
 flags.DEFINE_boolean("plot", True, "Plot the samples but without saving the GIFs.")
-flags.DEFINE_boolean("visualise", True, "Visualise the samples instead of running benchmark.")
+flags.DEFINE_boolean(
+    "visualise", False, "Visualise the samples instead of running benchmark."
+)
 
 
 def main(argv):
@@ -364,17 +379,23 @@ def main(argv):
 
     # visualise the samples
     if FLAGS.visualise:
+        logging.info("Visualising the samples...")
         visualise_experiment(
-            FLAGS.config, return_list=True, plot=FLAGS.plot, num_samples=1000, seed=42 # change to 10
+            FLAGS.config,
+            return_list=True,
+            plot=FLAGS.plot,
+            num_samples=1000,
+            seed=42,  # change to 10
         )
-        
+
     # run the experiment
     else:
+        logging.info("Running the experiment...")
         run_exp(
             FLAGS.config,
             FLAGS.workdir,
             return_list=False,
-            seed=42,
+            seed=7021,
         )
 
 
