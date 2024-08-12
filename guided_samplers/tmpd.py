@@ -68,7 +68,7 @@ class TMPD(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            ).clamp(-1, 1)
+            )
 
             x0_hat_obs = self.H_func.H(x0_hat)
 
@@ -86,7 +86,7 @@ class TMPD(GuidedSampler):
                 dstd_dt=dstd_dt,
             ).reshape(
                 self.shape[0], -1
-            ).clamp(-1, 1)
+            )
 
             return x0_hat, flow_pred
 
@@ -111,6 +111,7 @@ class TMPD(GuidedSampler):
             )
             
         elif len(self.shape) <= 2:
+            # print("Using parallel hutchinson")
             diagonal_est = self.parallel_hutchinson_diag_est(
                 vjp_est=v_vjp_est,
                 shape=(self.shape[0], math.prod(self.shape[1:])),
