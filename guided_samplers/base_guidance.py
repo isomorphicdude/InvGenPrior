@@ -114,6 +114,7 @@ class GuidedSampler(ABC):
                         da_dt,
                         dstd_dt,
                         clamp_to=clamp_to,
+                        clamp_condition=False,
                         **kwargs,
                     )
 
@@ -190,7 +191,7 @@ class GuidedSampler(ABC):
                 if (
                     self.__class__.__name__ == "TMPD"
                     and i % 10 == 0
-                    and len(self.shape) > 2
+                    # and len(self.shape) > 2
                 ):
                     print(f"Iteration {i} of {self.sde.sample_N} completed.")
 
@@ -198,6 +199,11 @@ class GuidedSampler(ABC):
                     self.__class__.__name__ == "TMPD_trace"
                     and i % 10 == 0
                     and len(self.shape) > 2
+                ):
+                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
+                    
+                elif(
+                    self.__class__.__name__ == "TMPD_fixed_cov" or self.__class__.__name__ == "TMPD_exact"
                 ):
                     print(f"Iteration {i} of {self.sde.sample_N} completed.")
         # print(self.return_cov)
