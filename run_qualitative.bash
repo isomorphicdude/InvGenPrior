@@ -15,7 +15,7 @@ sample_N=100
 for sigma in ${sigma_list[@]}; do
     echo "Running qualitative evaluation for sigma = $sigma for AFHQ dataset"
     # inpaint box
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/inpaint_box.py --workdir /content/InvGenPrior/ --sample_N $sample_N --noise_sigma $sigma --data_index 322
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/inpaint_box.py --workdir /content/InvGenPrior/ --sample_N $sample_N --noise_sigma $sigma --data_index 109
     # inpaint pixel
     python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/inpaint_pixel.py --workdir /content/InvGenPrior/ --sample_N $sample_N --noise_sigma $sigma --data_index 53
     # deblur
@@ -28,7 +28,7 @@ done
 for sigma in ${sigma_list[@]}; do
     echo "Running qualitative evaluation for sigma = $sigma for CelebA dataset"
     # inpaint box
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/inpaint_box.py --workdir /content/InvGenPrior/ --sample_N $sample_N --noise_sigma $sigma --data_index 322
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/inpaint_box.py --workdir /content/InvGenPrior/ --sample_N $sample_N --noise_sigma $sigma --data_index 109
     # inpaint pixel
     python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/inpaint_pixel.py --workdir /content/InvGenPrior/ --sample_N $sample_N --noise_sigma $sigma --data_index 53
     # deblur
