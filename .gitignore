@@ -8,4 +8,5 @@ run_tmpd_exact.py
 *.pkl
 *.png
 *.txt
+qualitative/
 # datasets/lmdb_dataset.py
