@@ -99,7 +99,6 @@ class TMPD(GuidedSampler):
         )
 
         def v_vjp_est(x):
-            # return self.H_func.V(vjp_estimate_v_x_0(x)[0])
             return self.H_func.Vt(vjp_estimate_x_0(self.H_func.V(x))[0])
 
         # compute the diagonal of the Jacobian
@@ -145,7 +144,7 @@ class TMPD(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
-            # print(scaled_grad.mean())
+            clamp_to = flow_pred.flatten().abs().max().item()
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
             guided_vec = (scaled_grad) + (flow_pred)
