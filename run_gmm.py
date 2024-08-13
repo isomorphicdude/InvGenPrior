@@ -19,6 +19,7 @@ import pandas as pd
 import tensorflow as tf
 from absl import app, flags
 import matplotlib
+import ml_collections
 
 # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -62,24 +63,44 @@ def create_samples(
     obs_dim=1,
     sigma_y=0.05,
     seed=42,
+    verbose=True,
 ):
     """
     Return samples from guided samplers as a dictionary of
-    {method: samples} along with the true posterior samples (also in the dictionary).
+    {method: samples} along with the true posterior samples (also in the dictionary).    
+    
+    Args:   
+      gmm_config: ml_collections.ConfigDict, configuration for the GMM model.  
+      return_list: bool, whether to return a list of samples.  
+      num_samples: int, number of samples to generate.  
+      dim: int, dimension of the true data.  
+      obs_dim: int, dimension of the observation
+      sigma_y: float, noise scale of observation.
+      seed: int, random seed.
+      verbose: bool, whether to print the time taken for each method.
     """
+    if gmm_config is None:
+        # creat new config
+        gmm_config = ml_collections.ConfigDict()
+        gmm_config.dim = dim
+        gmm_config.obs_dim = obs_dim
+        gmm_config.sigma = sigma_y
 
-    # modify the config according to the input
-    gmm_config.dim = dim
-    gmm_config.obs_dim = obs_dim
-    gmm_config.sigma = sigma_y
+        H_mat, U, S, V = create_mask.get_H_mat(gmm_config.dim, gmm_config.obs_dim)
 
-    H_mat, U, S, V = create_mask.get_H_mat(gmm_config.dim, gmm_config.obs_dim)
-
-    # put the matrix into config
-    gmm_config.H_mat = H_mat
-    gmm_config.U_mat = U
-    gmm_config.singulars = S
-    gmm_config.V_mat = V
+        # sampling specifications
+        gmm_config.device = "cpu"
+        gmm_config.sampling_eps = 1e-3
+        gmm_config.init_type = "gaussian"
+        gmm_config.noise_scale = 1.0
+        gmm_config.sde_sigma_var = 0.0
+        gmm_config.sample_N = 1000  # number of sampling steps
+        
+        # put the matrix into config
+        gmm_config.H_mat = H_mat
+        gmm_config.U_mat = U
+        gmm_config.singulars = S
+        gmm_config.V_mat = V
 
     # set SDE
     sde = sde_lib.RectifiedFlow(
@@ -95,11 +116,10 @@ def create_samples(
     H_func = operators.get_operator(name="gmm_h", config=gmm_config)
     noiser = noisers.get_noise(name="gaussian", config=gmm_config)
     y_obs = get_y_obs(gmm, H_func.H_mat, noiser)
-    num_samples = 1000
 
     # true posterior
     true_posterior_samples = gmm.sample_from_posterior(
-        num_samples, y_obs, H_func.H_mat, sigma_y
+        num_samples, y_obs, H_func.H_mat, gmm_config.sigma
     )
 
     # common starting point
@@ -116,6 +136,7 @@ def create_samples(
 
     for method_name in methods:
         logging.info(f"Running {method_name}...")
+        start_time = time.time()
         sampler = registry.get_guided_sampler(
             name=method_name,
             model=gmm_flow_model(gmm),
@@ -124,7 +145,7 @@ def create_samples(
             inverse_scaler=None,
             H_func=H_func,
             noiser=noiser,
-            device="cpu",
+            device=gmm_config.device,
             sampling_eps=1e-3,
         )
         # same observation
@@ -145,6 +166,9 @@ def create_samples(
             ]
         else:
             samples_dict[method_name] = batched_list_samples.detach().numpy()
+        end_time = time.time()
+        if verbose:
+            logging.info(f"Time taken for {method_name}: {end_time - start_time}")
 
     return samples_dict
 
@@ -285,7 +309,7 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     # dim_list = [8, 80, 800]
     # obs_dim_list = [1, 2, 4]
     # noise_list = [0.01, 0.1, 1.0]
-    dim_list = [800]
+    dim_list = [80]
     obs_dim_list = [4]
     noise_list = [0.05]
 
@@ -307,8 +331,9 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
             logging.info(
                 f"Running for dim={dim}, obs_dim={obs_dim}, sigma_y={sigma_y}..."
             )
+            # use specified parameters for experiments, thus set gmm config to None
             samples_dict = create_samples(
-                config,
+                None,
                 return_list=return_list,
                 num_samples=num_samples,
                 dim=dim,
