@@ -79,6 +79,10 @@ def create_samples(
       seed: int, random seed.
       verbose: bool, whether to print the time taken for each method.
     """
+    # set seed
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    
     if gmm_config is None:
         # creat new config
         gmm_config = ml_collections.ConfigDict()
@@ -134,6 +138,7 @@ def create_samples(
     samples_dict = {method_name: None for method_name in methods}
     samples_dict["true_posterior"] = true_posterior_samples.detach().numpy()
 
+    list_of_times = []
     for method_name in methods:
         logging.info(f"Running {method_name}...")
         start_time = time.time()
@@ -167,8 +172,11 @@ def create_samples(
         else:
             samples_dict[method_name] = batched_list_samples.detach().numpy()
         end_time = time.time()
+        list_of_times.append(end_time - start_time)
+        
         if verbose:
             logging.info(f"Time taken for {method_name}: {end_time - start_time}")
+    logging.info(f"Total time taken: {np.sum(list_of_times)}")
 
     return samples_dict
 
@@ -309,9 +317,9 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     # dim_list = [8, 80, 800]
     # obs_dim_list = [1, 2, 4]
     # noise_list = [0.01, 0.1, 1.0]
-    dim_list = [80]
-    obs_dim_list = [4]
-    noise_list = [0.05]
+    dim_list = [8]
+    obs_dim_list = [1, 2, 4]
+    noise_list = [0.01, 0.1, 1.0]
 
     # get cartesian product of the lists
     product_list = list(itertools.product(dim_list, obs_dim_list, noise_list))
@@ -319,13 +327,14 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     # also removed reddiff
     results_dict = {
         name: {tup: [] for tup in product_list}
-        for name in ["tmpd", "pgdm", "dps", "tmpd_og"]
+        for name in ["tmpd", "pgdm", "dps", "tmpd_og", "tmpd_exact"]
     }  # NOTE: add "tmpd_exact" if needed
 
-    # to compute the confidence intervals
-    num_iters = 1
+    # to compute the confidence intervals, default 20
+    num_iters = 20
     for iter in range(num_iters):
-        logging.info(f"Iteration {iter}...")
+        iter_seed = iter
+        logging.info(f"\nIteration {iter}...\n")
         for tup in product_list:
             dim, obs_dim, sigma_y = tup
             logging.info(
@@ -339,7 +348,7 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
                 dim=dim,
                 obs_dim=obs_dim,
                 sigma_y=sigma_y,
-                seed=seed,
+                seed=iter_seed,
             )
 
             # compute the Sliced Wasserstein Distance
@@ -351,7 +360,7 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
                     samples,
                     samples_dict["true_posterior"],
                     n_projections=10000,
-                    seed=seed,
+                    seed=iter_seed,
                 )
                 logging.info(f"SWD for {method_name} is {swd}")
                 results_dict[method_name][tup].append(swd)
@@ -367,6 +376,7 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
             }
 
     # store the results to a CSV file
+    tf.io.gfile.makedirs(workdir)
     results_df = pd.DataFrame(results_dict).T
 
     results_df.to_csv(os.path.join(workdir, "results.csv"))

@@ -196,7 +196,8 @@ class TMPD(GuidedSampler):
         self, vjp_est, shape, num_samples=10, chunk_size=10
     ):
         output = torch.zeros((shape[0], shape[1]), device=self.device)
-        assert num_samples % chunk_size == 0
+        if not num_samples % chunk_size == 0:
+            chunk_size = num_samples
 
         for i in range(num_samples // chunk_size):
             z = (
