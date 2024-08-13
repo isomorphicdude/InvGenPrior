@@ -151,7 +151,7 @@ def get_H_mat(dim, obs_dim):
 
     H_mat = U @ (torch.diag(diag)) @ Vt[coordinate_mask == 1, :]
 
-    return H_mat, U, diag, Vt[coordinate_mask == 1, :].T
+    return H_mat, U, diag, Vt.T
 
 
 def main():
