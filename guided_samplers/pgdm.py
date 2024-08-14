@@ -76,7 +76,7 @@ class PiGDM(GuidedSampler):
                     std_t=std_t,
                     da_dt=da_dt,
                     dstd_dt=dstd_dt,
-                )
+                ).clamp(-1, 1)
                 # get Sigma_^-1 @ vec
                 s_times_vec = self.H_func.HHt_inv(
                     y_obs - self.H_func.H(x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
