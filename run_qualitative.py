@@ -295,6 +295,9 @@ def main(argv):
     # data_index_list = [2, 15, 53, 109]
     # for data_index in data_index_list:
         # logging.info(f"\nSampling for data index {data_index}.\n")
+    if FLAGS.clamp_to == 0.0:
+        FLAGS.clamp_to = None
+        
     create_and_compare(
         FLAGS.config,
         FLAGS.workdir,
