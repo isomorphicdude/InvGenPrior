@@ -103,11 +103,14 @@ class PiGDM(GuidedSampler):
         scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
 
         # print("scaled_grad", scaled_grad.mean())
-        if clamp_to is not None and clamp_condition:
-            clamp_to = flow_pred.flatten().abs().max().item()   
-            scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
 
         guided_vec = scaled_grad + flow_pred
+        if clamp_to is not None and clamp_condition:
+            # clamp_to = flow_pred.flatten().abs().max().item()   
+            # scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
+        # print("Clamping to", clamp_to)
+            guided_vec = torch.clamp(guided_vec, -clamp_to, clamp_to)
+            
         if not self.return_cov:
             return guided_vec
         else:
