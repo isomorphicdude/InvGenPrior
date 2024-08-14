@@ -204,6 +204,28 @@ class GMM(object):
                 ),
             )
             
+    def get_gmm_cov(self, distr, dim):
+        """
+        Returns the covariance matrix of the GMM distribution.  
+        
+        Args:  
+          distr (torch.distributions.MixtureSameFamily): the GMM distribution.
+          dim (int): the dimension of the GMM.
+        """
+        mixture_probs = distr.mixture_distribution.probs
+        list_cov_mat = distr.component_distribution.covariance_matrix
+        list_means = distr.component_distribution.loc
+        mu = distr.mean
+        
+        cov_mat = torch.zeros(dim, dim)
+        cov_mat += torch.sum(mixture_probs[:, None, None] * list_cov_mat, axis=0)
+        
+        for i in range(distr._num_component):
+            cov_mat += mixture_probs[i] * torch.outer(list_means[i] - mu, list_means[i] - mu)
+        
+        return cov_mat 
+        
+            
     def get_distr_0t(self, t, x_t):
         """
         Returns the distribution p(x_0 | x_t) at time t as torch.distributions object.
@@ -267,27 +289,7 @@ class GMM(object):
         """
         distribution = self.get_distr_0t(t, x_t)
         
-        # mixture weights
-        mixture_probs = distribution.mixture_distribution.probs
-        
-        # component covariance matrices (n_components, dim, dim)
-        list_cov_mat = distribution.component_distribution.covariance_matrix
-        
-        # total mean mu (dim,)
-        mu = distribution.mean
-        
-        # component means (n_components, dim)
-        list_means = distribution.component_distribution.loc
-        
-        # sum_i w_i C_i
-        cov_mat = torch.zeros(self.dim, self.dim)
-        cov_mat += torch.sum(mixture_probs[:, None, None] * list_cov_mat, axis=0)
-        
-        # sum_i w_i (mu_i - mu) (mu_i - mu)^T
-        for i in range(self.n_components):
-            cov_mat += mixture_probs[i] * torch.outer(list_means[i] - mu, list_means[i] - mu)
-        
-        return cov_mat
+        return self.get_gmm_cov(distribution, self.dim)
         
         
     
@@ -338,28 +340,9 @@ class GMM(object):
         This is the analytical form of the covariance matrix.
         """
         distribution = self.get_distr_yt(t, x_t, H_mat, sigma_y)
+        dim = H_mat.shape[0]
         
-        # mixture weights
-        mixture_probs = distribution.mixture_distribution.probs
-        
-        # component covariance matrices (n_components, dim, dim)
-        list_cov_mat = distribution.component_distribution.covariance_matrix
-        
-        # total mean mu (dim,)
-        mu = distribution.mean
-        
-        # component means (n_components, dim)
-        list_means = distribution.component_distribution.loc
-        
-        # sum_i w_i C_i
-        cov_mat = torch.zeros(H_mat.shape[0], H_mat.shape[0])
-        cov_mat += torch.sum(mixture_probs[:, None, None] * list_cov_mat, axis=0)
-        
-        # sum_i w_i (mu_i - mu) (mu_i - mu)^T
-        for i in range(self.n_components):
-            cov_mat += mixture_probs[i] * torch.outer(list_means[i] - mu, list_means[i] - mu)
-        
-        return cov_mat
+        return self.get_gmm_cov(distribution, dim)
     
     def get_avg_cov_yt(self, t, x_t, H_mat, sigma_y):
         """
