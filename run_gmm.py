@@ -64,25 +64,27 @@ def create_samples(
     sigma_y=0.05,
     seed=42,
     verbose=True,
+    methods=["tmpd", "pgdm", "dps", "tmpd_og", "tmpd_exact"],
 ):
     """
     Return samples from guided samplers as a dictionary of
-    {method: samples} along with the true posterior samples (also in the dictionary).    
-    
-    Args:   
-      gmm_config: ml_collections.ConfigDict, configuration for the GMM model.  
-      return_list: bool, whether to return a list of samples.  
-      num_samples: int, number of samples to generate.  
-      dim: int, dimension of the true data.  
+    {method: samples} along with the true posterior samples (also in the dictionary).
+
+    Args:
+      gmm_config: ml_collections.ConfigDict, configuration for the GMM model.
+      return_list: bool, whether to return a list of samples.
+      num_samples: int, number of samples to generate.
+      dim: int, dimension of the true data.
       obs_dim: int, dimension of the observation
       sigma_y: float, noise scale of observation.
       seed: int, random seed.
       verbose: bool, whether to print the time taken for each method.
+      methods: list of strings, list of methods to run.
     """
     # set seed
     torch.manual_seed(seed)
     np.random.seed(seed)
-    
+
     if gmm_config is None:
         # creat new config
         gmm_config = ml_collections.ConfigDict()
@@ -99,7 +101,7 @@ def create_samples(
         gmm_config.noise_scale = 1.0
         gmm_config.sde_sigma_var = 0.0
         gmm_config.sample_N = 1000  # number of sampling steps
-        
+
         # put the matrix into config
         gmm_config.H_mat = H_mat
         gmm_config.U_mat = U
@@ -130,7 +132,7 @@ def create_samples(
     start_z = torch.randn(num_samples, gmm_config.dim)
 
     # list of methods
-    methods = ["tmpd", "pgdm", "dps", "tmpd_og"]
+    # methods = ["tmpd", "pgdm", "dps", "tmpd_og"]
     # methods = ["tmpd", "pgdm", "dps", "reddiff", "tmpd_og"]
     # methods = ["tmpd", "pgdm", "dps", "tmpd_fixed_cov"]
 
@@ -159,7 +161,7 @@ def create_samples(
         # run the sampler
         batched_list_samples = sampler.sample(
             y_obs_batched,
-            clamp_to=None,
+            clamp_to=20, # clampping to the support of the prior
             z=start_z,
             return_list=return_list,
             method="euler",
@@ -173,7 +175,7 @@ def create_samples(
             samples_dict[method_name] = batched_list_samples.detach().numpy()
         end_time = time.time()
         list_of_times.append(end_time - start_time)
-        
+
         if verbose:
             logging.info(f"Time taken for {method_name}: {end_time - start_time}")
     logging.info(f"Total time taken: {np.sum(list_of_times)}")
@@ -182,7 +184,12 @@ def create_samples(
 
 
 def visualise_experiment(
-    config, return_list=True, plot=True, num_samples=1000, seed=123
+    config,
+    return_list=True,
+    plot=True,
+    num_samples=1000,
+    seed=123,
+    methods=["tmpd", "pgdm", "dps", "tmpd_og", "tmpd_exact"],
 ):
     """
     Plots the samples and store the GIFs.
@@ -190,7 +197,11 @@ def visualise_experiment(
     np.random.seed(seed)
     torch.manual_seed(seed)
     samples_dict = create_samples(
-        config, return_list=return_list, num_samples=num_samples, seed=seed
+        config,
+        return_list=return_list,
+        num_samples=num_samples,
+        seed=seed,
+        methods=methods,
     )
     names = list(samples_dict.keys())
     if plot:
@@ -305,7 +316,15 @@ def visualise_experiment(
         # os.system("rm temp/*.png")
 
 
-def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
+def run_exp(
+    config,
+    workdir,
+    return_list=False,
+    num_samples=1000,
+    seed=42,
+    methods=["tmpd_fixed_cov", "pgdm", "dps"],
+    # methods=["tmpd"]
+):
     """
     Run the GMM experiment with the given configuration.
     """
@@ -317,9 +336,16 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     # dim_list = [8, 80, 800]
     # obs_dim_list = [1, 2, 4]
     # noise_list = [0.01, 0.1, 1.0]
+
+    # for testing
     dim_list = [8]
     obs_dim_list = [1, 2, 4]
-    noise_list = [0.01, 0.1, 1.0]
+    noise_list = [5.0]
+
+    # for debugging
+    # dim_list = [8]
+    # obs_dim_list = [4]
+    # noise_list = [1.0]
 
     # get cartesian product of the lists
     product_list = list(itertools.product(dim_list, obs_dim_list, noise_list))
@@ -327,7 +353,7 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     # also removed reddiff
     results_dict = {
         name: {tup: [] for tup in product_list}
-        for name in ["tmpd", "pgdm", "dps", "tmpd_og", "tmpd_exact"]
+        for name in methods
     }  # NOTE: add "tmpd_exact" if needed
 
     # to compute the confidence intervals, default 20
@@ -349,6 +375,7 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
                 obs_dim=obs_dim,
                 sigma_y=sigma_y,
                 seed=iter_seed,
+                methods=methods,
             )
 
             # compute the Sliced Wasserstein Distance
@@ -370,16 +397,19 @@ def run_exp(config, workdir, return_list=False, num_samples=1000, seed=42):
     # compute the mean and std of the SWD
     for method_name in results_dict.keys():
         for key, swd_list in results_dict[method_name].items():
+            swd_mean = np.mean(swd_list)
+            swd_std = np.std(swd_list)
             results_dict[method_name][key] = {
-                "mean": np.mean(swd_list),
-                "std": np.std(swd_list),
+                "mean": swd_mean,
+                "std": swd_std,
             }
+            logging.info(f"Method: {method_name}, {key}, SWD: {swd_mean} +/- {swd_std}")
 
     # store the results to a CSV file
     tf.io.gfile.makedirs(workdir)
     results_df = pd.DataFrame(results_dict).T
-
-    results_df.to_csv(os.path.join(workdir, "results.csv"))
+    current_time = time.strftime("%Y%m%d-%H%M%S")
+    results_df.to_csv(os.path.join(workdir, f"results_{current_time}.csv"))
 
 
 FLAGS = flags.FLAGS
@@ -402,7 +432,8 @@ flags.DEFINE_boolean(
 def main(argv):
     tf.io.gfile.makedirs(FLAGS.workdir)
     # Set logger so that it outputs to both console and file
-    gfile_stream = open(os.path.join(FLAGS.workdir, "stdout.txt"), "w")
+    current_time = time.strftime("%Y%m%d-%H%M%S")
+    gfile_stream = open(os.path.join(FLAGS.workdir, f"stdout_{current_time}.txt"), "w")
     handler = logging.StreamHandler(gfile_stream)
     formatter = logging.Formatter(
         "%(levelname)s - %(filename)s - %(asctime)s - %(message)s"
