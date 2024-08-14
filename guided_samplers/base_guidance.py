@@ -114,7 +114,7 @@ class GuidedSampler(ABC):
                         da_dt,
                         dstd_dt,
                         clamp_to=clamp_to,
-                        clamp_condition=False,
+                        clamp_condition=True,
                         **kwargs,
                     )
 
@@ -441,13 +441,13 @@ class GuidedSampler(ABC):
 
             if not self.return_cov:
                 samples_chunk, _ = self.guided_euler_sampler(
-                    y_obs=y_obs_chunk, clamp_to=None, z=start_z_chunk, return_list=True
+                    y_obs=y_obs_chunk, clamp_to=clamp_to, z=start_z_chunk, return_list=True
                 )
             else:
                 samples_chunk, list_mean_0t_chunk, list_cov_yt_chunk = (
                     self.guided_euler_sampler(
                         y_obs=y_obs_chunk,
-                        clamp_to=None,
+                        clamp_to=clamp_to,
                         z=start_z_chunk,
                         return_list=True,
                     )
