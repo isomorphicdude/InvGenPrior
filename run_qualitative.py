@@ -97,8 +97,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         transform=None,  # overridden by child class
     )
     logging.info(f"Using dataset {config.data.name}.")
-    data_index = int(data_index)
-    logging.info(f"Sampling image number {data_index}.")
+    data_index = int(data_index) if not isinstance(data_index, int) else data_index
+    # logging.info(f"Sampling image number {data_index}.")
 
     # scaler and inverse ([-1, 1] and [0, 1])
     scaler = lmdb_dataset.get_data_scaler(config)
@@ -286,13 +286,16 @@ def main(argv):
     # run
     torch.manual_seed(0)
     np.random.seed(0)
-    create_and_compare(
-        FLAGS.config,
-        FLAGS.workdir,
-        data_index=FLAGS.data_index,
-        noise_sigma=FLAGS.noise_sigma,
-        sample_N=FLAGS.sample_N,
-    )
+    data_index_list = [2, 15, 53, 109]
+    for data_index in data_index_list:
+        logging.info(f"/nSampling for data index {data_index}./n")
+        create_and_compare(
+            FLAGS.config,
+            FLAGS.workdir,
+            data_index=FLAGS.data_index,
+            noise_sigma=FLAGS.noise_sigma,
+            sample_N=FLAGS.sample_N,
+        )
 
 
 if __name__ == "__main__":
