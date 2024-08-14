@@ -35,7 +35,7 @@ from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 
 
 def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
-                       sample_N=100):
+                       sample_N=100, sampling_var=0.1, clamp_to=1.0):
     """
     Creates a result for each method and compare them.
     """
@@ -209,7 +209,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         if sampler_name == "reddiff":
             clamp_to = None
         else:
-            clamp_to = 1.0
+            clamp_to = clamp_to
 
         current_sample = guided_sampler.sample(
             y_obs=y_obs,
@@ -262,6 +262,10 @@ flags.DEFINE_integer("sample_N", 100, "Number of sampling steps.")
 
 flags.DEFINE_float("noise_sigma", 0.05, "Noise sigma for the degradation.")
 
+flags.DEFINE_float("sampling_var", 0.1, "Sampling variance.")
+
+flags.DEFINE_float("clamp_to", 1.0, "Clamp to value.")
+
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
 flags.DEFINE_string(
@@ -297,6 +301,8 @@ def main(argv):
         data_index=FLAGS.data_index,
         noise_sigma=FLAGS.noise_sigma,
         sample_N=FLAGS.sample_N,
+        sampling_var=FLAGS.sampling_var,
+        clamp_to=FLAGS.clamp_to,
     )
 
 
