@@ -1,6 +1,7 @@
 """Implements the TMPD guidance functions."""
 
 import math
+import gc
 
 import pickle
 import torch
@@ -52,10 +53,14 @@ class TMPD(GuidedSampler):
          - guided_vec: guidance vector with flow prediction and guidance combined
         """
         num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 100)
+        alt_clamp_to = kwargs.get("alt_clamp_to", None)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
         x_t = x_t.clone().detach()
+
+        if alt_clamp_to is not None:
+            x_t = x_t.detach().clone().clamp(-alt_clamp_to, alt_clamp_to)
 
         def estimate_h_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
@@ -84,9 +89,7 @@ class TMPD(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            ).reshape(
-                self.shape[0], -1
-            )
+            ).reshape(self.shape[0], -1)
 
             return x0_hat, flow_pred
 
@@ -108,16 +111,16 @@ class TMPD(GuidedSampler):
                 shape=(self.shape[0], math.prod(self.shape[1:])),
                 num_samples=num_hutchinson_samples,
             )
-            
+
         elif len(self.shape) <= 2:
             # print("Using parallel hutchinson")
             diagonal_est = self.parallel_hutchinson_diag_est(
                 vjp_est=v_vjp_est,
                 shape=(self.shape[0], math.prod(self.shape[1:])),
                 num_samples=num_hutchinson_samples,
-                chunk_size=50,
+                chunk_size=num_hutchinson_samples,
             )
-        
+
         # use row-sum instead
         # diagonal_est = v_vjp_est(torch.ones_like(x_t))
 
@@ -144,8 +147,14 @@ class TMPD(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
-            clamp_to = flow_pred.flatten().abs().max().item()
-            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            # clamp_to = flow_pred.flatten().abs().max().item()
+            # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+
+            # re-normalisation?
+            # flow_pred_norm = torch.linalg.vector_norm(flow_pred, dim=1)
+            # guided_vec_norm = torch.linalg.vector_norm(scaled_grad, dim=1)
+            # guided_vec = (flow_pred_norm / guided_vec_norm)[:,None] * scaled_grad + flow_pred
         else:
             guided_vec = (scaled_grad) + (flow_pred)
 
@@ -290,7 +299,7 @@ class TMPD(GuidedSampler):
         guided_vec = scaled_grad + flow_pred
         return guided_vec
         # return flow_pred
-    
+
     def get_guidance(
         self,
         model_fn,
@@ -429,7 +438,8 @@ class TMPD_trace(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None:
-            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
         else:
             guided_vec = (scaled_grad) + (flow_pred)
         return guided_vec
@@ -847,7 +857,7 @@ class TMPD_og(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
-            clamp_to = flow_pred.flatten().abs().max().item()
+            # clamp_to = flow_pred.flatten().abs().max().item()
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
             guided_vec = (scaled_grad) + (flow_pred)
@@ -1040,10 +1050,10 @@ class TMPD_fixed_cov(GuidedSampler):
         # print(scaled_grad.mean())
         # clamp to interval
         if clamp_to is not None:
-            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
-                flow_pred
-            )
-            # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            # guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+            #     flow_pred
+            # )
+            guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
@@ -1072,6 +1082,234 @@ class TMPD_fixed_cov(GuidedSampler):
             res += z * vjpz
 
         return res / num_samples
+
+
+@register_guided_sampler(name="tmpd_fixed_diag")
+class TMPD_fixed_diag(GuidedSampler):
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        """
+        TMPD guidance for OT path.
+        Returns ∇ log p(y|x_t) approximation with Equation 9 in paper.
+        Diagonal Jacobian approximation but not exact.
+
+        I somehow believe the matrix solve is taking too much memory
+        and introducing numerical instability.
+        """
+        assert hasattr(
+            self.H_func, "H_mat"
+        ), "H_func must have H_mat attribute for now."
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        def get_x0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            return x0_hat, flow_pred
+
+        def estimate_h_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+
+            x0_hat_obs = self.H_func.H(x0_hat)
+
+            return (x0_hat_obs, flow_pred)
+
+        jac_x_0_func = torch.func.vmap(
+            torch.func.jacrev(get_x0, argnums=0, has_aux=True),
+            # in_dims=(0,),
+        )
+
+        jac_x_0, flow_pred = jac_x_0_func(x_t)
+
+        flow_pred = model_fn(x_t, t_batched * 999)
+
+        coeff_C_yy = std_t**2 / alpha_t
+
+        # difference
+        x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
+        h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
+        difference = y_obs - h_x_0
+
+        diag_jac = torch.diagonal(
+            torch.einsum(
+                "ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat
+            ),
+            dim1=-2,
+            dim2=-1,
+        )
+
+        C_yy_diff = self.H_func.HHt_inv_diag(
+            vec=difference,
+            # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
+            diag=diag_jac * coeff_C_yy,
+            sigma_y_2=self.noiser.sigma**2,
+        )
+
+        # compute the guidance term using vjp
+        # h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+        #     estimate_h_x_0, x_t, has_aux=True
+        # )
+        # grad_ll = vjp_estimate_h_x_0(C_yy_diff)[0]
+        grad_ll = torch.einsum(
+            "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
+        )
+
+        gamma_t = 1.0
+
+        # scale gradient for flows
+        # TODO: implement this as derivatives for more generality
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        # print(scaled_grad.mean())
+        # clamp to interval
+        if clamp_to is not None:
+            # guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+            #     flow_pred
+            # )
+            guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+        else:
+            guided_vec = (gamma_t * scaled_grad) + (flow_pred)
+        return guided_vec
+
+
+@register_guided_sampler(name="tmpd_ablation")
+class TMPD_ablation(GuidedSampler):
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        """
+        Ablation study for TMPD guidance for OT path.
+        """
+        assert hasattr(
+            self.H_func, "H_mat"
+        ), "H_func must have H_mat attribute for now."
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        def get_x0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            return x0_hat, flow_pred
+
+        def estimate_h_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+
+            x0_hat_obs = self.H_func.H(x0_hat)
+
+            return (x0_hat_obs, flow_pred)
+
+        # jac_x_0_func = torch.func.vmap(
+        #     torch.func.jacrev(get_x0, argnums=0, has_aux=True),
+        #     # in_dims=(0,),
+        # )
+
+        # jac_x_0, flow_pred = jac_x_0_func(x_t)
+
+        flow_pred = model_fn(x_t, t_batched * 999)
+
+        coeff_C_yy = std_t**2 / alpha_t
+
+        # difference
+        x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
+        h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
+        difference = y_obs - h_x_0
+
+        # diag_jac = torch.diagonal(jac_x_0, dim1=-2, dim2=-1)
+        # del jac_x_0
+        # gc.collect()
+
+        # C_yy_diff = self.H_func.HHt_inv_diag(
+        #     vec = difference,
+        #     # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
+        #     # diag = diag_jac * coeff_C_yy,
+        #     diag = torch.ones_like(x_0_hat) * coeff_C_yy,
+        #     sigma_y_2 = self.noiser.sigma**2,
+        # )
+
+        C_yy_diff = self.H_func.HHt_inv(
+            difference,
+            r_t_2=coeff_C_yy,
+            sigma_y_2=self.noiser.sigma**2,
+        )
+
+        # compute the guidance term using vjp
+        h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
+        )
+        grad_ll = vjp_estimate_h_x_0(C_yy_diff)[0]
+
+        gamma_t = 1.0
+
+        # scale gradient for flows
+        # TODO: implement this as derivatives for more generality
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        # print(scaled_grad.mean())
+        # clamp to interval
+        if clamp_to is not None:
+            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+                flow_pred
+            )
+        else:
+            guided_vec = (gamma_t * scaled_grad) + (flow_pred)
+        return guided_vec
 
 
 @register_guided_sampler(name="tmpd_exact")
@@ -1237,7 +1475,11 @@ class TMPD_exact(GuidedSampler):
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
         # print(scaled_grad.mean())
-        guided_vec = (scaled_grad) + (flow_pred)
+        if clamp_to is not None:
+            # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+        else:
+            guided_vec = (scaled_grad) + (flow_pred)
 
         if not self.return_cov:
             return guided_vec
