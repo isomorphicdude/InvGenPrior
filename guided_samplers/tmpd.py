@@ -53,14 +53,14 @@ class TMPD(GuidedSampler):
          - guided_vec: guidance vector with flow prediction and guidance combined
         """
         num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 50)
-        alt_clamp_to = kwargs.get("alt_clamp_to", None)
+        # alt_clamp_to = kwargs.get("alt_clamp_to", None)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
-        x_t = x_t.clone().detach()
+        # x_t = x_t.clone().detach()
 
-        if alt_clamp_to is not None:
-            x_t = x_t.detach().clone().clamp(-alt_clamp_to, alt_clamp_to)
+        # if alt_clamp_to is not None:
+        #     x_t = x_t.detach().clone().clamp(-alt_clamp_to, alt_clamp_to)
 
         def estimate_h_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
@@ -93,9 +93,9 @@ class TMPD(GuidedSampler):
 
             return x0_hat, flow_pred
 
-        h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
-            estimate_h_x_0, x_t, has_aux=True
-        )
+        # h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+        #     estimate_h_x_0, x_t, has_aux=True
+        # )
 
         x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
             estimate_x_0, x_t, has_aux=True
@@ -121,13 +121,10 @@ class TMPD(GuidedSampler):
                 chunk_size=num_hutchinson_samples,
             )
 
-        # use row-sum instead
-        # diagonal_est = v_vjp_est(torch.ones_like(x_t))
-
         coeff_C_yy = std_t**2 / (alpha_t)
 
         # difference
-        difference = y_obs - h_x_0
+        difference = y_obs - self.H_func.H(x_0_pred)
 
         #
         vjp_product = self.H_func.HHt_inv_diag(
@@ -136,21 +133,19 @@ class TMPD(GuidedSampler):
             sigma_y_2=self.noiser.sigma**2,
         )
 
-        # grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
-        grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
+        grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
+        # grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
 
         gamma_t = 1.0
 
-        scaled_grad = (
-            grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
-        )
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
-            # guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
             guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            # guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
 
             # re-normalisation?
             # flow_pred_norm = torch.linalg.vector_norm(flow_pred, dim=1)
@@ -316,36 +311,36 @@ class TMPD(GuidedSampler):
         **kwargs
     ):
         # condition on the time
-        if num_t < 2:
-            return self._get_guidance(
-                model_fn,
-                x_t,
-                num_t,
-                y_obs,
-                alpha_t,
-                std_t,
-                da_dt,
-                dstd_dt,
-                clamp_to,
-                clamp_condition,
-                **kwargs,
-            )
+        # if num_t < 2:
+        return self._get_guidance(
+            model_fn,
+            x_t,
+            num_t,
+            y_obs,
+            alpha_t,
+            std_t,
+            da_dt,
+            dstd_dt,
+            clamp_to,
+            clamp_condition,
+            **kwargs,
+        )
 
-        else:
-            # print(f"Using alternative guidance after time {num_t}")
-            return self._get_alt_guidance(
-                model_fn,
-                x_t,
-                num_t,
-                y_obs,
-                alpha_t,
-                std_t,
-                da_dt,
-                dstd_dt,
-                clamp_to,
-                clamp_condition,
-                **kwargs,
-            )
+        # else:
+        #     # print(f"Using alternative guidance after time {num_t}")
+        #     return self._get_alt_guidance(
+        #         model_fn,
+        #         x_t,
+        #         num_t,
+        #         y_obs,
+        #         alpha_t,
+        #         std_t,
+        #         da_dt,
+        #         dstd_dt,
+        #         clamp_to,
+        #         clamp_condition,
+        #         **kwargs,
+        #     )
 
 
 @register_guided_sampler(name="tmpd_trace")
@@ -1148,6 +1143,33 @@ class TMPD_fixed_diag(GuidedSampler):
             torch.func.jacrev(get_x0, argnums=0, has_aux=True),
             # in_dims=(0,),
         )
+        
+        ### for testing ###
+        # def estimate_x_0(x):
+        #     flow_pred = model_fn(x, t_batched * 999)
+
+        #     x0_hat = convert_flow_to_x0(
+        #         u_t=flow_pred,
+        #         x_t=x,
+        #         alpha_t=alpha_t,
+        #         std_t=std_t,
+        #         da_dt=da_dt,
+        #         dstd_dt=dstd_dt,
+        #     ).reshape(self.shape[0], -1)
+
+        #     return x0_hat, flow_pred
+        # x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
+        #     estimate_x_0, x_t, has_aux=True
+        # )
+        # def v_vjp_est(x):
+        #     return self.H_func.Vt(vjp_estimate_x_0(self.H_func.V(x))[0])
+        # diagonal_est = self.parallel_hutchinson_diag_est(
+        #         vjp_est=v_vjp_est,
+        #         shape=(self.shape[0], math.prod(self.shape[1:])),
+        #         num_samples=50,
+        #         chunk_size=50,
+        #     )
+        ############################
 
         jac_x_0, flow_pred = jac_x_0_func(x_t)
 
@@ -1167,7 +1189,10 @@ class TMPD_fixed_diag(GuidedSampler):
             dim1=-2,
             dim2=-1,
         )
-
+        ############################
+        # diag_jac = diagonal_est
+        ############################
+        
         C_yy_diff = self.H_func.HHt_inv_diag(
             vec=difference,
             # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
@@ -1200,6 +1225,32 @@ class TMPD_fixed_diag(GuidedSampler):
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
+    
+    def parallel_hutchinson_diag_est(
+        self, vjp_est, shape, num_samples=10, chunk_size=10
+    ):
+        output = torch.zeros((shape[0], shape[1]), device=self.device)
+        if not num_samples % chunk_size == 0:
+            chunk_size = num_samples
+
+        for i in range(num_samples // chunk_size):
+            z = (
+                2
+                * torch.randint(
+                    0, 2, size=(chunk_size, shape[0], shape[1]), device=self.device
+                )
+                - 1
+            )
+            z = z.float()
+
+            # map across the first dimension
+            vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
+
+            vjpz = torch.sum(z * vmapped_vjp, dim=0)
+
+            output += vjpz
+
+        return output / num_samples
 
 
 @register_guided_sampler(name="tmpd_ablation")
