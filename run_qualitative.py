@@ -288,16 +288,16 @@ def main(argv):
     # run
     torch.manual_seed(0)
     np.random.seed(0)
-    data_index_list = [2, 15, 53, 109]
-    for data_index in data_index_list:
-        logging.info(f"\nSampling for data index {data_index}.\n")
-        create_and_compare(
-            FLAGS.config,
-            FLAGS.workdir,
-            data_index=data_index,
-            noise_sigma=FLAGS.noise_sigma,
-            sample_N=FLAGS.sample_N,
-        )
+    # data_index_list = [2, 15, 53, 109]
+    # for data_index in data_index_list:
+        # logging.info(f"\nSampling for data index {data_index}.\n")
+    create_and_compare(
+        FLAGS.config,
+        FLAGS.workdir,
+        data_index=FLAGS.data_index,
+        noise_sigma=FLAGS.noise_sigma,
+        sample_N=FLAGS.sample_N,
+    )
 
 
 if __name__ == "__main__":
