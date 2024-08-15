@@ -41,24 +41,12 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     """
     # create a different config for each sampler
     # comment out tmpd and reddiff
-    ignore_list = [ # here only use pgdm for testing the thresholding
-        "bures_jko",
-        "tmpd",
-        "reddiff",
-        "tmpd_og",
-        "dps",
-        "tmpd_fixed_diag",
-        "tmpd_ablation",
-        "tmpd_fixed_cov",
-        "tmpd_exact",
-        "tmpd_d",
-        "tmpd_cd",
-        "pgdm_mod",
-        "tmpd_row_exact",
-        "tmpd_trace",
-    ]
-    # ignore_list = [
+    # ignore_list = [ # here only use pgdm for testing the thresholding
     #     "bures_jko",
+    #     "tmpd",
+    #     "reddiff",
+    #     "tmpd_og",
+    #     "dps",
     #     "tmpd_fixed_diag",
     #     "tmpd_ablation",
     #     "tmpd_fixed_cov",
@@ -69,6 +57,18 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     #     "tmpd_row_exact",
     #     "tmpd_trace",
     # ]
+    ignore_list = [
+        "bures_jko",
+        "tmpd_fixed_diag",
+        "tmpd_ablation",
+        "tmpd_fixed_cov",
+        "tmpd_exact",
+        "tmpd_d",
+        "tmpd_cd",
+        "pgdm_mod",
+        "tmpd_row_exact",
+        "tmpd_trace",
+    ]
     config_keys = [
         sampler_name
         for sampler_name in __GUIDED_SAMPLERS__
