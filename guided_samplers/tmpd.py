@@ -143,12 +143,12 @@ class TMPD(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
-            # clamp_to = flow_pred.flatten().abs().max().item()
-            if num_t < 0.5:
-                # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
-                guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
-            else:
-                guided_vec = scaled_grad + flow_pred
+            clamp_to = flow_pred.flatten().abs().max().item()
+            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            # if num_t < 0.5:
+            #     guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            # else:
+            #     guided_vec = scaled_grad + flow_pred
             # re-normalisation?
             # flow_pred_norm = torch.linalg.vector_norm(flow_pred, dim=1)
             # guided_vec_norm = torch.linalg.vector_norm(scaled_grad, dim=1)
