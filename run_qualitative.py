@@ -41,12 +41,11 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     """
     # create a different config for each sampler
     # comment out tmpd and reddiff
-    ignore_list = [
+    ignore_list = [ # here only use pgdm for testing the thresholding
         "bures_jko",
-        # "tmpd",
+        "tmpd",
         "reddiff",
         "tmpd_og",
-        "pgdm",
         "dps",
         "tmpd_fixed_diag",
         "tmpd_ablation",
