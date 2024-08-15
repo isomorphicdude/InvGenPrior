@@ -64,8 +64,11 @@ class DPS(GuidedSampler):
         
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            return (dps_scaling_const * corrected_grad).clamp(-clamp_to, clamp_to) + flow_pred
-            # return (dps_scaling_const * corrected_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            # return (dps_scaling_const * corrected_grad).clamp(-clamp_to, clamp_to) + flow_pred
+            if num_t < 0.1:
+                return (dps_scaling_const * corrected_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            else:
+                return (dps_scaling_const * corrected_grad + flow_pred)
         else:
             return (dps_scaling_const * corrected_grad) + flow_pred
         
