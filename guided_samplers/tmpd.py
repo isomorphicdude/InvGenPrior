@@ -133,7 +133,7 @@ class TMPD(GuidedSampler):
         vjp_product = self.H_func.HHt_inv_diag(
             vec=difference,
             diag=coeff_C_yy * diagonal_est,
-            sigma_y_2=self.noiser.sigma**2 + 0.1,
+            sigma_y_2=self.noiser.sigma**2 + 0.01,
         )
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
@@ -147,11 +147,11 @@ class TMPD(GuidedSampler):
         # clamp to interval
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
-            # if num_t < 0.5:
-            #     guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
-            # else:
-            #     guided_vec = scaled_grad + flow_pred
+            # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            if num_t < 0.1:
+                guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            else:
+                guided_vec = scaled_grad + flow_pred
             # re-normalisation?
             # flow_pred_norm = torch.linalg.vector_norm(flow_pred, dim=1)
             # guided_vec_norm = torch.linalg.vector_norm(scaled_grad, dim=1)
@@ -1276,48 +1276,11 @@ class TMPD_ablation(GuidedSampler):
         """
         Ablation study for TMPD guidance for OT path.
         """
-        assert hasattr(
-            self.H_func, "H_mat"
-        ), "H_func must have H_mat attribute for now."
+        gmm_model = kwargs.get("gmm_model", None)
+        if gmm_model is None:
+            raise ValueError("GMM model must be provided for ablation study.")
+        
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
-
-        def get_x0(x):
-            flow_pred = model_fn(x, t_batched * 999)
-
-            # pass to model to get x0_hat prediction
-            x0_hat = convert_flow_to_x0(
-                u_t=flow_pred,
-                x_t=x,
-                alpha_t=alpha_t,
-                std_t=std_t,
-                da_dt=da_dt,
-                dstd_dt=dstd_dt,
-            )
-            return x0_hat, flow_pred
-
-        def estimate_h_x_0(x):
-            flow_pred = model_fn(x, t_batched * 999)
-
-            # pass to model to get x0_hat prediction
-            x0_hat = convert_flow_to_x0(
-                u_t=flow_pred,
-                x_t=x,
-                alpha_t=alpha_t,
-                std_t=std_t,
-                da_dt=da_dt,
-                dstd_dt=dstd_dt,
-            )
-
-            x0_hat_obs = self.H_func.H(x0_hat)
-
-            return (x0_hat_obs, flow_pred)
-
-        # jac_x_0_func = torch.func.vmap(
-        #     torch.func.jacrev(get_x0, argnums=0, has_aux=True),
-        #     # in_dims=(0,),
-        # )
-
-        # jac_x_0, flow_pred = jac_x_0_func(x_t)
 
         flow_pred = model_fn(x_t, t_batched * 999)
 
@@ -1328,38 +1291,14 @@ class TMPD_ablation(GuidedSampler):
         h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
         difference = y_obs - h_x_0
 
-        # diag_jac = torch.diagonal(jac_x_0, dim1=-2, dim2=-1)
-        # del jac_x_0
-        # gc.collect()
-
-        # C_yy_diff = self.H_func.HHt_inv_diag(
-        #     vec = difference,
-        #     # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
-        #     # diag = diag_jac * coeff_C_yy,
-        #     diag = torch.ones_like(x_0_hat) * coeff_C_yy,
-        #     sigma_y_2 = self.noiser.sigma**2,
-        # )
-
-        C_yy_diff = self.H_func.HHt_inv(
-            difference,
-            r_t_2=coeff_C_yy,
-            sigma_y_2=self.noiser.sigma**2,
-        )
-
-        # compute the guidance term using vjp
-        h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
-            estimate_h_x_0, x_t, has_aux=True
-        )
-        grad_ll = vjp_estimate_h_x_0(C_yy_diff)[0]
-
-        gamma_t = 1.0
-
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
+        grad_ll = torch.zeros_like(x_t)
+        for i in range(x_t.shape[0]):
+            grad_ll[i] = gmm_model.grad_yt(num_t, x_t[i], y_obs[i], self.H_func.H_mat, self.noiser.sigma)
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
-
-        # print(scaled_grad.mean())
-        # clamp to interval
+        
+        gamma_t = 1.0
         if clamp_to is not None:
             guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
                 flow_pred
