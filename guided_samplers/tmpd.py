@@ -124,13 +124,16 @@ class TMPD(GuidedSampler):
         coeff_C_yy = std_t**2 / (alpha_t)
 
         # difference
+        # add noise to the observation
+        new_noise_std = 0.5
+        y_obs = y_obs + torch.randn_like(y_obs) * new_noise_std
         difference = y_obs - self.H_func.H(x_0_pred)
 
         #
         vjp_product = self.H_func.HHt_inv_diag(
             vec=difference,
             diag=coeff_C_yy * diagonal_est,
-            sigma_y_2=self.noiser.sigma**2 + 1e-4,
+            sigma_y_2=self.noiser.sigma**2 + new_noise_std**2,
         )
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
