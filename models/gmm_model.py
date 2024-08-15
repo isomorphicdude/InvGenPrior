@@ -1,6 +1,10 @@
-from tqdm import tqdm
+"""Implements the Gaussian Mixture Model (GMM) class."""
+
+import math
+
 import torch
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from models import sde_lib
 from models.utils import convert_x0_to_flow, convert_flow_to_x0
@@ -74,10 +78,11 @@ class GMM(object):
         """
         a_t = self.sde.alpha_t(t)
         std_t = self.sde.std_t(t)
-        
+
         component_t = torch.distributions.MultivariateNormal(
             loc=a_t * self.means,
-            covariance_matrix=torch.eye(self.dim).repeat(self.n_components, 1, 1) * (a_t**2 + std_t**2),
+            covariance_matrix=torch.eye(self.dim).repeat(self.n_components, 1, 1)
+            * (a_t**2 + std_t**2),
             validate_args=False,
         )
         return torch.distributions.MixtureSameFamily(
@@ -99,21 +104,20 @@ class GMM(object):
             return self.prior_distr_t(t).log_prob(x).sum()
 
         score = torch.func.grad(p_t)(x_t)
-        
+
         return score
-    
+
         # with torch.enable_grad():
         #     x_t.requires_grad_(True)
         #     output_val = p_t(x_t)
-            
+
         # return torch.autograd.grad(output_val, x_t, retain_graph=True)[0].detach()
-        
-        
+
         # a_t = self.sde.alpha_t(t)
-        
+
         # def p_t(x):
         #     return self.prior_distr_t(a_t).log_prob(x)
-        
+
         # # use vmap instead
         # return torch.func.vmap(torch.func.grad(p_t))(x_t)
 
@@ -172,21 +176,21 @@ class GMM(object):
             "ij, kj -> ki", post_sigma, (1 / sigma_y**2) * H_mat.T @ y_obs + self.means
         )
 
-        post_w_tilde = self.weights * torch.exp(
-            torch.distributions.MultivariateNormal(
-                loc=torch.einsum("ij, kj -> ki", H_mat, self.means),
-                covariance_matrix=sigma_y**2
-                * torch.eye(H_mat.shape[0]).repeat(self.n_components, 1, 1)
-                + (H_mat @ H_mat.T)[None],
-                validate_args=False,
-            ).log_prob(y_obs)
+        log_post_w_tilde = torch.log(
+            self.weights
+        ) + torch.distributions.MultivariateNormal(
+            loc=torch.einsum("ij, kj -> ki", H_mat, self.means),
+            covariance_matrix=sigma_y**2
+            * torch.eye(H_mat.shape[0]).repeat(self.n_components, 1, 1)
+            + (H_mat @ H_mat.T)[None],
+            validate_args=False,
+        ).log_prob(
+            y_obs
         )
-
-        post_w_tilde = post_w_tilde / post_w_tilde.sum()
         try:
             return torch.distributions.MixtureSameFamily(
                 mixture_distribution=torch.distributions.Categorical(
-                    probs=post_w_tilde, validate_args=False
+                    logits=log_post_w_tilde, validate_args=False
                 ),
                 component_distribution=torch.distributions.MultivariateNormal(
                     loc=post_means, covariance_matrix=post_sigma, validate_args=False
@@ -197,18 +201,18 @@ class GMM(object):
             post_sigma = (post_sigma + post_sigma.T) / 2
             return torch.distributions.MixtureSameFamily(
                 mixture_distribution=torch.distributions.Categorical(
-                    probs=post_w_tilde, validate_args=False
+                    logits=log_post_w_tilde, validate_args=False
                 ),
                 component_distribution=torch.distributions.MultivariateNormal(
                     loc=post_means, covariance_matrix=post_sigma, validate_args=False
                 ),
             )
-            
+
     def get_gmm_cov(self, distr, dim):
         """
-        Returns the covariance matrix of the GMM distribution.  
-        
-        Args:  
+        Returns the covariance matrix of the GMM distribution.
+
+        Args:
           distr (torch.distributions.MixtureSameFamily): the GMM distribution.
           dim (int): the dimension of the GMM.
         """
@@ -216,58 +220,62 @@ class GMM(object):
         list_cov_mat = distr.component_distribution.covariance_matrix
         list_means = distr.component_distribution.loc
         mu = distr.mean
-        
+
         cov_mat = torch.zeros(dim, dim)
         cov_mat += torch.sum(mixture_probs[:, None, None] * list_cov_mat, axis=0)
-        
+
         for i in range(distr._num_component):
-            cov_mat += mixture_probs[i] * torch.outer(list_means[i] - mu, list_means[i] - mu)
-        
-        return cov_mat 
-        
-            
+            cov_mat += mixture_probs[i] * torch.outer(
+                list_means[i] - mu, list_means[i] - mu
+            )
+
+        return cov_mat
+
     def get_distr_0t(self, t, x_t):
         """
         Returns the distribution p(x_0 | x_t) at time t as torch.distributions object.
 
-        Args:  
+        Args:
           t (float): the discretized time step.
           x_t (torch.Tensor): the observation at time t.
 
         Returns:
           (torch.distributions) distribution p(x_0 | x_t) at time t.
         """
-        
+
         a_t = self.sde.alpha_t(t)
         std_t = self.sde.std_t(t)
-    
-        post_sigma = torch.linalg.solve(
-            torch.eye(self.dim) + (1 / std_t**2) * (a_t**2),
-            torch.eye(self.dim),
-        )
-        post_means = torch.einsum(
-            "ij, kj -> ki", post_sigma, (1 / std_t**2) *  a_t * x_t + self.means
+
+        # post_sigma = torch.linalg.solve(
+        #     torch.eye(self.dim) + (1 / std_t**2) * (a_t**2),
+        #     torch.eye(self.dim),
+        # )
+        post_sigma = 1 / (1 + (1 / std_t**2) * a_t**2)
+        post_means = ((1 / std_t**2) * a_t * x_t + self.means) * post_sigma
+
+        # specify the posterior weights
+        dim_x = x_t.shape[1] if len(x_t.shape) > 1 else x_t.shape[0]
+        log_post_w_tilde = torch.log(
+            self.weights
+        ) + torch.distributions.MultivariateNormal(
+            loc=a_t * self.means,
+            covariance_matrix=(std_t**2 + a_t**2)
+            * torch.eye(dim_x).repeat(self.n_components, 1, 1),
+            validate_args=False,
+        ).log_prob(
+            x_t
         )
 
-        
-        post_w_tilde = self.weights * torch.exp(
-            torch.distributions.MultivariateNormal(
-                loc=a_t * self.means,
-                covariance_matrix=std_t**2
-                * torch.eye(x_t.shape[1]).repeat(self.n_components, 1, 1)
-                + a_t**2,
-                validate_args=False,
-            ).log_prob(x_t)
-        )
-
-        post_w_tilde = post_w_tilde / post_w_tilde.sum()
+        post_sigma_mat = post_sigma * torch.eye(self.dim)
         try:
             return torch.distributions.MixtureSameFamily(
                 mixture_distribution=torch.distributions.Categorical(
-                    probs=post_w_tilde, validate_args=False
+                    logits=log_post_w_tilde, validate_args=False
                 ),
                 component_distribution=torch.distributions.MultivariateNormal(
-                    loc=post_means, covariance_matrix=post_sigma, validate_args=False
+                    loc=post_means,
+                    covariance_matrix=post_sigma_mat,
+                    validate_args=False,
                 ),
             )
         except:
@@ -275,75 +283,249 @@ class GMM(object):
             post_sigma = (post_sigma + post_sigma.T) / 2
             return torch.distributions.MixtureSameFamily(
                 mixture_distribution=torch.distributions.Categorical(
-                    probs=post_w_tilde, validate_args=False
+                    logits=log_post_w_tilde, validate_args=False
                 ),
                 component_distribution=torch.distributions.MultivariateNormal(
-                    loc=post_means, covariance_matrix=post_sigma, validate_args=False
+                    loc=post_means,
+                    covariance_matrix=post_sigma_mat,
+                    validate_args=False,
                 ),
             )
-            
+
     def get_cov_0t(self, t, x_t):
         """
-        Returns the covariance matrix of p(x_0 | x_t) at time t.  
+        Returns the covariance matrix of p(x_0 | x_t) at time t.
         This is the analytical form of the covariance matrix.
         """
         distribution = self.get_distr_0t(t, x_t)
-        
+
         return self.get_gmm_cov(distribution, self.dim)
-        
-        
-    
-    def get_mean_0t(self, t, x_t, x_0):
+
+    def get_mean_0t(self, t, x_t):
         """
         Returns the mean of p(x_0 | x_t) at time t.
         """
         distribution = self.get_distr_0t(t, x_t)
-        
+        # print(distribution.mixture_distribution._)
         return distribution.mean
-    
-    
+
     def get_distr_yt(self, t, x_t, H_mat, sigma_y):
         """
-        Returns the distribution p(y | x_t) at time t as torch.distributions object.  
+        Returns the distribution p(y | x_t) at time t as torch.distributions object.
         """
         # assert x_t has shape (dim, )
         if len(x_t.shape) == 1:
             x_t = x_t[None]
-        
+
         distr_0t = self.get_distr_0t(t, x_t)
-        
-        new_component_cov = sigma_y**2 + torch.einsum("ij, kjl, lm -> kim", H_mat, distr_0t.component_distribution.covariance_matrix, H_mat.T)
-        
-        new_component = torch.distributions.MultivariateNormal(
-            loc = torch.einsum("ij, kj -> ki", H_mat, distr_0t.component_distribution.loc),
-            covariance_matrix=new_component_cov,
-            validate_args=False
+
+        new_component_cov = sigma_y**2 * torch.eye(H_mat.shape[0]).repeat(
+            self.n_components, 1, 1
+        ) + torch.einsum(
+            "ij, kjl, lm -> kim",
+            H_mat,
+            distr_0t.component_distribution.covariance_matrix,
+            H_mat.T,
         )
-        
+
+        new_component = torch.distributions.MultivariateNormal(
+            loc=torch.einsum(
+                "ij, kj -> ki", H_mat, distr_0t.component_distribution.loc
+            ),
+            covariance_matrix=new_component_cov,
+            validate_args=False,
+        )
+
         return torch.distributions.MixtureSameFamily(
             mixture_distribution=distr_0t.mixture_distribution,
             component_distribution=new_component,
-            validate_args=False
+            validate_args=False,
         )
-        
+
+    def old_grad_yt(self, t, x_t, y_obs, H_mat, sigma_y):
+        """
+        Returns the score of likelihood at time t, p(y | x_t)'s gradient wrt. x_t.
+        """
+
+        def log_p(x):
+            distr = self.get_distr_yt(t, x, H_mat, sigma_y)
+            return distr.log_prob(y_obs).sum()
+
+        grad = torch.func.grad(log_p)(x_t)
+
+        return grad
+
+    def batched_mvn_log_prob_iso(self, x, mean, isotrpoic_cov):
+        """
+        Returns the log probability of a batch of samples x from a multivariate normal distribution.
+        Assumes isotropic covariance.
+        """
+        # assume x has shape (n_samples, dim)
+        # mean has shape (dim, )
+        # cov has shape (, ), scalar
+        n_samples = x.shape[0]
+        dim = x.shape[1]
+
+        # norm (x - mean) @ cov^-1 @ (x - mean)
+        norm = torch.sum((x - mean[None, :]) ** 2, axis=1) / isotrpoic_cov
+        log_prob = (
+            -0.5 * (dim * math.log(2 * math.pi))
+            - 0.5 * dim * math.log(isotrpoic_cov)
+            - 0.5 * norm
+        )
+
+        return log_prob
+
+    def batched_mvn_log_prob(self, x, mean, K):
+        """
+        Returns the log probability of a batch of samples x from a multivariate normal distribution.
+        General case.
+        """
+        n_samples = x.shape[0]
+        dim = x.shape[1]
+        # print(x.shape, mean.shape, K.shape)
+        # norm (x - mean) @ K @ (x - mean)
+        diff = (x - mean[None, :]).squeeze()
+        norm = torch.einsum("bi, ij, bj -> b", diff, K, diff)
+        log_prob = (
+            -0.5 * (dim * math.log(2 * math.pi))
+            + 0.5 * torch.linalg.slogdet(K)[1]
+            - 0.5 * norm
+        )
+
+        return log_prob
+
+    def batched_mvn_log_prob_mean(self, x, mean, inv_cov):
+        """
+        A even more general case where mean is a matrix.
+
+        Args:
+            x(torch.Tensor): (batch_size, dim)
+            mean(torch.Tensor): (batch_size, n_components, dim)
+            inv_cov(torch.Tensor): (dim, dim)
+
+        Returns:
+            log_prob(torch.Tensor): (batch_size, n_components)
+        """
+        n_samples = x.shape[0]
+        dim = x.shape[1]
+        n_components = mean.shape[1]
+        diff = x[:, None, :].repeat(1, n_components, 1) - mean
+        norm = torch.einsum("bik, kj, bij -> bi", diff, inv_cov, diff)
+
+        log_prob = (
+            -0.5 * (dim * math.log(2 * math.pi))
+            + 0.5 * torch.linalg.slogdet(inv_cov)[1]
+            - 0.5 * norm
+        )
+
+        return log_prob
+
+    def batched_mvn_log_prob_mean_iso(self, x, mean, isotropic_cov):
+        """
+        A even more general case where mean is a matrix.
+
+        Args:
+            x(torch.Tensor): (batch_size, dim)
+            mean(torch.Tensor): (batch_size, n_components, dim)
+            cov(torch.Tensor): (dim, dim)
+
+        Returns:
+            log_prob(torch.Tensor): (batch_size, n_components)
+        """
+        n_samples = x.shape[0]
+        dim = x.shape[1]
+        n_components = mean.shape[1]
+        diff = x[:, None, :].repeat(1, n_components, 1) - mean
+        norm = torch.sum(diff**2, axis=2) / isotropic_cov
+
+        log_prob = (
+            -0.5 * (dim * math.log(2 * math.pi))
+            - 0.5 * dim * math.log(isotropic_cov)
+            - 0.5 * norm
+        )
+
+        return log_prob
+
+    def log_prob_yxt(self, t, x_t, y_obs, H_mat, sigma_y):
+        """
+        Efficient alternative that computes the log p(y | x_t), which returns (batch_size, )
+        """
+        batch_size = x_t.shape[0]
+        # component mean of p(x_0 | x_t)
+        a_t = self.sde.alpha_t(t)
+        std_t = self.sde.std_t(t)
+        cov_0t = 1 / (1 + (1 / std_t**2) * a_t**2)
+
+        # the mean has shape (batch_size, n_components, dim)
+        mean_0t = (
+            ((1 / std_t**2) * a_t * x_t)[:, None, :].repeat(1, self.n_components, 1)
+            + self.means[None, ...].repeat(batch_size, 1, 1)
+        ) * cov_0t
+
+        # weights of p(x_0 | x_t), (batch_size, n_components)
+        log_weights_0t = self.batched_mvn_log_prob_mean_iso(
+            x_t,
+            a_t * self.means[None, ...].repeat(batch_size, 1, 1),
+            (std_t**2 + a_t**2),
+        ) + torch.log(self.weights)[None, :].repeat(batch_size, 1)
+
+        # print(log_weights_0t)
+
+        normalized_log_weights_0t = torch.log_softmax(log_weights_0t, dim=1)
+        # print(torch.exp(normalized_log_weights_0t))
+
+        # component mean of p(y | x_t), (batch_size, n_components, d_y)
+        mean_yt = torch.einsum("ij, bkj -> bki", H_mat, mean_0t)
+
+        # component covariance of p(y | x_t), (batch_size, n_components, d_y, d_y)
+        # this in fact shared so suffice to (d_y, d_y)
+        cov_yt = sigma_y**2 * torch.eye(H_mat.shape[0]) + H_mat @ H_mat.T * cov_0t
+
+        inv_cov_yt = torch.linalg.solve(cov_yt, torch.eye(H_mat.shape[0]))
+
+        # log prob of p(y | x_t)
+        log_components_yt = self.batched_mvn_log_prob_mean(
+            y_obs, mean_yt, inv_cov_yt
+        )
+        log_mix_prob = torch.log_softmax(normalized_log_weights_0t, dim=1)
+
+        return torch.logsumexp(log_components_yt + log_mix_prob, dim=1)
+
+        # for i in range(self.n_components):
+        #     prob_yt += normalized_log_weights_0t[:, i] + self.batched_mvn_log_prob(y_obs_batched, mean_yt[:, i, :], inv_cov_yt)
+
+        # return torch.log(prob_yt)
+
+    def grad_yt(self, t, x_t, y_obs, H_mat, sigma_y):
+        """
+        Returns the gradient of log p(y | x_t) wrt. x_t.
+        """
+        def log_p(x):
+            return self.log_prob_yxt(t, x, y_obs, H_mat, sigma_y).sum()
+
+        grad = torch.func.grad(log_p)(x_t)
+
+        return grad
+
     def get_mean_yt(self, t, x_t, H_mat, sigma_y):
         """
         Returns the mean of p(y | x_t) at time t.
         """
         distribution = self.get_distr_yt(t, x_t, H_mat, sigma_y)
-        
+        # print(distribution.component_distribution.covariance_matrix)
         return distribution.mean
-    
-    def get_cov_yt(self, t, x_t, H_mat, sigma_y):   
+
+    def get_cov_yt(self, t, x_t, H_mat, sigma_y):
         """
-        Returns the covariance matrix of p(y | x_t) at time t.  
+        Returns the covariance matrix of p(y | x_t) at time t.
         This is the analytical form of the covariance matrix.
         """
         distribution = self.get_distr_yt(t, x_t, H_mat, sigma_y)
         dim = H_mat.shape[0]
-        
+
         return self.get_gmm_cov(distribution, dim)
-    
+
     def get_avg_cov_yt(self, t, x_t, H_mat, sigma_y):
         """
         Given a batch of x_t at time t, compute the average covariance matrix of p(y | x_t) at time t.
@@ -351,10 +533,9 @@ class GMM(object):
         avg_true_cov_yt = torch.zeros(H_mat.shape[0], H_mat.shape[0])
         for i in range(x_t.shape[0]):
             avg_true_cov_yt += self.get_cov_yt(t, x_t[i, :], H_mat, sigma_y)
-            
+
         return avg_true_cov_yt / x_t.shape[0]
-    
-    
+
     def get_avg_cov_yt_list(self, x_t_list, H_mat, sigma_y):
         """
         Given a list of batches of samples x_t, compute the average covariance matrix of p(y | x_t) at time t.
@@ -363,10 +544,12 @@ class GMM(object):
         assert self.sde.sample_N == len(x_t_list)
         t_list = torch.linspace(0, 1, len(x_t_list))
         list_true_cov_yt = []
-        
-        for i in tqdm(range(len(x_t_list)),
-                      desc="Computing average covariance matrix of p(y | x_t) at time t",
-                      colour="green"):
+
+        for i in tqdm(
+            range(len(x_t_list)),
+            desc="Computing average covariance matrix of p(y | x_t) at time t",
+            colour="green",
+        ):
             try:
                 temp = self.get_avg_cov_yt(t_list[i], x_t_list[i], H_mat, sigma_y)
             except:
@@ -374,28 +557,28 @@ class GMM(object):
                 temp = torch.zeros(H_mat.shape[0], H_mat.shape[0])
                 continue
             list_true_cov_yt.append(temp)
-            
+
         return list_true_cov_yt
-    
+
     def flatten_list(self, list_of_tensors):
         """
-        Return the entry-wise list of a list of tensors. 
+        Return the entry-wise list of a list of tensors.
         e.g. if the input is [tensor1, tensor2, tensor3]
-        the output will be lists of length 3, the no. of lists is equal 
+        the output will be lists of length 3, the no. of lists is equal
         to the numel of each tensor.
         """
         shape = list_of_tensors[0].shape
         if not all(tensor.shape == shape for tensor in list_of_tensors):
             raise ValueError("All tensors must have the same shape")
-        
+
         lists_to_return = [[] for _ in range(list_of_tensors[0].numel())]
-        
+
         for tensor in list_of_tensors:
             for i, val in enumerate(tensor.view(-1)):
                 lists_to_return[i].append(val)
-                
+
         return lists_to_return
-    
+
     def rowsum_list(self, list_of_tensors):
         """
         Same as `flatten_list` but returns the row sums of the tensors.
@@ -403,12 +586,12 @@ class GMM(object):
         and then `flatten_list` will be applied.
         """
         temp = []
-        
+
         for tensor in list_of_tensors:
-            temp.append(tensor.sum(axis=1)) # sum along the rows
-            
-        return self.flatten_list(temp)        
-    
+            temp.append(tensor.sum(axis=1))  # sum along the rows
+
+        return self.flatten_list(temp)
+
     def sample_from_prior(self, n_samples):
         return self.prior_distr.sample((n_samples,))
 
@@ -417,12 +600,12 @@ class GMM(object):
 
     def plot_prior(self, ax, n_samples, dims_tuple=(0, 1)):
         """
-        Returns a scatter plot of the prior samples with ax.  
-        
-        Args:  
+        Returns a scatter plot of the prior samples with ax.
+
+        Args:
             - ax: matplotlib axis object.
             - n_samples: number of samples to draw from the prior.
-            - dims_tuple: tuple of dimensions to plot.  
+            - dims_tuple: tuple of dimensions to plot.
         """
         samples = self.sample_from_prior(n_samples)
         ax.scatter(
@@ -439,7 +622,6 @@ class GMM(object):
             samples[:, dims_tuple[0]], samples[:, dims_tuple[1]], s=10, alpha=0.5
         )
         ax.set_title("Posterior samples")
-        
 
     def plot_prior_t(self, ax, n_samples, t, dims_tuple=(0, 1)):
         samples = self.sample_from_prior_t(n_samples, t)
@@ -447,8 +629,7 @@ class GMM(object):
             samples[:, dims_tuple[0]], samples[:, dims_tuple[1]], s=10, alpha=0.5
         )
         ax.set_title("Prior samples at t = {}".format(t))
-        
-        
+
     def sample_from_posterior(self, n_samples, y_obs, H_mat, sigma_y):
         samples = self.get_posterior(y_obs, H_mat, sigma_y).sample((n_samples,))
         return samples
