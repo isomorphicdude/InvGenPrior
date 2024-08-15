@@ -109,7 +109,7 @@ class PiGDM(GuidedSampler):
             # clamp_to = flow_pred.flatten().abs().max().item()   
             # scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
         # print("Clamping to", clamp_to)
-            if num_t < 0.5:
+            if num_t < 0.1:
                 guided_vec = torch.clamp(guided_vec, -clamp_to, clamp_to)
             else:
                 guided_vec = guided_vec
