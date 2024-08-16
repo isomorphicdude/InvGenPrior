@@ -67,7 +67,7 @@ def square_box_mask(
     return mask, missing_indices, kept_indices, coordinates_mask
 
 
-def random_pixel_mask(ratio_to_mask=0.3, D_OR=(3, 256, 256), device="cpu"):
+def random_pixel_mask(ratio_to_mask=0.9, D_OR=(3, 256, 256), device="cpu"):
     """
     Creates a random pixel-wise mask for inpainting.
     Args:
