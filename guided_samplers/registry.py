@@ -24,6 +24,7 @@ def get_guided_sampler(
     noiser,
     device,
     return_cov = False,
+    ablate = False,
     **kwargs,
 ):
     if __GUIDED_SAMPLERS__.get(name, None) is None:
@@ -38,5 +39,6 @@ def get_guided_sampler(
         noiser=noiser,
         device=device,
         return_cov=return_cov,
+        ablate=ablate,
         **kwargs,
     )
