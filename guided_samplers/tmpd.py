@@ -139,15 +139,14 @@ class TMPD(GuidedSampler):
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
         # grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
 
-        gamma_t = 1.0
-
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
         
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            if num_t < 0.1:
+                guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
             # if num_t < 0.2:
             #     guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
             # else:
