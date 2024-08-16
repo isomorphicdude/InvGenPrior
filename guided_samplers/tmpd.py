@@ -125,15 +125,15 @@ class TMPD(GuidedSampler):
 
         # difference
         # add noise to the observation
-        new_noise_std = 0.1 * (1 - num_t)
-        y_obs = y_obs + torch.randn_like(y_obs) * new_noise_std
+        # new_noise_std = 0.1 * (1 - num_t)
+        # y_obs = y_obs + torch.randn_like(y_obs) * new_noise_std
         difference = y_obs - self.H_func.H(x_0_pred)
 
         #
         vjp_product = self.H_func.HHt_inv_diag(
             vec=difference,
             diag=coeff_C_yy * diagonal_est,
-            sigma_y_2=self.noiser.sigma**2 + new_noise_std**2,
+            sigma_y_2=self.noiser.sigma**2 + 0.1**2,
         )
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
@@ -147,12 +147,12 @@ class TMPD(GuidedSampler):
         # clamp to interval
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
             # if num_t < 0.2:
             #     guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
             # else:
             #     guided_vec = scaled_grad + flow_pred
-            guided_vec = (scaled_grad + flow_pred)
+            # guided_vec = (scaled_grad + flow_pred)
             # re-normalisation?
             # flow_pred_norm = torch.linalg.vector_norm(flow_pred, dim=1)
             # guided_vec_norm = torch.linalg.vector_norm(scaled_grad, dim=1)
@@ -1232,6 +1232,7 @@ class TMPD_fixed_diag(GuidedSampler):
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
     
+    
     def parallel_hutchinson_diag_est(
         self, vjp_est, shape, num_samples=10, chunk_size=10
     ):
@@ -1277,11 +1278,37 @@ class TMPD_ablation(GuidedSampler):
         """
         Ablation study for TMPD guidance for OT path.
         """
-        gmm_model = kwargs.get("gmm_model", None)
-        if gmm_model is None:
-            raise ValueError("GMM model must be provided for ablation study.")
+        # the GMM model will give the true vector field
+        # gmm_model = kwargs.get("gmm_model", None)
+        # if gmm_model is None:
+        #     raise ValueError("GMM model must be provided for ablation study.")
+        
+        ######## computing the TMPD guidance ########
+        new_noise = kwargs.get("new_noise", None)
+        # assert new_noise is not None, "New noise must be provided for ablation study."
+        
+        def get_x0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            return x0_hat, flow_pred
         
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        flow_pred = model_fn(x_t, t_batched * 999)
+        jac_x_0_func = torch.func.vmap(
+            torch.func.jacrev(get_x0, argnums=0, has_aux=True),
+            # in_dims=(0,),
+        )
+        jac_x_0, flow_pred = jac_x_0_func(x_t)
 
         flow_pred = model_fn(x_t, t_batched * 999)
 
@@ -1290,13 +1317,41 @@ class TMPD_ablation(GuidedSampler):
         # difference
         x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
         h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
+        
+        
+        # add noise to the observation
+        # new_noise_sigma = 0.1 * (1 - num_t)
+        # new_noise_sigma = 0.5 * num_t * (1 - num_t)
+        # new_noise = torch.randn_like(y_obs) * new_noise_sigma
+        # y_obs += new_noise * new_noise_sigma
+        
         difference = y_obs - h_x_0
 
-        # scale gradient for flows
-        # TODO: implement this as derivatives for more generality
-        grad_ll = torch.zeros_like(x_t)
-        for i in range(x_t.shape[0]):
-            grad_ll[i] = gmm_model.grad_yt(num_t, x_t[i], y_obs[i], self.H_func.H_mat, self.noiser.sigma)
+        
+        diag_jac = torch.diagonal(
+            torch.einsum(
+                "ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat
+            ),
+            dim1=-2,
+            dim2=-1,
+        )
+        
+        # coefficient weighting
+        beta = 0.5 * num_t
+        
+        C_yy_diff = self.H_func.HHt_inv_diag(
+            vec=difference,
+            # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
+            diag=(diag_jac * coeff_C_yy),
+            sigma_y_2=self.noiser.sigma**2
+        )
+        grad_ll = torch.einsum(
+            "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
+        )
+        ############################
+        
+        # true vector field guidance
+        # true_grad = gmm_model.grad_yt(num_t, x_t, y_obs, self.H_func.H_mat, self.noiser.sigma)
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
         
         gamma_t = 1.0
@@ -1306,7 +1361,38 @@ class TMPD_ablation(GuidedSampler):
             )
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
+            
+        # return gmm_model.true_vector_field(num_t, x_t, y_obs, self.H_func.H_mat, self.noiser.sigma)
+        # if self.ablate:
+        #     return guided_vec, scaled_grad
+        # else:
+        #     return guided_vec
         return guided_vec
+    
+    
+@register_guided_sampler(name="true_vec")
+class true_vector_field(GuidedSampler):
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        """
+        Returns the true vector field for the ablation study.
+        """
+        gmm_model = kwargs.get("gmm_model", None)
+        if gmm_model is None:
+            raise ValueError("GMM model must be provided for ablation study.")
+        
+        return gmm_model.true_vector_field(num_t, x_t, y_obs, self.H_func.H_mat, self.noiser.sigma)
 
 
 @register_guided_sampler(name="tmpd_exact")
