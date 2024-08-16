@@ -146,7 +146,7 @@ class TMPD(GuidedSampler):
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
             if num_t < 0.2:
-                guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+                guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
             else:
                 guided_vec = scaled_grad + flow_pred
             # guided_vec = (scaled_grad + flow_pred)
