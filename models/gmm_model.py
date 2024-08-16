@@ -449,7 +449,17 @@ class GMM(object):
 
     def log_prob_yxt(self, t, x_t, y_obs, H_mat, sigma_y):
         """
-        Efficient alternative that computes the log p(y | x_t), which returns (batch_size, )
+        Efficient alternative that computes the log p(y | x_t), which returns (batch_size, ).
+
+        Args:
+            t (float): the discretized time step.
+            x_t (torch.Tensor): the observation at time t, shape (batch_size, dim).
+            y_obs (torch.Tensor): the observed data at time t, shape (batch_size, d_y).
+            H_mat (torch.Tensor): the observation matrix, shape (d_y, dim).
+            sigma_y (float): the noise standard deviation.
+
+        Returns:
+            log_prob (torch.Tensor): the log probability of p(y | x_t), shape (batch_size, ).
         """
         batch_size = x_t.shape[0]
         # component mean of p(x_0 | x_t)
@@ -470,10 +480,7 @@ class GMM(object):
             (std_t**2 + a_t**2),
         ) + torch.log(self.weights)[None, :].repeat(batch_size, 1)
 
-        # print(log_weights_0t)
-
         normalized_log_weights_0t = torch.log_softmax(log_weights_0t, dim=1)
-        # print(torch.exp(normalized_log_weights_0t))
 
         # component mean of p(y | x_t), (batch_size, n_components, d_y)
         mean_yt = torch.einsum("ij, bkj -> bki", H_mat, mean_0t)
@@ -485,28 +492,37 @@ class GMM(object):
         inv_cov_yt = torch.linalg.solve(cov_yt, torch.eye(H_mat.shape[0]))
 
         # log prob of p(y | x_t)
-        log_components_yt = self.batched_mvn_log_prob_mean(
-            y_obs, mean_yt, inv_cov_yt
-        )
+        log_components_yt = self.batched_mvn_log_prob_mean(y_obs, mean_yt, inv_cov_yt)
         log_mix_prob = torch.log_softmax(normalized_log_weights_0t, dim=1)
 
         return torch.logsumexp(log_components_yt + log_mix_prob, dim=1)
-
-        # for i in range(self.n_components):
-        #     prob_yt += normalized_log_weights_0t[:, i] + self.batched_mvn_log_prob(y_obs_batched, mean_yt[:, i, :], inv_cov_yt)
-
-        # return torch.log(prob_yt)
 
     def grad_yt(self, t, x_t, y_obs, H_mat, sigma_y):
         """
         Returns the gradient of log p(y | x_t) wrt. x_t.
         """
+
         def log_p(x):
             return self.log_prob_yxt(t, x, y_obs, H_mat, sigma_y).sum()
 
         grad = torch.func.grad(log_p)(x_t)
 
         return grad
+    
+    def true_vector_field(self, t, x_t, y_obs, H_mat, sigma_y):
+        """
+        Returns the true vector field guiding towards p(x0 | y) at time t.
+        """
+        grad_yt = self.grad_yt(t, x_t, y_obs, H_mat, sigma_y)
+        uncond_flow = self.flow_pred(x_t, t)
+        
+        # coefficients
+        a_t = self.sde.alpha_t(t)
+        std_t = self.sde.std_t(t)
+        
+        guidance_coeff = (std_t**2) * (1 / a_t + 1 / std_t)
+        
+        return uncond_flow + guidance_coeff * grad_yt
 
     def get_mean_yt(self, t, x_t, H_mat, sigma_y):
         """
