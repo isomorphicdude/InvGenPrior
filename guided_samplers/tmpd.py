@@ -133,7 +133,7 @@ class TMPD(GuidedSampler):
         vjp_product = self.H_func.HHt_inv_diag(
             vec=difference,
             diag=coeff_C_yy * diagonal_est,
-            sigma_y_2=self.noiser.sigma**2 + (0.5 * (1 - num_t)) **2,
+            sigma_y_2=self.noiser.sigma**2 + (1 - num_t) * (0.5) **2,
         )
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
@@ -145,7 +145,7 @@ class TMPD(GuidedSampler):
         # clamp to interval
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            if num_t < 0.2:
+            if num_t < 0.1:
                 guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
             else:
                 guided_vec = scaled_grad + flow_pred
