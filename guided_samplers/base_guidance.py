@@ -26,6 +26,7 @@ class GuidedSampler(ABC):
         device,
         return_cov=False,
         alt_guidance=False,
+        ablate=False,
         **kwargs,
     ):
         self.model = model
@@ -34,6 +35,7 @@ class GuidedSampler(ABC):
         self.sampling_eps = sampling_eps
         self.return_cov = return_cov
         self.alt_guidance = alt_guidance
+        self.ablate = ablate
 
         if inverse_scaler is None:
             # if no inverse scaler is provided, default to identity
@@ -470,3 +472,195 @@ class GuidedSampler(ABC):
                 return samples[-1]
         else:
             return samples, mean_0t, cov_yt
+        
+    def reverse_encoder():
+        pass
+    
+    def reverse_guided_encoder(self, y_obs, z, true_model=None, clamp_to=None,
+                               **kwargs):    
+        """
+        Reverse encoder for the guided sampler.
+        By running the guided ODE backwards, we can obtain the latent variable z.
+        """
+        assert self.ablate, "Ablation study not supported for this sampler."
+        assert true_model is not None, "True model must be provided for ablation study."
+        samples = []
+        true_grads = []
+        approx_grads = []
+        
+        # set x = z
+        x = z
+
+        # Initial sample
+        with torch.no_grad():
+            model_fn = mutils.get_model_fn(self.model, train=False)
+
+            ### Uniform
+            dt = 1.0 / self.sde.sample_N
+            eps = 1e-3  # default: 1e-3
+
+            for i in range(self.sde.sample_N-1, -1, -1):
+                # sampling steps default to 1000
+                num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps  # scalar time
+
+                # t_batched = torch.ones(self.shape[0], device=self.device) * num_t
+
+                # convert to diffusion models if sampling.sigma_variance > 0.0 while perserving the marginal probability
+                sigma_t = self.sde.sigma_t(num_t)
+
+                alpha_t = self.sde.alpha_t(num_t)
+                std_t = self.sde.std_t(num_t)
+                da_dt = self.sde.da_dt(num_t)
+                dstd_dt = self.sde.dstd_dt(num_t)
+
+                guided_vec = self.get_guidance(
+                    model_fn,
+                    x,
+                    num_t,
+                    y_obs,
+                    alpha_t,
+                    std_t,
+                    da_dt,
+                    dstd_dt,
+                    clamp_to=clamp_to,
+                    clamp_condition=True,
+                    **kwargs,
+                )
+                
+                # true vec targeting posterior
+                # true_vec = true_model.true_vector_field(num_t, x, y_obs, self.H_func.H_mat, self.noiser.sigma)
+                
+                x = (
+                    x.detach().clone()
+                    - guided_vec * dt
+                    + sigma_t
+                    * math.sqrt(dt)
+                    * torch.randn_like(guided_vec).to(self.device)
+                )
+                
+                samples.append(x.detach().clone())
+                approx_grads.append(guided_vec)
+                # true_grads.append(true_grad)
+                # true_grads.append(true_vec)
+
+                # print name
+                if (
+                    self.__class__.__name__ == "TMPD"
+                    and i % 10 == 0
+                    and len(self.shape) > 2
+                ):
+                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
+
+                elif (
+                    self.__class__.__name__ == "TMPD_trace"
+                    and i % 10 == 0
+                    and len(self.shape) > 2
+                ):
+                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
+        
+        return samples, true_grads, approx_grads
+
+        
+    def sample_ablate(
+        self,
+        y_obs,
+        return_list=True,
+        method="euler",
+        clamp_to=1,
+        starting_time=0,
+        z=None,
+        true_model=None,
+        **kwargs,
+    ):
+        """
+        Sampler that can return the true and approx. guidance for ablation study.
+        Returns a triplet of samples, true_grads, approx_grads.
+        """
+        assert self.ablate, "Ablation study not supported for this sampler."
+        assert true_model is not None, "True model must be provided for ablation study."
+        samples = []
+        true_grads = []
+        approx_grads = []
+
+        # Initial sample
+        with torch.no_grad():
+            if z is None:
+                # default Gaussian latent
+                z0 = self.sde.get_z0(
+                    torch.zeros(self.shape, device=self.device), train=False
+                ).to(self.device)
+                x = z0.detach().clone()
+            else:
+                # latent variable taken to be alpha_t y + sigma_t \epsilon
+                x = z
+
+            model_fn = mutils.get_model_fn(self.model, train=False)
+
+            ### Uniform
+            dt = 1.0 / self.sde.sample_N
+            eps = 1e-3  # default: 1e-3
+
+            for i in range(self.sde.sample_N):
+                # sampling steps default to 1000
+                num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps  # scalar time
+
+                # t_batched = torch.ones(self.shape[0], device=self.device) * num_t
+
+                # convert to diffusion models if sampling.sigma_variance > 0.0 while perserving the marginal probability
+                sigma_t = self.sde.sigma_t(num_t)
+
+                alpha_t = self.sde.alpha_t(num_t)
+                std_t = self.sde.std_t(num_t)
+                da_dt = self.sde.da_dt(num_t)
+                dstd_dt = self.sde.dstd_dt(num_t)
+
+                guided_vec = self.get_guidance(
+                    model_fn,
+                    x,
+                    num_t,
+                    y_obs,
+                    alpha_t,
+                    std_t,
+                    da_dt,
+                    dstd_dt,
+                    clamp_to=clamp_to,
+                    clamp_condition=True,
+                    **kwargs,
+                )
+                
+                # true grad of log p(y_obs | x) w.r.t. x
+                # true_grad = true_model.grad_yt(num_t, x, y_obs, self.H_func.H_mat, self.noiser.sigma)
+                
+                # true vec targeting posterior
+                true_vec = true_model.true_vector_field(num_t, x, y_obs, self.H_func.H_mat, self.noiser.sigma)
+                
+                x = (
+                    x.detach().clone()
+                    + guided_vec * dt
+                    + sigma_t
+                    * math.sqrt(dt)
+                    * torch.randn_like(guided_vec).to(self.device)
+                )
+
+                
+                samples.append(x.detach().clone())
+                approx_grads.append(guided_vec)
+                # true_grads.append(true_grad)
+                true_grads.append(true_vec)
+
+                # print name
+                if (
+                    self.__class__.__name__ == "TMPD"
+                    and i % 10 == 0
+                    and len(self.shape) > 2
+                ):
+                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
+
+                elif (
+                    self.__class__.__name__ == "TMPD_trace"
+                    and i % 10 == 0
+                    and len(self.shape) > 2
+                ):
+                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
+        
+        return samples, true_grads, approx_grads
