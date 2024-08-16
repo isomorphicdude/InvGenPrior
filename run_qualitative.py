@@ -56,11 +56,13 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     #     "pgdm_mod",
     #     "tmpd_row_exact",
     #     "tmpd_trace",
+    #     "true_vec"
     # ]
     ignore_list = [
         "bures_jko",
         "tmpd_fixed_diag",
         "tmpd_ablation",
+        "true_vec",
         "tmpd_fixed_cov",
         "tmpd_exact",
         "tmpd_d",
