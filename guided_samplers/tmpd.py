@@ -133,7 +133,7 @@ class TMPD(GuidedSampler):
         vjp_product = self.H_func.HHt_inv_diag(
             vec=difference,
             diag=coeff_C_yy * diagonal_est,
-            sigma_y_2=self.noiser.sigma**2 + 0.5**2,
+            sigma_y_2=self.noiser.sigma**2 + (0.5 * (1 - num_t)) **2,
         )
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
