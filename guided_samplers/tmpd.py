@@ -54,6 +54,7 @@ class TMPD(GuidedSampler):
         """
         num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 50)
         # alt_clamp_to = kwargs.get("alt_clamp_to", None)
+        # num_hutchinson_samples = 150
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
@@ -125,16 +126,23 @@ class TMPD(GuidedSampler):
 
         # difference
         # add noise to the observation
-        # new_noise_std = 0.1 * (1 - num_t)
-        # y_obs = y_obs + torch.randn_like(y_obs) * new_noise_std
+        new_noise_std = 0.1 * (1 - num_t)
+        y_obs = y_obs + torch.randn_like(y_obs) * new_noise_std
         difference = y_obs - self.H_func.H(x_0_pred)
 
         #
-        vjp_product = self.H_func.HHt_inv_diag(
-            vec=difference,
-            diag=coeff_C_yy * diagonal_est,
-            sigma_y_2=self.noiser.sigma**2 + (1 - num_t) * (0.5) **2,
-        )
+        if len(self.shape) > 2:
+            vjp_product = self.H_func.HHt_inv_diag(
+                vec=difference,
+                diag=coeff_C_yy * diagonal_est,
+                sigma_y_2=self.noiser.sigma**2 + new_noise_std**2,
+            )
+        elif len(self.shape) <= 2:
+            vjp_product = self.H_func.HHt_inv_diag(
+                vec=difference,
+                diag=coeff_C_yy * diagonal_est,
+                sigma_y_2=self.noiser.sigma**2,
+            )
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
         # grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
@@ -145,7 +153,7 @@ class TMPD(GuidedSampler):
         # clamp to interval
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            if num_t < 0.1:
+            if num_t < 0.2:
                 guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
             else:
                 guided_vec = scaled_grad + flow_pred
@@ -1318,6 +1326,7 @@ class TMPD_ablation(GuidedSampler):
         
         # add noise to the observation
         # new_noise_sigma = 0.1 * (1 - num_t)
+        new_noise_sigma = 0.0
         # new_noise_sigma = 0.5 * num_t * (1 - num_t)
         # new_noise = torch.randn_like(y_obs) * new_noise_sigma
         # y_obs += new_noise * new_noise_sigma
@@ -1340,7 +1349,7 @@ class TMPD_ablation(GuidedSampler):
             vec=difference,
             # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
             diag=(diag_jac * coeff_C_yy),
-            sigma_y_2=self.noiser.sigma**2
+            sigma_y_2=self.noiser.sigma**2 + new_noise_sigma**2,
         )
         grad_ll = torch.einsum(
             "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
