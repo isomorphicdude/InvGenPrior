@@ -29,7 +29,8 @@ class PiGDM(GuidedSampler):
         """Compute the PiGDM guidance (Song et al., 2022)."""
             
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
-
+        data_name = kwargs.get("data_name", None)
+        
         # r_t_2 as in Song et al. 2022
         r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
 
@@ -106,13 +107,19 @@ class PiGDM(GuidedSampler):
 
         # print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None and clamp_condition:
-            # clamp_to = flow_pred.flatten().abs().max().item()   
-            # scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
-            # if self.H_func.__class__.__name__ == "Inpainting":
-            # if num_t < 0.1:
-            guided_vec = scaled_grad.clamp(-clamp_to, clamp_to) + flow_pred
-            # else:
-                # guided_vec = scaled_grad + flow_pred
+            if data_name == "celeba":
+                threhold_time = 0.1
+            elif data_name == "afhq":
+                threhold_time = 0.1
+            else:
+                threshold_time = 2.0
+            if num_t < threhold_time:
+                if data_name == "celeba":
+                    guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                elif data_name == "afhq":
+                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
+                else:
+                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
         else:
             guided_vec = scaled_grad + flow_pred
             # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)

@@ -176,9 +176,9 @@ class TMPD(GuidedSampler):
             # clamp_to = flow_pred.flatten().abs().max().item()
             # if self.H_func.__class__.__name__ == "Inpainting":
             if data_name == "celeba":
-                threhold_time = 0.5
+                threhold_time = 0.1
             elif data_name == "afhq":
-                threhold_time = 0.2
+                threhold_time = 0.1
             else:
                 raise ValueError("Unknown dataset")
             if num_t < threhold_time:
