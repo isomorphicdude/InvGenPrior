@@ -127,7 +127,7 @@ class TMPD(GuidedSampler):
 
         # difference
         # add noise to the observation
-        new_noise_std = 0.5
+        new_noise_std = 0.1
         y_obs = y_obs + new_noise * new_noise_std
         difference = y_obs - self.H_func.H(x_0_pred)
 
