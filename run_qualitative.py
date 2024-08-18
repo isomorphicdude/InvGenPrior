@@ -226,6 +226,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         else:
             clamp_to = clamp_to
 
+        # fix noise during sampling
         current_sample = guided_sampler.sample(
             y_obs=y_obs,
             z=start_z,  # maybe can use latent encoding
@@ -233,6 +234,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
             method=config.sampling.use_ode_sampler,  # euler by default
             clamp_to=clamp_to,
             starting_time=config.sampling.starting_time,
+            new_noise = torch.randn_like(y_obs)
         )
 
         # save
