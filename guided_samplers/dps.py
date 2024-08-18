@@ -74,7 +74,7 @@ class DPS(GuidedSampler):
                 if data_name == "celeba":
                     guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
                 elif data_name == "afhq":
-                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
+                    guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
                 else:
                     guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
                     
