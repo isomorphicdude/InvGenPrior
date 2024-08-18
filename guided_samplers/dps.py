@@ -27,6 +27,7 @@ class DPS(GuidedSampler):
         """Compute the DPS guidance (Chung et al., 2022)."""
         
         dps_scaling_const = kwargs.get("dps_scaling_const", 1.0)
+        data_name = kwargs.get("data_name", None)
         
         with torch.enable_grad():
             x_t = x_t.clone().to(x_t.device).requires_grad_()
@@ -61,16 +62,28 @@ class DPS(GuidedSampler):
         grad_term = (-1) * grad_term.detach()
         
         corrected_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t)
-        
+        scaled_grad = dps_scaling_const * corrected_grad
         if clamp_to is not None and clamp_condition:
-            # clamp_to = flow_pred.flatten().abs().max().item()
-            return (dps_scaling_const * corrected_grad).clamp(-clamp_to, clamp_to) + flow_pred
-            # if num_t < 0.3:
-                # return (dps_scaling_const * corrected_grad + flow_pred).clamp(-clamp_to, clamp_to)
-            # else:
-                # return (dps_scaling_const * corrected_grad + flow_pred)
+            if data_name == "celeba":
+                threhold_time = 0.1
+            elif data_name == "afhq":
+                threhold_time = 0.1
+            else:
+                threshold_time = 2.0    
+            if num_t < threhold_time:
+                if data_name == "celeba":
+                    guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                elif data_name == "afhq":
+                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
+                else:
+                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
+                    
+            else:
+                guided_vec = scaled_grad + flow_pred
         else:
-            return (dps_scaling_const * corrected_grad) + flow_pred
+            return scaled_grad + flow_pred
+        
+        return guided_vec
         
         
         
