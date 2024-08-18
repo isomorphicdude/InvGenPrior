@@ -120,6 +120,8 @@ class PiGDM(GuidedSampler):
                     guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
                 else:
                     guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
+            else:
+                guided_vec = scaled_grad + flow_pred
         else:
             guided_vec = scaled_grad + flow_pred
             # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
