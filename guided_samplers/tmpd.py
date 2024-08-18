@@ -175,8 +175,8 @@ class TMPD(GuidedSampler):
             # clamp_to = flow_pred.flatten().abs().max().item()
             # if self.H_func.__class__.__name__ == "Inpainting":
             if num_t < 0.3:
-                guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
-                # guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+                # guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
             else:
                 guided_vec = scaled_grad + flow_pred
                 
