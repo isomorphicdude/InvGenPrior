@@ -146,7 +146,10 @@ class TMPD(GuidedSampler):
             #         diag=coeff_C_yy * diagonal_est,
             #         sigma_y_2=self.noiser.sigma**2,
             #     )
-            if self.H_func.__class__.__name__ == "Inpainting":
+            if (
+                self.H_func.__class__.__name__ == "Inpainting"
+                or self.H_func.__class__.__name__ == "SuperResolution"
+            ):
                 vjp_product = self.H_func.HHt_inv_diag(
                     vec=difference,
                     diag=coeff_C_yy * diagonal_est,
@@ -169,7 +172,6 @@ class TMPD(GuidedSampler):
         # grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
 
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
-        
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
@@ -180,25 +182,31 @@ class TMPD(GuidedSampler):
                 elif data_name == "afhq":
                     threshold_time = 0.2
                 else:
-                    threshold_time = 2.0    
+                    threshold_time = 2.0
             else:
                 if data_name == "celeba":
                     threshold_time = 0.1
                 elif data_name == "afhq":
                     threshold_time = 0.1
                 else:
-                    threshold_time = 2.0    
+                    threshold_time = 2.0
             if num_t < threshold_time:
                 if data_name == "celeba":
-                    guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                    guided_vec = (
+                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                    )
                 elif data_name == "afhq":
-                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
+                    guided_vec = torch.clamp(
+                        scaled_grad + flow_pred, -clamp_to, clamp_to
+                    )
                 else:
-                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
-                    
+                    guided_vec = torch.clamp(
+                        scaled_grad + flow_pred, -clamp_to, clamp_to
+                    )
+
             else:
                 guided_vec = scaled_grad + flow_pred
-                
+
             # else:
             #     guided_vec = scaled_grad + flow_pred
             # guided_vec = (scaled_grad + flow_pred)
@@ -1198,7 +1206,7 @@ class TMPD_fixed_diag(GuidedSampler):
             torch.func.jacrev(get_x0, argnums=0, has_aux=True),
             # in_dims=(0,),
         )
-        
+
         ### for testing ###
         # def estimate_x_0(x):
         #     flow_pred = model_fn(x, t_batched * 999)
@@ -1247,7 +1255,7 @@ class TMPD_fixed_diag(GuidedSampler):
         ############################
         # diag_jac = diagonal_est
         ############################
-        
+
         C_yy_diff = self.H_func.HHt_inv_diag(
             vec=difference,
             # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
@@ -1280,8 +1288,7 @@ class TMPD_fixed_diag(GuidedSampler):
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
-    
-    
+
     def parallel_hutchinson_diag_est(
         self, vjp_est, shape, num_samples=10, chunk_size=10
     ):
@@ -1331,11 +1338,11 @@ class TMPD_ablation(GuidedSampler):
         # gmm_model = kwargs.get("gmm_model", None)
         # if gmm_model is None:
         #     raise ValueError("GMM model must be provided for ablation study.")
-        
+
         ######## computing the TMPD guidance ########
         new_noise = kwargs.get("new_noise", None)
         # assert new_noise is not None, "New noise must be provided for ablation study."
-        
+
         def get_x0(x):
             flow_pred = model_fn(x, t_batched * 999)
 
@@ -1349,7 +1356,7 @@ class TMPD_ablation(GuidedSampler):
                 dstd_dt=dstd_dt,
             )
             return x0_hat, flow_pred
-        
+
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
         flow_pred = model_fn(x_t, t_batched * 999)
@@ -1366,18 +1373,16 @@ class TMPD_ablation(GuidedSampler):
         # difference
         x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
         h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
-        
-        
+
         # add noise to the observation
         # new_noise_sigma = 0.1 * (1 - num_t)
         new_noise_sigma = 0.0
         # new_noise_sigma = 0.5 * num_t * (1 - num_t)
         # new_noise = torch.randn_like(y_obs) * new_noise_sigma
         # y_obs += new_noise * new_noise_sigma
-        
+
         difference = y_obs - h_x_0
 
-        
         diag_jac = torch.diagonal(
             torch.einsum(
                 "ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat
@@ -1385,10 +1390,10 @@ class TMPD_ablation(GuidedSampler):
             dim1=-2,
             dim2=-1,
         )
-        
+
         # coefficient weighting
         beta = 0.5 * num_t
-        
+
         C_yy_diff = self.H_func.HHt_inv_diag(
             vec=difference,
             # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
@@ -1399,11 +1404,11 @@ class TMPD_ablation(GuidedSampler):
             "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
         )
         ############################
-        
+
         # true vector field guidance
         # true_grad = gmm_model.grad_yt(num_t, x_t, y_obs, self.H_func.H_mat, self.noiser.sigma)
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
-        
+
         gamma_t = 1.0
         if clamp_to is not None:
             guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
@@ -1411,15 +1416,15 @@ class TMPD_ablation(GuidedSampler):
             )
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
-            
+
         # return gmm_model.true_vector_field(num_t, x_t, y_obs, self.H_func.H_mat, self.noiser.sigma)
         # if self.ablate:
         #     return guided_vec, scaled_grad
         # else:
         #     return guided_vec
         return guided_vec
-    
-    
+
+
 @register_guided_sampler(name="true_vec")
 class true_vector_field(GuidedSampler):
     def get_guidance(
@@ -1441,8 +1446,10 @@ class true_vector_field(GuidedSampler):
         gmm_model = kwargs.get("gmm_model", None)
         if gmm_model is None:
             raise ValueError("GMM model must be provided for ablation study.")
-        
-        return gmm_model.true_vector_field(num_t, x_t, y_obs, self.H_func.H_mat, self.noiser.sigma)
+
+        return gmm_model.true_vector_field(
+            num_t, x_t, y_obs, self.H_func.H_mat, self.noiser.sigma
+        )
 
 
 @register_guided_sampler(name="tmpd_exact")
