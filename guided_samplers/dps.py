@@ -65,9 +65,9 @@ class DPS(GuidedSampler):
         scaled_grad = dps_scaling_const * corrected_grad
         if clamp_to is not None and clamp_condition:
             if data_name == "celeba":
-                threhold_time = 0.1
+                threhold_time = 2.0
             elif data_name == "afhq":
-                threhold_time = 0.1
+                threhold_time = 2.0
             else:
                 threshold_time = 2.0    
             if num_t < threhold_time:
