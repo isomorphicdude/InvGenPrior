@@ -133,11 +133,18 @@ class TMPD(GuidedSampler):
 
         #
         if len(self.shape) > 2:
-            vjp_product = self.H_func.HHt_inv_diag(
-                vec=difference,
-                diag=coeff_C_yy * diagonal_est,
-                sigma_y_2=self.noiser.sigma**2 + new_noise_std**2,
-            )
+            if self.noiser.sigma <= 0.01:
+                vjp_product = self.H_func.HHt_inv_diag(
+                    vec=difference,
+                    diag=coeff_C_yy * diagonal_est,
+                    sigma_y_2=self.noiser.sigma**2 + new_noise_std**2,
+                )
+            else:
+                vjp_product = self.H_func.HHt_inv_diag(
+                    vec=difference,
+                    diag=coeff_C_yy * diagonal_est,
+                    sigma_y_2=self.noiser.sigma**2,
+                )
         elif len(self.shape) <= 2:
             vjp_product = self.H_func.HHt_inv_diag(
                 vec=difference,
