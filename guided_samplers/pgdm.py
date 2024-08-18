@@ -27,10 +27,10 @@ class PiGDM(GuidedSampler):
         **kwargs
     ):
         """Compute the PiGDM guidance (Song et al., 2022)."""
-            
+
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
         data_name = kwargs.get("data_name", None)
-        
+
         # r_t_2 as in Song et al. 2022
         r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
 
@@ -107,13 +107,16 @@ class PiGDM(GuidedSampler):
 
         # print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None and clamp_condition:
-            if self.H_func.__class__.__name__ == "Inpainting":
+            if (
+                self.H_func.__class__.__name__ == "Inpainting"
+                or self.H_func.__class__.__name__ == "SuperResolution"
+            ):
                 if data_name == "celeba":
                     threshold_time = 0.2
                 elif data_name == "afhq":
                     threshold_time = 0.2
                 else:
-                    threshold_time = 2.0    
+                    threshold_time = 2.0
             else:
                 if data_name == "celeba":
                     threshold_time = 0.1
@@ -123,18 +126,24 @@ class PiGDM(GuidedSampler):
                     threshold_time = 2.0
             if num_t < threshold_time:
                 if data_name == "celeba":
-                    guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                    guided_vec = (
+                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                    )
                 elif data_name == "afhq":
                     # guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
-                    guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                    guided_vec = (
+                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                    )
                 else:
-                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
+                    guided_vec = torch.clamp(
+                        scaled_grad + flow_pred, -clamp_to, clamp_to
+                    )
             else:
                 guided_vec = scaled_grad + flow_pred
         else:
             guided_vec = scaled_grad + flow_pred
             # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
-            
+
         if not self.return_cov:
             return guided_vec
         else:
@@ -218,7 +227,7 @@ class PiGDM_modified(GuidedSampler):
         """
         desired_time = num_t
         sample_time = desired_time / (math.sqrt(1 - desired_time**2) + desired_time)
-        t_batched = (desired_time / sample_time)
+        t_batched = desired_time / sample_time
 
         # r_t_2 as in Song et al. 2022
         r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
@@ -226,22 +235,18 @@ class PiGDM_modified(GuidedSampler):
         # get the noise level of observation
         sigma_y = self.noiser.sigma
 
-        
         with torch.enable_grad():
             x_t = x_t.clone().to(x_t.device).requires_grad_()
 
             # convert x0_hat to the diffusion path
-            x0_hat = self.get_x0_pred(
-                x_t=x_t / t_batched,
-                num_t = sample_time
-            )
-            
+            x0_hat = self.get_x0_pred(x_t=x_t / t_batched, num_t=sample_time)
+
             # compute score prediction using the diffusion path
             score_pred = (num_t * x0_hat - x_t) / (1 - num_t**2)
-            
+
             # compute the wrong x0 prediction
             wrong_x0_hat = (1 / num_t) * (x_t + (1 - num_t) * score_pred)
-            
+
             # get Sigma_^-1 @ vec
             s_times_vec = self.H_func.HHt_inv(
                 y_obs - self.H_func.H(wrong_x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
@@ -255,7 +260,7 @@ class PiGDM_modified(GuidedSampler):
         grad_term = torch.autograd.grad(mat, x_t, retain_graph=True)[0] * (-1)
 
         grad_term = grad_term.detach()
-        
+
         # also compute the flow prediction using diffusion path
         # flow_pred = mutils.convert_x0_to_flow(
         #     x0_hat=x0_hat.detach(),
@@ -265,8 +270,10 @@ class PiGDM_modified(GuidedSampler):
         #     da_dt=1.0,
         #     dstd_dt= -sample_time / math.sqrt(1 - sample_time**2)
         # )
-        
-        flow_pred = model_fn(x_t, num_t *torch.ones(x_t.shape[0], device=self.device) * 999)
+
+        flow_pred = model_fn(
+            x_t, num_t * torch.ones(x_t.shape[0], device=self.device) * 999
+        )
 
         # print((flow_pred - flow_pred2).mean())
         # compute gamma_t scaling

@@ -176,7 +176,10 @@ class TMPD(GuidedSampler):
         # clamp to interval
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            if self.H_func.__class__.__name__ == "Inpainting":
+            if (
+                self.H_func.__class__.__name__ == "Inpainting"
+                or self.H_func.__class__.__name__ == "SuperResolution"
+            ):
                 if data_name == "celeba":
                     threshold_time = 0.2
                 elif data_name == "afhq":
