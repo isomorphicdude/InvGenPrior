@@ -174,13 +174,20 @@ class TMPD(GuidedSampler):
         # clamp to interval
         if clamp_to is not None and clamp_condition:
             # clamp_to = flow_pred.flatten().abs().max().item()
-            # if self.H_func.__class__.__name__ == "Inpainting":
-            if data_name == "celeba":
-                threshold_time = 0.1
-            elif data_name == "afhq":
-                threshold_time = 0.1
+            if self.H_func.__class__.__name__ == "Inpainting":
+                if data_name == "celeba":
+                    threshold_time = 0.2
+                elif data_name == "afhq":
+                    threshold_time = 0.2
+                else:
+                    threshold_time = 2.0    
             else:
-                threshold_time = 2.0    
+                if data_name == "celeba":
+                    threshold_time = 0.1
+                elif data_name == "afhq":
+                    threshold_time = 0.1
+                else:
+                    threshold_time = 2.0    
             if num_t < threshold_time:
                 if data_name == "celeba":
                     guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
