@@ -53,6 +53,7 @@ class TMPD(GuidedSampler):
          - guided_vec: guidance vector with flow prediction and guidance combined
         """
         num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 50)
+        new_noise = kwargs.get("new_noise", None)
         # alt_clamp_to = kwargs.get("alt_clamp_to", None)
         # num_hutchinson_samples = 150
 
@@ -126,8 +127,8 @@ class TMPD(GuidedSampler):
 
         # difference
         # add noise to the observation
-        new_noise_std = 0.5 * (1 - num_t)
-        y_obs = y_obs + torch.randn_like(y_obs) * new_noise_std
+        new_noise_std = 0.5
+        y_obs = y_obs + new_noise * new_noise_std
         difference = y_obs - self.H_func.H(x_0_pred)
 
         #
