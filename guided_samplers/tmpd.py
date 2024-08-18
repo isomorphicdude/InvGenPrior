@@ -178,7 +178,7 @@ class TMPD(GuidedSampler):
             if data_name == "celeba":
                 threhold_time = 0.5
             elif data_name == "afhq":
-                threhold_time = 0.3
+                threhold_time = 0.2
             else:
                 raise ValueError("Unknown dataset")
             if num_t < threhold_time:
