@@ -109,13 +109,12 @@ class PiGDM(GuidedSampler):
             # clamp_to = flow_pred.flatten().abs().max().item()   
             # scaled_grad = torch.clamp(scaled_grad, -clamp_to, clamp_to)
             # if self.H_func.__class__.__name__ == "Inpainting":
-            if num_t < 0.1:
-                guided_vec = scaled_grad.clamp(-clamp_to, clamp_to) + flow_pred
-            else:
-                guided_vec = scaled_grad + flow_pred
+            # if num_t < 0.1:
+            guided_vec = scaled_grad.clamp(-clamp_to, clamp_to) + flow_pred
             # else:
-            
-                # guided_vec = guided_vec
+                # guided_vec = scaled_grad + flow_pred
+        else:
+            guided_vec = scaled_grad + flow_pred
             # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
             
         if not self.return_cov:
