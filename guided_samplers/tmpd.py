@@ -180,13 +180,15 @@ class TMPD(GuidedSampler):
             elif data_name == "afhq":
                 threhold_time = 0.1
             else:
-                raise ValueError("Unknown dataset")
+                threshold_time = 2.0    
             if num_t < threhold_time:
                 if data_name == "celeba":
                     guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
                 elif data_name == "afhq":
                     guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
-                # guided_vec = (scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+                else:
+                    guided_vec = torch.clamp(scaled_grad + flow_pred, -clamp_to, clamp_to)
+                    
             else:
                 guided_vec = scaled_grad + flow_pred
                 
