@@ -108,12 +108,12 @@ class PiGDM(GuidedSampler):
         # print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None and clamp_condition:
             if data_name == "celeba":
-                threhold_time = 0.1
+                threshold_time = 0.1
             elif data_name == "afhq":
-                threhold_time = 0.1
+                threshold_time = 0.1
             else:
                 threshold_time = 2.0
-            if num_t < threhold_time:
+            if num_t < threshold_time:
                 if data_name == "celeba":
                     guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
                 elif data_name == "afhq":
