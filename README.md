@@ -8,7 +8,7 @@ This repository is based the Rectified Flow implementation [(Liu et al. 2023)](h
 ## Results on AFHQ
 Some qualitative results are shown below on the AFHQ-cats dataset [(Choi et al. 2019)](https://arxiv.org/abs/1912.01865):  
 
-<img src="[assets/afhq_qualitative.png](https://github.com/isomorphicdude/InvGenPrior/blob/main/assests/afhq_qualitative.png)">
+<img src="https://github.com/isomorphicdude/InvGenPrior/blob/main/assests/afhq_qualitative.png">
 
 <!-- 
 Some qualitative results are shown below on the AFHQ-cats dataset [(Choi et al. 2019)](https://arxiv.org/abs/1912.01865):
