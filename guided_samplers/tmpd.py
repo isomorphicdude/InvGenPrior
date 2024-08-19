@@ -96,10 +96,6 @@ class TMPD(GuidedSampler):
 
             return x0_hat, flow_pred
 
-        # h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
-        #     estimate_h_x_0, x_t, has_aux=True
-        # )
-
         x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
             estimate_x_0, x_t, has_aux=True
         )
@@ -147,7 +143,8 @@ class TMPD(GuidedSampler):
             #         sigma_y_2=self.noiser.sigma**2,
             #     )
             if (
-                self.H_func.__class__.__name__ == "Inpainting"
+                self.H_func.__class__.__name__
+                == "Inpainting"
                 # or self.H_func.__class__.__name__ == "SuperResolution"
             ):
                 vjp_product = self.H_func.HHt_inv_diag(
@@ -410,6 +407,121 @@ class TMPD(GuidedSampler):
         #         clamp_condition,
         #         **kwargs,
         #     )
+
+
+@register_guided_sampler(name="tmpd_h")
+class TMPD_hutchinson(GuidedSampler):
+    # TMPD does not seem to require any additional hyperparameters
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        clamp_condition,
+        **kwargs
+    ):
+        num_hutchinson_samples = kwargs.get("num_hutchinson_samples", 50)
+        new_noise = kwargs.get("new_noise", None)
+        data_name = kwargs.get("data_name", None)
+        gmm_model = kwargs.get("gmm_model", None)
+        assert gmm_model is not None, "GMM model must be provided."
+
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        def estimate_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            ).reshape(self.shape[0], -1)
+
+            return x0_hat, flow_pred
+
+        x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
+            estimate_x_0, x_t, has_aux=True
+        )
+
+        coeff_C_yy = std_t**2 / (alpha_t)
+        cov_0t = gmm_model.get_cov_0t_batched(num_t, x_t)
+        jac_x_0 = cov_0t / coeff_C_yy
+
+        # redefine the function to estimate the Jacobian
+        def v_vjp_est(x):
+            vjv = torch.einsum(
+                "ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat
+            )
+            return torch.einsum("bij, bj -> bi", vjv, x)
+
+        diagonal_est = self.parallel_hutchinson_diag_est(
+            vjp_est=v_vjp_est,
+            shape=(self.shape[0], math.prod(self.shape[1:])),
+            num_samples=num_hutchinson_samples,
+            chunk_size=num_hutchinson_samples,
+        )
+
+        coeff_C_yy = std_t**2 / (alpha_t)
+
+        # difference
+        # add noise to the observation
+        new_noise_std = 0.0
+        # y_obs = y_obs + new_noise * new_noise_std
+        difference = y_obs - self.H_func.H(x_0_pred)
+
+        vjp_product = self.H_func.HHt_inv_diag(
+            vec=difference,
+            diag=coeff_C_yy * diagonal_est,
+            sigma_y_2=self.noiser.sigma**2 + new_noise_std**2,
+        )
+
+        grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
+
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        gamma_t = 1.0
+
+        if clamp_to is not None:
+            guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            # guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+        else:
+            guided_vec = (gamma_t * scaled_grad) + (flow_pred)
+        return guided_vec
+
+    def parallel_hutchinson_diag_est(
+        self, vjp_est, shape, num_samples=10, chunk_size=10
+    ):
+        output = torch.zeros((shape[0], shape[1]), device=self.device)
+        if not num_samples % chunk_size == 0:
+            chunk_size = num_samples
+
+        for i in range(num_samples // chunk_size):
+            z = (
+                2
+                * torch.randint(
+                    0, 2, size=(chunk_size, shape[0], shape[1]), device=self.device
+                )
+                - 1
+            )
+            z = z.float()
+
+            # map across the first dimension
+            vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
+
+            vjpz = torch.sum(z * vmapped_vjp, dim=0)
+
+            output += vjpz
+
+        return output / num_samples
 
 
 @register_guided_sampler(name="tmpd_trace")
@@ -931,7 +1043,7 @@ class TMPD_og(GuidedSampler):
 
 @register_guided_sampler(name="tmpd_fixed_cov")
 class TMPD_fixed_cov(GuidedSampler):
-    def get_guidance(
+    def _get_guidance(
         self,
         model_fn,
         x_t,
@@ -1020,41 +1132,6 @@ class TMPD_fixed_cov(GuidedSampler):
 
         # avg_trace = torch.mean(torch.diagonal(jac_x_0, dim1=-2, dim2=-1), dim=1)[:, None, None]
 
-        # using Hutchinson's trace estimator
-        def hutchinson_trace_estimator(jacobian, num_samples=10):
-            """
-            Computes the Hutchinson trace estimator for a batched Jacobian.
-
-            Parameters:
-            jacobian (np.ndarray): Batched Jacobian matrix of shape (batch, 3, 3).
-            num_samples (int): Number of random vectors to use for the estimator.
-
-            Returns:
-            np.ndarray: Estimated trace for each batch.
-            """
-            batch_size = jacobian.shape[0]
-            trace_estimates = torch.zeros(batch_size)
-
-            for _ in range(num_samples):
-                # Generate a random vector with entries +1 or -1
-                random_vec = np.random.choice(
-                    [-1, 1], size=(batch_size, jacobian.shape[1])
-                )
-
-                random_vec = torch.from_numpy(random_vec).float()
-                # Compute J @ random_vec
-                jacobian_product = torch.einsum("bij,bj->bi", jacobian, random_vec)
-
-                # Dot product of the result with random_vec
-                trace_estimates += torch.einsum(
-                    "bi,bi->b", jacobian_product, random_vec
-                )
-
-            # Average over the number of samples
-            trace_estimates /= num_samples
-
-            return trace_estimates / jacobian.shape[1]
-
         # avg_trace = hutchinson_trace_estimator(jac_x_0, num_samples=10)[:, None, None]
         # avg_trace = torch.mean(torch.diagonal(jac_x_0, dim1=-2, dim2=-1), dim=1)[:, None, None]
         # avg_trace_id = (
@@ -1124,20 +1201,81 @@ class TMPD_fixed_cov(GuidedSampler):
         return guided_vec
         # return flow_pred
 
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        assert hasattr(
+            self.H_func, "H_mat"
+        ), "H_func must have H_mat attribute for now."
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        gmm_model = kwargs.get("gmm_model", None)
+        assert gmm_model is not None, "GMM model must be provided."
+
+        def get_x0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            return x0_hat, flow_pred
+
+        flow_pred = model_fn(x_t, t_batched * 999)
+        coeff_C_yy = std_t**2 / alpha_t
+
+        # difference
+        x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
+        h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
+        difference = y_obs - h_x_0
+
+        cov_x0 = gmm_model.get_cov_0t_batched(num_t, x_t)
+        jac_x_0 = cov_x0 / coeff_C_yy
+
+        C_yy = (
+            torch.einsum(
+                "ij, bjk, kl -> bil",
+                self.H_func.H_mat,
+                cov_x0,
+                self.H_func.H_mat.T,
+            )
+            + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
+        )
+
+        C_yy_diff = torch.linalg.solve(
+            C_yy,
+            difference,
+        )  # (B, d_y)
+
+        grad_ll = torch.einsum(
+            "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
+        )
+
+        gamma_t = 1.0
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        if clamp_to is not None:
+            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+                flow_pred
+            )
+        else:
+            guided_vec = (gamma_t * scaled_grad) + (flow_pred)
+        return guided_vec
+
     def hutchinson_diag_est(self, vjp_est, shape, num_samples=10):
-        """
-        Returns the diagonal of the Jacobian using Hutchinson's diagonal estimator.
-
-        Args:
-          vjp_est (torch.func.vjp): Function that computes the Jacobian-vector product, takes input of shape (B, D), in practice we use V(vjp(Vt(x)))
-
-          shape (tuple): Shape of the Jacobian matrix, (B, *D) e.g. (B, 3, 256, 256) for image data.
-
-          num_samples (int): Number of samples to use for the estimator.
-
-        Returns:
-          torch.Tensor: shape (batch, D), estimated diagonal for each batch.
-        """
         res = torch.zeros((shape[0], *shape[1:]))
 
         for i in range(num_samples):
@@ -1151,7 +1289,7 @@ class TMPD_fixed_cov(GuidedSampler):
 
 @register_guided_sampler(name="tmpd_fixed_diag")
 class TMPD_fixed_diag(GuidedSampler):
-    def get_guidance(
+    def _get_guidance(
         self,
         model_fn,
         x_t,
@@ -1321,6 +1459,78 @@ class TMPD_fixed_diag(GuidedSampler):
 
         return output / num_samples
 
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        **kwargs
+    ):
+        assert hasattr(
+            self.H_func, "H_mat"
+        ), "H_func must have H_mat attribute for now."
+        gmm_model = kwargs.get("gmm_model", None)
+        assert gmm_model is not None, "GMM model must be provided."
+
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        def get_x0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+            return x0_hat, flow_pred
+
+        coeff_C_yy = std_t**2 / alpha_t
+        cov_0t = gmm_model.get_cov_0t_batched(num_t, x_t)
+        jac_x_0 = cov_0t / coeff_C_yy
+
+        flow_pred = model_fn(x_t, t_batched * 999)
+        # difference
+        x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
+        h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
+        difference = y_obs - h_x_0
+
+        diag_jac = torch.diagonal(
+            torch.einsum(
+                "ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat
+            ),
+            dim1=-2,
+            dim2=-1,
+        )
+
+        C_yy_diff = self.H_func.HHt_inv_diag(
+            vec=difference,
+            diag=diag_jac * coeff_C_yy,
+            sigma_y_2=self.noiser.sigma**2,
+        )
+
+        grad_ll = torch.einsum(
+            "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
+        )
+
+        gamma_t = 1.0
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        if clamp_to is not None:
+            guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+        else:
+            guided_vec = (gamma_t * scaled_grad) + (flow_pred)
+        return guided_vec
+
 
 @register_guided_sampler(name="tmpd_ablation")
 class TMPD_ablation(GuidedSampler):
@@ -1341,9 +1551,9 @@ class TMPD_ablation(GuidedSampler):
         Ablation study for TMPD guidance for OT path.
         """
         # the GMM model will give the true vector field
-        # gmm_model = kwargs.get("gmm_model", None)
-        # if gmm_model is None:
-        #     raise ValueError("GMM model must be provided for ablation study.")
+        gmm_model = kwargs.get("gmm_model", None)
+        if gmm_model is None:
+            raise ValueError("GMM model must be provided for ablation study.")
 
         ######## computing the TMPD guidance ########
         new_noise = kwargs.get("new_noise", None)
@@ -1366,15 +1576,11 @@ class TMPD_ablation(GuidedSampler):
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
         flow_pred = model_fn(x_t, t_batched * 999)
-        jac_x_0_func = torch.func.vmap(
-            torch.func.jacrev(get_x0, argnums=0, has_aux=True),
-            # in_dims=(0,),
-        )
-        jac_x_0, flow_pred = jac_x_0_func(x_t)
-
-        flow_pred = model_fn(x_t, t_batched * 999)
 
         coeff_C_yy = std_t**2 / alpha_t
+
+        cov_0t = gmm_model.get_cov_0t_batched(num_t, x_t)
+        jac_x_0 = cov_0t / coeff_C_yy
 
         # difference
         x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
@@ -1495,80 +1701,19 @@ class TMPD_exact(GuidedSampler):
             self.H_func, "H_mat"
         ), "H_func must have H_mat attribute for now."
 
-        # if len(x_t.shape) > 1:
-        #     raise NotImplementedError("Only single sample supported for now.")
+        gmm_model = kwargs.get("gmm_model", None)
+        assert gmm_model is not None, "GMM model must be provided."
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
-        # def log_likelihood_fn(x):
-        #     def get_x0(x):
-        #         flow_pred = model_fn(x, t_batched * 999)
-
-        #         # pass to model to get x0_hat prediction
-        #         x0_hat = convert_flow_to_x0(
-        #             u_t=flow_pred,
-        #             x_t=x,
-        #             alpha_t=alpha_t,
-        #             std_t=std_t,
-        #             da_dt=da_dt,
-        #             dstd_dt=dstd_dt,
-        #         )
-        #         return x0_hat, flow_pred
-
-        #     # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of d_y dim
-        #     # so equivalently (∇_x x0_hat) @ H^t @ u
-        #     jac_x_0_func = torch.func.jacrev(get_x0, argnums=0, has_aux=True)
-
-        #     jac_x_0, flow_pred = jac_x_0_func(x)
-
-        #     coeff_C_yy = std_t**2 / alpha_t
-
-        #     # difference
-        #     x_0_hat = convert_flow_to_x0(flow_pred, x, alpha_t, std_t, da_dt, dstd_dt)
-        #     h_x_0 = torch.matmul(self.H_func.H_mat, x_0_hat)
-
-        #     C_yy = (
-        #         coeff_C_yy * self.H_func.H_mat @ jac_x_0 @ self.H_func.H_mat.T
-        #         + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
-        #     )
-
-        #     # create distribution instance
-        #     likelihood_distr = torch.distributions.MultivariateNormal(
-        #         loc=h_x_0, covariance_matrix=C_yy
-        #     )
-
-        #     # only single sample (no sum over batch dimension)
-        #     likelihood = likelihood_distr.log_prob(y_obs)
-
-        #     return likelihood.squeeze()
-
-        # # compute gradient of log likelihood
-        # grad_ll = torch.func.grad(log_likelihood_fn)(x_t)
-
         def log_likelihood_fn(x):
-            def get_x0(xi):
-                flow_pred = model_fn(xi, t_batched * 999)
-
-                # pass to model to get x0_hat prediction
-                x0_hat = convert_flow_to_x0(
-                    u_t=flow_pred,
-                    x_t=xi,
-                    alpha_t=alpha_t,
-                    std_t=std_t,
-                    da_dt=da_dt,
-                    dstd_dt=dstd_dt,
-                )
-                return x0_hat, flow_pred
-
             # this computes a function vjp(u) = u^t @ H @ (∇_x x0_hat), u of d_y dim
             # so equivalently (∇_x x0_hat) @ H^t @ u
-            jac_x_0_func = torch.func.vmap(
-                torch.func.jacrev(get_x0, argnums=0, has_aux=True)
-            )
-
-            jac_x_0, flow_pred = jac_x_0_func(x)
-
+            flow_pred = model_fn(x, t_batched * 999)
             coeff_C_yy = std_t**2 / alpha_t
+
+            cov_0t = gmm_model.get_cov_0t_batched(num_t, x)
+            jac_x_0 = cov_0t / coeff_C_yy
 
             # difference
             x_0_hat = convert_flow_to_x0(flow_pred, x, alpha_t, std_t, da_dt, dstd_dt)
@@ -1586,12 +1731,6 @@ class TMPD_exact(GuidedSampler):
                 + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
             )
 
-            # create distribution instance
-            # likelihood_distr = torch.distributions.MultivariateNormal(
-            #     loc=h_x_0, covariance_matrix=C_yy,
-            #     validate_args=False
-            # )
-
             log_likelihood = (
                 -1 * (self.H_func.H_mat.shape[0] / 2) * math.log(2 * math.pi)
                 - 0.5
@@ -1607,12 +1746,9 @@ class TMPD_exact(GuidedSampler):
             # log_likelihood = likelihood_distr.log_prob(y_obs)
 
             return log_likelihood.sum(), C_yy
-            # return log_likelihood.sum(), flow_pred
 
         # compute gradient of log likelihood
         grad_ll, C_yy = torch.func.grad(log_likelihood_fn, has_aux=True)(x_t)
-        # print(C_yy.shape)
-        # grad_ll, flow_pred = torch.func.grad(log_likelihood_fn, has_aux=True)(x_t)
 
         flow_pred = model_fn(x_t, t_batched * 999)
 
@@ -1640,65 +1776,27 @@ class TMPD_exact(GuidedSampler):
             )
             return guided_vec, x0_pred.mean(axis=0), C_yy.mean(axis=0)
 
-    def sample(
-        self,
-        y_obs,
-        return_list=False,
-        method="euler",
-        clamp_to=1,
-        starting_time=0,
-        z=None,
-        **kwargs
-    ):
-        """
-        Overrides the base class method to include the exact guidance for TMPD.
-        """
-        return self.chunkwise_sampling(
-            y_obs=y_obs,
-            return_list=return_list,
-            method=method,
-            clamp_to=clamp_to,
-            starting_time=starting_time,
-            z=z,
-        )
-        # if z is None:
-        #     start_z = torch.randn(self.shape, device=self.device)
-        # else:
-        #     start_z = z
-
-        # num_samples = y_obs.shape[0]
-
-        # chunk_size = 20
-        # assert num_samples % chunk_size == 0
-
-        # num_chunks = num_samples // chunk_size
-
-        # # list of samples to store
-        # # the t^th element of the list is the samples at the time t
-        # tmpd_samples_dict = {i: [] for i in range(num_chunks)}
-
-        # for i in tqdm(
-        #     range(num_chunks), total=num_chunks, desc="TMPD sampling", colour="green"
-        # ):
-        #     start_z_chunk = start_z[i * chunk_size : (i + 1) * chunk_size, :]
-        #     y_obs_chunk = y_obs[i * chunk_size : (i + 1) * chunk_size, :]
-
-        #     if not self.return_cov:
-        #         tmpd_samples_chunk, _ = self.guided_euler_sampler(
-        #             y_obs=y_obs_chunk, clamp_to=None, z=start_z_chunk, return_list=True
-        #         )
-        #     else:
-        #         tmpd_samples_chunk, list_mean_0t_chunk, list_cov_yt_chunk = self.guided_euler_sampler(
-        #             y_obs=y_obs_chunk, clamp_to=None, z=start_z_chunk, return_list=True
-        #         )
-        #         tmpd_samples_dict[i] = tmpd_samples_chunk
-
-        # tmpd_fixed_cov_samples = self.convert_dict_to_list(tmpd_samples_dict, num_chunks)
-
-        # if return_list:
-        #     return tmpd_fixed_cov_samples
-        # else:
-        #     return tmpd_fixed_cov_samples[-1]
+    # def sample(
+    #     self,
+    #     y_obs,
+    #     return_list=False,
+    #     method="euler",
+    #     clamp_to=1,
+    #     starting_time=0,
+    #     z=None,
+    #     **kwargs
+    # ):
+    #     """
+    #     Overrides the base class method to include the exact guidance for TMPD.
+    #     """
+    #     return self.chunkwise_sampling(
+    #         y_obs=y_obs,
+    #         return_list=return_list,
+    #         method=method,
+    #         clamp_to=clamp_to,
+    #         starting_time=starting_time,
+    #         z=z,
+    #     )
 
 
 @register_guided_sampler(name="tmpd_row_exact")
