@@ -148,7 +148,7 @@ class TMPD(GuidedSampler):
             #     )
             if (
                 self.H_func.__class__.__name__ == "Inpainting"
-                or self.H_func.__class__.__name__ == "SuperResolution"
+                # or self.H_func.__class__.__name__ == "SuperResolution"
             ):
                 vjp_product = self.H_func.HHt_inv_diag(
                     vec=difference,
