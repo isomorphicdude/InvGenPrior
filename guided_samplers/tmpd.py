@@ -183,7 +183,7 @@ class TMPD(GuidedSampler):
                 if data_name == "celeba":
                     threshold_time = 0.2
                 elif data_name == "afhq":
-                    threshold_time = 0.2
+                    threshold_time = 0.25
                 else:
                     threshold_time = 2.0
             else:
