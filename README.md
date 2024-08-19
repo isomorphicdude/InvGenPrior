@@ -1,8 +1,15 @@
 # Code for MSc Project 2024
 
-Solving Bayesian inverse problems with deep flow priors.  
+## Abstract
+> Flow-based generative models trained with simulation-free approaches have become strong contenders to diffusion models in various tasks. However, training-free guidance methods for controlled generation for flow models are not as well developed compared to diffusion. In this work, we propose Tweedie Moment Projected Flows (TMPF) model for zero-shot controlled generation using a pre-trained flow model. We demonstrate the effectiveness of the proposed method on linear inverse problems on both synthetic and real-world data such as high-resolution images. 
 
-We use the Rectified Flow implementation [(Liu et al. 2023)](https://arxiv.org/abs/2209.03003).
+This repository is based the Rectified Flow implementation [(Liu et al. 2023)](https://arxiv.org/abs/2209.03003).
+
+## Results on AFHQ
+Some qualitative results are shown below on the AFHQ-cats dataset [(Choi et al. 2019)](https://arxiv.org/abs/1912.01865):  
+
+<img src="assets/afhq_qualitative.png">
+
 <!-- 
 Some qualitative results are shown below on the AFHQ-cats dataset [(Choi et al. 2019)](https://arxiv.org/abs/1912.01865):
 | Guided Samplers    |
