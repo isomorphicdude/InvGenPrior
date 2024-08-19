@@ -13,6 +13,7 @@ import models.utils as mutils
 from models.utils import convert_flow_to_x0
 from guided_samplers.base_guidance import GuidedSampler
 from guided_samplers.registry import register_guided_sampler
+from guided_samplers.linalg import gmres
 
 
 @register_guided_sampler(name="tmpd")
@@ -407,6 +408,117 @@ class TMPD(GuidedSampler):
         #         clamp_condition,
         #         **kwargs,
         #     )
+        
+        
+@register_guided_sampler(name="tmpd_gmres")
+class TMPD_gmres(GuidedSampler):
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        clamp_condition,
+        **kwargs
+    ):
+        """
+        Using GMRES to solve the linear system for the guidance.
+        """
+        data_name = kwargs.get("data_name", None)
+        gmres_max_iter = kwargs.get("gmres_max_iter", 3)
+
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        def estimate_h_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+
+            x0_hat_obs = self.H_func.H(x0_hat)
+
+            return (x0_hat_obs, flow_pred)
+
+        # x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
+        #     estimate_x_0, x_t, has_aux=True
+        # )
+        x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
+        )
+
+        coeff_C_yy = std_t**2 / (alpha_t)
+
+        difference = y_obs - x0_hat_obs
+
+        def cov_y_xt(v):
+            return self.noiser.sigma**2 * v + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
+
+        grad_ll = gmres(
+            A = cov_y_xt,
+            b=difference,
+            maxiter=gmres_max_iter,
+        )
+        
+        grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
+        
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        # clamp to interval
+        if clamp_to is not None and clamp_condition:
+            # clamp_to = flow_pred.flatten().abs().max().item()
+            if (
+                self.H_func.__class__.__name__ == "Inpainting"
+                or self.H_func.__class__.__name__ == "SuperResolution"
+            ):
+                if data_name == "celeba":
+                    threshold_time = 0.2
+                elif data_name == "afhq":
+                    threshold_time = 0.5
+                else:
+                    threshold_time = 2.0
+            else:
+                if data_name == "celeba":
+                    threshold_time = 0.1
+                elif data_name == "afhq":
+                    threshold_time = 0.1
+                else:
+                    threshold_time = 2.0
+            if num_t < threshold_time:
+                if data_name == "celeba":
+                    guided_vec = (
+                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                    )
+                elif data_name == "afhq":
+                    guided_vec = (
+                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+                    )
+                    # guided_vec = torch.clamp(
+                    #     scaled_grad + flow_pred, -clamp_to, clamp_to
+                    # )
+                else:
+                    guided_vec = torch.clamp(
+                        scaled_grad + flow_pred, -clamp_to, clamp_to
+                    )
+
+            else:
+                guided_vec = scaled_grad + flow_pred
+        else:
+            guided_vec = (scaled_grad) + (flow_pred)
+
+        return guided_vec
+        
 
 
 @register_guided_sampler(name="tmpd_h")
@@ -1432,32 +1544,6 @@ class TMPD_fixed_diag(GuidedSampler):
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
-
-    def parallel_hutchinson_diag_est(
-        self, vjp_est, shape, num_samples=10, chunk_size=10
-    ):
-        output = torch.zeros((shape[0], shape[1]), device=self.device)
-        if not num_samples % chunk_size == 0:
-            chunk_size = num_samples
-
-        for i in range(num_samples // chunk_size):
-            z = (
-                2
-                * torch.randint(
-                    0, 2, size=(chunk_size, shape[0], shape[1]), device=self.device
-                )
-                - 1
-            )
-            z = z.float()
-
-            # map across the first dimension
-            vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
-
-            vjpz = torch.sum(z * vmapped_vjp, dim=0)
-
-            output += vjpz
-
-        return output / num_samples
 
     def get_guidance(
         self,
