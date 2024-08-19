@@ -523,6 +523,54 @@ class GMM(object):
         guidance_coeff = (std_t**2) * (1 / a_t + 1 / std_t)
         
         return uncond_flow + guidance_coeff * grad_yt
+    
+    def get_cov_0t_batched(self, t, x_t):
+        """
+        An efficient implementation of batched covariance computation for p(x0 | x_t).
+        
+        Args:  
+            t (float): the discretized time step.
+            x_t (torch.Tensor): the observation at time t, shape (batch_size, dim).
+        """
+        a_t = self.sde.alpha_t(t)
+        std_t = self.sde.std_t(t)
+        
+        batch_size = x_t.shape[0]
+        
+        # weights of p(x_0 | x_t), (batch_size, n_components)
+        log_weights_0t = self.batched_mvn_log_prob_mean_iso(
+            x_t,
+            a_t * self.means[None, ...].repeat(batch_size, 1, 1),
+            (std_t**2 + a_t**2),
+        ) + torch.log(self.weights)[None, :].repeat(batch_size, 1)
+        
+        sigma_0t = 1 / (1 + (1 / std_t**2) * a_t**2) # diagonal but implemented as scalar
+
+        normalized_log_weights_0t = torch.log_softmax(log_weights_0t, dim=1)
+        
+        # component means of p(x_0 | x_t), (batch_size, n_components, dim)
+        mean_0t = (
+            ((1 / std_t**2) * a_t * x_t)[:, None, :].repeat(1, self.n_components, 1)
+            + self.means[None, ...].repeat(batch_size, 1, 1)
+        ) * sigma_0t
+        
+        # overall mean (batch_size, dim)
+        mu_0t = torch.einsum("bk, bki -> bi", torch.exp(normalized_log_weights_0t), mean_0t)
+        
+        # overall covariance (batch_size, dim, dim)
+        # sum w_i (mu_i - mu)(mu_i - mu)^T + sum w_i cov_i
+        outer_prod = torch.einsum(
+            "bk, bki, bkj -> bij",
+            torch.exp(normalized_log_weights_0t),
+            mean_0t - mu_0t[:, None, :],
+            mean_0t - mu_0t[:, None, :],
+        )
+        
+        C_0t = torch.eye(self.dim).repeat(batch_size, 1, 1) * sigma_0t + outer_prod
+        
+        return C_0t
+        
+        
 
     def get_mean_yt(self, t, x_t, H_mat, sigma_y):
         """
