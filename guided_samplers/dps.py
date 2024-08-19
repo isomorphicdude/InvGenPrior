@@ -70,7 +70,7 @@ class DPS(GuidedSampler):
                 threhold_time = 2.0
             else:
                 threshold_time = 2.0    
-            if num_t < threhold_time:
+            if num_t < threshold_time:
                 if data_name == "celeba":
                     guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
                 elif data_name == "afhq":
