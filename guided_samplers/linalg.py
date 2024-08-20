@@ -1,3 +1,9 @@
+"""
+Implements the linear algebra functionalities.
+
+Adapted from Rozet et al. https://github.com/francois-rozet/mmps-benchmark.
+"""
+
 import torch
 
 
