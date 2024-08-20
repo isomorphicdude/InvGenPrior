@@ -587,12 +587,16 @@ class TMPD_gmres(GuidedSampler):
         coeff_C_yy = std_t**2 / (alpha_t)
 
         difference = y_obs - self.H_func.H(x0_hat)
+        r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
 
         # U (SV^t @ cov @ VS^t + sigma^2 I ) U^t
         def svd_func(x):
             singulars = self.H_func.singulars()
             temp = self.H_func.V(self.H_func.add_zeros(x * singulars))
-            temp = vjp_estimate_x_0(temp.view(x.shape[0], -1))[0]
+            jac_temp = vjp_estimate_x_0(temp.view(x.shape[0], -1))[0]
+            # instead of using purely the covariance, perhaps better an interpolation
+            # between identity and true cov
+            temp = (1 - r_t_2) * jac_temp + r_t_2 * temp
             temp = singulars * self.H_func.Vt(temp)[..., :singulars.shape[0]]
             return temp * coeff_C_yy + self.noiser.sigma**2 * x
             
