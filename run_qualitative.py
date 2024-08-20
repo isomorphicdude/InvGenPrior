@@ -35,7 +35,7 @@ from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 
 
 def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
-                       sample_N=100, sampling_var=0.1, clamp_to=1.0):
+                       sample_N=100, sampling_var=0.1, clamp_to=1.0, use_svd=False):
     """
     Creates a result for each method and compare them.
     """
@@ -238,7 +238,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
             clamp_to=clamp_to,
             starting_time=config.sampling.starting_time,
             new_noise = torch.randn_like(y_obs),
-            data_name = config.data.name
+            data_name = config.data.name,
+            use_svd = use_svd
         )
 
         # save
@@ -293,6 +294,8 @@ flags.DEFINE_string(
     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
 )
 
+flags.DEFINE_bool("use_svd", False, "Use SVD for the guided sampler.")
+
 flags.mark_flag_as_required("config")
 
 
@@ -327,6 +330,7 @@ def main(argv):
         sample_N=FLAGS.sample_N,
         sampling_var=FLAGS.sampling_var,
         clamp_to=FLAGS.clamp_to,
+        use_svd=FLAGS.use_svd
     )
 
 
