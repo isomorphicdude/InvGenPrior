@@ -196,6 +196,9 @@ class H_functions(ABC):
         
         return self.U(temp)
     
+    
+    # def SVt_mat(self, vec)
+    
     def get_degraded_image(self, vec):
         """
         Returns the degraded image for plotting (B, C, H, W)
