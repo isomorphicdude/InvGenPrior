@@ -588,7 +588,7 @@ class TMPD_gmres(GuidedSampler):
 
         difference = y_obs - self.H_func.H(x0_hat)
         r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
-
+        
         # U (SV^t @ cov @ VS^t + sigma^2 I ) U^t
         def svd_func(x):
             singulars = self.H_func.singulars()

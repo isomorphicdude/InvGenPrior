@@ -83,6 +83,8 @@ class PiGDM(GuidedSampler):
                 s_times_vec = self.H_func.HHt_inv(
                     y_obs - self.H_func.H(x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
                 )
+
+                print(s_times_vec.mean())
                 # get vec.T @ Sigma_^-1 @ vec
                 mat = (
                     ((y_obs - self.H_func.H(x0_hat)).reshape(x_t.shape[0], -1))
