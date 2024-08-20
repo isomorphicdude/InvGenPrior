@@ -545,22 +545,22 @@ class TMPD_gmres(GuidedSampler):
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
-        def estimate_h_x_0(x):
-            flow_pred = model_fn(x, t_batched * 999)
+        # def estimate_h_x_0(x):
+        #     flow_pred = model_fn(x, t_batched * 999)
 
-            # pass to model to get x0_hat prediction
-            x0_hat = convert_flow_to_x0(
-                u_t=flow_pred,
-                x_t=x,
-                alpha_t=alpha_t,
-                std_t=std_t,
-                da_dt=da_dt,
-                dstd_dt=dstd_dt,
-            )
+        #     # pass to model to get x0_hat prediction
+        #     x0_hat = convert_flow_to_x0(
+        #         u_t=flow_pred,
+        #         x_t=x,
+        #         alpha_t=alpha_t,
+        #         std_t=std_t,
+        #         da_dt=da_dt,
+        #         dstd_dt=dstd_dt,
+        #     )
 
-            x0_hat_obs = self.H_func.H(x0_hat)
+        #     x0_hat_obs = self.H_func.H(x0_hat)
 
-            return (x0_hat_obs, flow_pred)
+        #     return (x0_hat_obs, flow_pred)
         
         def estimate_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
@@ -572,13 +572,13 @@ class TMPD_gmres(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            )
+            ).reshape(self.shape[0], -1)
 
             return x0_hat, flow_pred
 
-        x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
-            estimate_h_x_0, x_t, has_aux=True
-        )
+        # x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+        #     estimate_h_x_0, x_t, has_aux=True
+        # )
         
         x0_hat, vjp_estimate_x_0, flow_pred = torch.func.vjp(
             estimate_x_0, x_t, has_aux=True
@@ -604,7 +604,7 @@ class TMPD_gmres(GuidedSampler):
 
         grad_ll = self.H_func.U(grad_ll)
         
-        grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
+        grad_ll = vjp_estimate_x_0(self.H_func.Ht(grad_ll))[0]  
 
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
