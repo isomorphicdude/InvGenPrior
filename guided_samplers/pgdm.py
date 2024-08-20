@@ -125,9 +125,9 @@ class PiGDM(GuidedSampler):
                     threshold_time = 2.0
             else:
                 if data_name == "celeba":
-                    threshold_time = 0.1
+                    threshold_time = 0.2
                 elif data_name == "afhq":
-                    threshold_time = 0.1
+                    threshold_time = 0.2
                 else:
                     threshold_time = 2.0
             if num_t < threshold_time:
