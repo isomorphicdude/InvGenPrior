@@ -188,7 +188,7 @@ class TMPD(GuidedSampler):
                 if data_name == "celeba":
                     threshold_time = 0.2
                 elif data_name == "afhq":
-                    threshold_time = 0.2
+                    threshold_time = 0.5
                 else:
                     threshold_time = 2.0
             if num_t < threshold_time:
@@ -787,8 +787,8 @@ class TMPD_hutchinson(GuidedSampler):
         gamma_t = 1.0
 
         if clamp_to is not None:
-            guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
-            # guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
@@ -1796,7 +1796,8 @@ class TMPD_fixed_diag(GuidedSampler):
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
         if clamp_to is not None:
-            guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + flow_pred
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
