@@ -32,9 +32,10 @@ class PiGDM(GuidedSampler):
         data_name = kwargs.get("data_name", None)
 
         # r_t_2 as in Song et al. 2022
-        r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
+        # r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
         # r_t_2 = torch.nn.functional.tanh(alpha_t)
-        # r_t_2 = 1 / (1 + math.exp(-(alpha_t/0.1-0.5)))
+        r_t_2 = 1 / (1 + math.exp(-(num_t-0.5)/0.2))
+
         # get the noise level of observation
         sigma_y = self.noiser.sigma
 
