@@ -33,7 +33,7 @@ class PiGDM(GuidedSampler):
 
         # r_t_2 as in Song et al. 2022
         # r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
-        r_t_2 = alpha_t
+        r_t_2 = alpha_t**2
 
         # get the noise level of observation
         sigma_y = self.noiser.sigma
