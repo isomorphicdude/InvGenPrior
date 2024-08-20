@@ -596,7 +596,11 @@ class TMPD_gmres(GuidedSampler):
             jac_temp = vjp_estimate_x_0(temp.view(x.shape[0], -1))[0]
             # instead of using purely the covariance, perhaps better an interpolation
             # between identity and true cov
-            temp = (1 - r_t_2) * jac_temp + r_t_2 * temp.view(self.shape)
+            # temp = (1 - r_t_2) * jac_temp + r_t_2 * temp.view(self.shape)
+            temp = r_t_2 * jac_temp + (1-r_t_2) * temp.view(self.shape)
+            # temp = (1-num_t) * jac_temp + num_t * temp.view(self.shape)
+            # temp = num_t *jac_temp + (1-num_t) * temp.view(self.shape)
+            
             temp = singulars * self.H_func.Vt(temp)[..., :singulars.shape[0]]
             return temp * coeff_C_yy + self.noiser.sigma**2 * x
             
