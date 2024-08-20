@@ -592,7 +592,7 @@ class TMPD_gmres(GuidedSampler):
         def svd_func(x):
             singulars = self.H_func.singulars()
             temp = self.H_func.V(self.H_func.add_zeros(x * singulars))
-            temp = vjp_estimate_x_0(temp)[0]
+            temp = vjp_estimate_x_0(temp.view(x.shape[0], -1))[0]
             temp = singulars * self.H_func.Vt(temp)[..., :singulars.shape[0]]
             return temp * coeff_C_yy + self.noiser.sigma**2 * x
             
