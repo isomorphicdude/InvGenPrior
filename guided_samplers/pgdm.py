@@ -34,7 +34,7 @@ class PiGDM(GuidedSampler):
         # r_t_2 as in Song et al. 2022
         # r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
         # r_t_2 = torch.nn.functional.tanh(alpha_t)
-        r_t_2 = num_t**(1/6) if num_t <= 0.5 else std_t**2 / (alpha_t**2 + std_t**2)
+        r_t_2 = num_t**(1/2) if num_t <= 0.5 else std_t**2 / (alpha_t**2 + std_t**2)
         # r_t_2 = 0.9 * num_t + 0.1 if num_t <= 0.5 else std_t**2 / (alpha_t**2 + std_t**2)
 
         # get the noise level of observation
@@ -86,7 +86,7 @@ class PiGDM(GuidedSampler):
                     y_obs - self.H_func.H(x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
                 )
 
-                print(f"Num_t, {num_t}, mean {s_times_vec.mean()}")
+                print(f"Num_t, {num_t:.2f}, mean {s_times_vec.mean():.2f}")
                 # get vec.T @ Sigma_^-1 @ vec
                 mat = (
                     ((y_obs - self.H_func.H(x0_hat)).reshape(x_t.shape[0], -1))
