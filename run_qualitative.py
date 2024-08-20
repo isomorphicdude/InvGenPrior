@@ -35,7 +35,8 @@ from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 
 
 def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
-                       sample_N=100, sampling_var=0.1, clamp_to=1.0, use_svd=False):
+                       sample_N=100, sampling_var=0.1, clamp_to=1.0, use_svd=False,
+                       max_iter=3):
     """
     Creates a result for each method and compare them.
     """
@@ -242,7 +243,9 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
             starting_time=config.sampling.starting_time,
             new_noise = torch.randn_like(y_obs),
             data_name = config.data.name,
-            use_svd = use_svd
+            use_svd = use_svd,
+            gmres_max_iter = max_iter,
+            num_hutchinson_samples = max_iter
         )
 
         # save
@@ -290,6 +293,8 @@ flags.DEFINE_float("noise_sigma", 0.05, "Noise sigma for the degradation.")
 flags.DEFINE_float("sampling_var", 0.1, "Sampling variance.")
 
 flags.DEFINE_float("clamp_to", 1.0, "Clamp to value.")
+
+flags.DEFINE_integer("max_iter", 3, "Maximum number of iterations.")
 
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
