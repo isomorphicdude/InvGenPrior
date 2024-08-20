@@ -82,25 +82,41 @@ def random_pixel_mask(ratio_to_mask=0.9, D_OR=(3, 256, 256), device="cpu"):
         - kept_indices: torch.tensor (n,) length same as flattened kept part
         - coordinates_mask: torch.tensor (c*h*w, ), entries are boolean
     """
-    channels, h, w = D_OR
+    if D_OR[0] == 3:
+        channels, h, w = D_OR
 
-    mask = torch.rand(*D_OR[1:]) < ratio_to_mask
+        mask = torch.rand(*D_OR[1:]) < ratio_to_mask
 
-    missing_r = torch.nonzero(mask.flatten()).long().reshape(-1) * 3
-    missing_g = missing_r + 1
-    missing_b = missing_g + 1
-    missing_indices = torch.cat([missing_r, missing_g, missing_b], dim=0)
+        missing_r = torch.nonzero(mask.flatten()).long().reshape(-1) * 3
+        missing_g = missing_r + 1
+        missing_b = missing_g + 1
+        missing_indices = torch.cat([missing_r, missing_g, missing_b], dim=0)
 
-    kept_indices = (
-        torch.Tensor([i for i in range(channels * h * w) if i not in missing_indices])
-        .to(device)
-        .long()
-    )
+        kept_indices = (
+            torch.Tensor([i for i in range(channels * h * w) if i not in missing_indices])
+            .to(device)
+            .long()
+        )
 
-    coordinates_mask = torch.isin(
-        torch.arange(math.prod(D_OR), device=device),
-        torch.arange(kept_indices.shape[0], device=device),
-    )
+        coordinates_mask = torch.isin(
+            torch.arange(math.prod(D_OR), device=device),
+            torch.arange(kept_indices.shape[0], device=device),
+        )
+    elif D_OR[0]==1:
+        print("Grey scale image")
+        channels, h, w = D_OR
+        mask = torch.rand(*D_OR[1:]) < ratio_to_mask
+        missing_g = torch.nonzero(mask.flatten()).long().reshape(-1)
+        missing_indices = missing_g
+        kept_indices = (
+            torch.Tensor([i for i in range(channels * h * w) if i not in missing_indices])
+            .to(device)
+            .long()
+        )
+        coordinates_mask = torch.isin(
+            torch.arange(math.prod(D_OR), device=device),
+            torch.arange(kept_indices.shape[0], device=device),
+        )
 
     return mask, missing_indices, kept_indices, coordinates_mask
 
