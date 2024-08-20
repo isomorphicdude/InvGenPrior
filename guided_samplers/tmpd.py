@@ -430,7 +430,7 @@ class TMPD_gmres(GuidedSampler):
         Using GMRES to solve the linear system for the guidance.
         """
         data_name = kwargs.get("data_name", None)
-        gmres_max_iter = kwargs.get("gmres_max_iter", 2)
+        gmres_max_iter = kwargs.get("gmres_max_iter", 50)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
