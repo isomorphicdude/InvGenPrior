@@ -32,7 +32,8 @@ class PiGDM(GuidedSampler):
         data_name = kwargs.get("data_name", None)
 
         # r_t_2 as in Song et al. 2022
-        r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
+        # r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
+        r_t_2 = alpha_t
 
         # get the noise level of observation
         sigma_y = self.noiser.sigma
