@@ -541,7 +541,7 @@ class TMPD_gmres(GuidedSampler):
         alternative implementation using the SVD.
         """
         data_name = kwargs.get("data_name", None)
-        gmres_max_iter = kwargs.get("gmres_max_iter", 20)
+        gmres_max_iter = kwargs.get("gmres_max_iter", 2)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
