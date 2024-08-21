@@ -76,7 +76,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         "dps",
         # "tmpd_gmres",
         "reddiff",
-        # "tmpd_og"
+        "tmpd_og"
     ]
     config_keys = [
         sampler_name
