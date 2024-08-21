@@ -179,16 +179,16 @@ class TMPD(GuidedSampler):
                 or self.H_func.__class__.__name__ == "SuperResolution"
             ):
                 if data_name == "celeba":
-                    threshold_time = 0.5
+                    threshold_time = 1.0
                 elif data_name == "afhq":
-                    threshold_time = 0.5
+                    threshold_time = 1.0
                 else:
                     threshold_time = 2.0
             else:
                 if data_name == "celeba":
-                    threshold_time = 0.2
+                    threshold_time = 1.0
                 elif data_name == "afhq":
-                    threshold_time = 0.5
+                    threshold_time = 1.0
                 else:
                     threshold_time = 2.0
             if num_t < threshold_time:
