@@ -87,7 +87,7 @@ class PiGDM(GuidedSampler):
                     y_obs - self.H_func.H(x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
                 )
 
-                print(f"Num_t, {num_t:.2f}, mean {s_times_vec.mean():.2f}")
+                # print(f"Num_t, {num_t:.2f}, mean {s_times_vec.mean():.2f}")
                 # get vec.T @ Sigma_^-1 @ vec
                 mat = (
                     ((y_obs - self.H_func.H(x0_hat)).reshape(x_t.shape[0], -1))
