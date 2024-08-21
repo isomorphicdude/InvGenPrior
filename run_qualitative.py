@@ -73,10 +73,10 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         "tmpd_trace",
         "tmpd_h",
         # "tmpd",
-        "dps",
-        # "tmpd_gmres",
-        "reddiff",
-        "tmpd_og"
+        # "dps",
+        "tmpd_gmres",
+        # "reddiff",
+        # "tmpd_og"
     ]
     config_keys = [
         sampler_name
@@ -338,7 +338,8 @@ def main(argv):
         sample_N=FLAGS.sample_N,
         sampling_var=FLAGS.sampling_var,
         clamp_to=FLAGS.clamp_to,
-        use_svd=FLAGS.use_svd
+        use_svd=FLAGS.use_svd,
+        max_iter=FLAGS.max_iter
     )
 
 
