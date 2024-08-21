@@ -13,7 +13,7 @@ import models.utils as mutils
 from models.utils import convert_flow_to_x0
 from guided_samplers.base_guidance import GuidedSampler
 from guided_samplers.registry import register_guided_sampler
-from guided_samplers.linalg import gmres
+from guided_samplers.linalg import gmres, conjugate_gradient
 
 
 @register_guided_sampler(name="tmpd")
@@ -237,59 +237,7 @@ class TMPD(GuidedSampler):
             out_C_yy = torch.zeros_like(x0_pred)
             return guided_vec, x0_pred.mean(axis=0), out_C_yy
 
-    def hutchinson_diag_est(self, vjp_est, shape, num_samples=10):
-        """
-        Returns the diagonal of the Jacobian using Hutchinson's diagonal estimator.
-
-        Args:
-          vjp_est (torch.func.vjp): Function that computes the Jacobian-vector product, takes input of shape (B, D), in practice we use V(vjp(Vt(x)))
-
-          shape (tuple): Shape of the Jacobian matrix, (B, *D) e.g. (B, 3, 256, 256) for image data.
-
-          num_samples (int): Number of samples to use for the estimator.
-
-        Returns:
-          torch.Tensor: shape (batch, D), estimated diagonal for each batch.
-        """
-        res = torch.zeros((shape[0], shape[1]), device=self.device)
-
-        for i in range(num_samples):
-            z = (
-                2 * torch.randint(0, 2, size=(shape[0], shape[1]), device=self.device)
-                - 1
-            )
-            z = z.float()
-            vjpz = vjp_est(z)
-            res += z * vjpz
-
-        return res / num_samples
-
-    def parallel_hutchinson_diag_est(
-        self, vjp_est, shape, num_samples=10, chunk_size=10
-    ):
-        output = torch.zeros((shape[0], shape[1]), device=self.device)
-        if not num_samples % chunk_size == 0:
-            chunk_size = num_samples
-
-        for i in range(num_samples // chunk_size):
-            z = (
-                2
-                * torch.randint(
-                    0, 2, size=(chunk_size, shape[0], shape[1]), device=self.device
-                )
-                - 1
-            )
-            z = z.float()
-
-            # map across the first dimension
-            vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
-
-            vjpz = torch.sum(z * vmapped_vjp, dim=0)
-
-            output += vjpz
-
-        return output / num_samples
-
+    
     def _get_alt_guidance(
         self,
         model_fn,
@@ -431,6 +379,7 @@ class TMPD_gmres(GuidedSampler):
         """
         data_name = kwargs.get("data_name", None)
         gmres_max_iter = kwargs.get("gmres_max_iter", 50)
+        return_basis = kwargs.get("return_basis", False)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
@@ -468,7 +417,7 @@ class TMPD_gmres(GuidedSampler):
                 + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
             )
 
-        grad_ll = gmres(
+        grad_ll, V_basis = gmres(
             A=cov_y_xt,
             b=difference,
             maxiter=gmres_max_iter,
@@ -520,7 +469,10 @@ class TMPD_gmres(GuidedSampler):
         else:
             guided_vec = (scaled_grad) + (flow_pred)
 
-        return guided_vec
+        if not return_basis:
+            return guided_vec
+        else:
+            return guided_vec, V_basis
 
     def _get_alt_guidance(
         self,
@@ -561,7 +513,7 @@ class TMPD_gmres(GuidedSampler):
         #     x0_hat_obs = self.H_func.H(x0_hat)
 
         #     return (x0_hat_obs, flow_pred)
-        
+
         def estimate_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
 
@@ -579,7 +531,7 @@ class TMPD_gmres(GuidedSampler):
         # x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
         #     estimate_h_x_0, x_t, has_aux=True
         # )
-        
+
         x0_hat, vjp_estimate_x_0, flow_pred = torch.func.vjp(
             estimate_x_0, x_t, has_aux=True
         )
@@ -588,31 +540,31 @@ class TMPD_gmres(GuidedSampler):
 
         difference = y_obs - self.H_func.H(x0_hat)
         r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
-        
+
         # U (SV^t @ cov @ VS^t + sigma^2 I ) U^t
         def svd_func(x):
             singulars = self.H_func.singulars()
             temp = self.H_func.V(self.H_func.add_zeros(x * singulars))
-            jac_temp = vjp_estimate_x_0(temp.view(x.shape[0], -1))[0]
+            cov_temp = vjp_estimate_x_0(temp.view(x.shape[0], -1))[0] * coeff_C_yy
             # instead of using purely the covariance, perhaps better an interpolation
             # between identity and true cov
             # temp = (1 - r_t_2) * jac_temp + r_t_2 * temp.view(self.shape)
             # temp = r_t_2 * jac_temp + (1-r_t_2) * temp.view(self.shape)
             # temp = (1-0.5) * jac_temp + 0.5 * temp.view(self.shape)
             # temp = num_t *jac_temp + (1-num_t) * temp.view(self.shape)
-            temp = jac_temp
-            temp = singulars * self.H_func.Vt(temp)[..., :singulars.shape[0]]
-            return temp * coeff_C_yy + self.noiser.sigma**2 * x
-            
-        grad_ll = gmres(
+            temp = cov_temp
+            temp = singulars * self.H_func.Vt(temp)[..., : singulars.shape[0]]
+            return temp + self.noiser.sigma**2 * x
+
+        grad_ll, V_basis = gmres(
             A=svd_func,
             b=self.H_func.Ut(difference),
             maxiter=gmres_max_iter,
         )
 
         grad_ll = self.H_func.U(grad_ll)
-        
-        grad_ll = vjp_estimate_x_0(self.H_func.Ht(grad_ll))[0]  
+
+        grad_ll = vjp_estimate_x_0(self.H_func.Ht(grad_ll))[0]
 
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
@@ -758,16 +710,30 @@ class TMPD_hutchinson(GuidedSampler):
                 "ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat
             )
             return torch.einsum("bij, bj -> bi", vjv, x)
-
+        
         diagonal_est = self.parallel_hutchinson_diag_est(
             vjp_est=v_vjp_est,
             shape=(self.shape[0], math.prod(self.shape[1:])),
             num_samples=num_hutchinson_samples,
             chunk_size=num_hutchinson_samples,
         )
+        
+        # def h_vjp_est(x):
+        #     hsh = torch.einsum(
+        #         "ij, bjk, kl -> bil",
+        #         self.H_func.H_mat,
+        #         jac_x_0,
+        #         self.H_func.H_mat.T
+        #     )
+        #     return torch.einsum("bij, bj -> bi", hsh, x)
 
-        coeff_C_yy = std_t**2 / (alpha_t)
-
+        # diagonal_est = self.parallel_hutchinson_diag_est(
+        #     vjp_est=h_vjp_est,
+        #     shape=(self.shape[0], math.prod(y_obs.shape[1:])),
+        #     num_samples=num_hutchinson_samples,
+        #     chunk_size=num_hutchinson_samples,
+        # )
+        
         # difference
         # add noise to the observation
         new_noise_std = 0.0
@@ -779,6 +745,8 @@ class TMPD_hutchinson(GuidedSampler):
             diag=coeff_C_yy * diagonal_est,
             sigma_y_2=self.noiser.sigma**2 + new_noise_std**2,
         )
+        
+        # vjp_product = difference / (diagonal_est + self.noiser.sigma**2)
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
 
@@ -788,36 +756,12 @@ class TMPD_hutchinson(GuidedSampler):
 
         if clamp_to is not None:
             # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
-            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
+            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+                flow_pred
+            )
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
-
-    def parallel_hutchinson_diag_est(
-        self, vjp_est, shape, num_samples=10, chunk_size=10
-    ):
-        output = torch.zeros((shape[0], shape[1]), device=self.device)
-        if not num_samples % chunk_size == 0:
-            chunk_size = num_samples
-
-        for i in range(num_samples // chunk_size):
-            z = (
-                2
-                * torch.randint(
-                    0, 2, size=(chunk_size, shape[0], shape[1]), device=self.device
-                )
-                - 1
-            )
-            z = z.float()
-
-            # map across the first dimension
-            vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
-
-            vjpz = torch.sum(z * vmapped_vjp, dim=0)
-
-            output += vjpz
-
-        return output / num_samples
 
 
 @register_guided_sampler(name="tmpd_trace")
@@ -1426,51 +1370,10 @@ class TMPD_fixed_cov(GuidedSampler):
             + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
         )
 
-        # avg_trace = torch.mean(torch.diagonal(jac_x_0, dim1=-2, dim2=-1), dim=1)[:, None, None]
-
-        # avg_trace = hutchinson_trace_estimator(jac_x_0, num_samples=10)[:, None, None]
-        # avg_trace = torch.mean(torch.diagonal(jac_x_0, dim1=-2, dim2=-1), dim=1)[:, None, None]
-        # avg_trace_id = (
-        #     torch.eye(self.H_func.H_mat.shape[1]).repeat(x_t.shape[0], 1, 1) * avg_trace
-        # )
-
-        # C_yy = (
-        #     torch.einsum(
-        #         "ij, bjk, kl -> bil",
-        #         self.H_func.H_mat,
-        #         avg_trace_id * coeff_C_yy,
-        #         self.H_func.H_mat.T,
-        #     )
-        #     + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
-        # )
-
         C_yy_diff = torch.linalg.solve(
             C_yy,
             difference,
         )  # (B, d_y)
-
-        ################ below is for testing, comment out later ############################
-
-        # compute V @ jac @ V^t and extract diagonal
-        # vjvt = torch.einsum("ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat)
-        # vjvt = torch.einsum("ij, bjk, kl -> bil", self.H_func.V_mat, jac_x_0, self.H_func.V_mat.T)
-
-        # use diagonal hutchinson estimator
-        # diag_est = self.hutchinson_diag_est(
-        #     vjp_est = lambda x: torch.einsum("bij, bj -> bi", vjvt, x),
-        #     shape = self.shape,
-        #     num_samples = 100
-        # )
-
-        # C_yy_diff = self.H_func.HHt_inv_diag(
-        #     vec = difference,
-        #     # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
-        #     diag = diag_est * coeff_C_yy,
-        #     sigma_y_2 = self.noiser.sigma**2,
-        # )
-        #####################################################################################
-
-        # C_yy_diff = difference / torch.diag(C_yy).reshape(-1, 1)
 
         # (B, D, D) @ (D, d_y) @ (B, d_y) -> (B, D)
         grad_ll = torch.einsum(
@@ -1518,18 +1421,6 @@ class TMPD_fixed_cov(GuidedSampler):
         gmm_model = kwargs.get("gmm_model", None)
         assert gmm_model is not None, "GMM model must be provided."
 
-        def get_x0(x):
-            flow_pred = model_fn(x, t_batched * 999)
-            x0_hat = convert_flow_to_x0(
-                u_t=flow_pred,
-                x_t=x,
-                alpha_t=alpha_t,
-                std_t=std_t,
-                da_dt=da_dt,
-                dstd_dt=dstd_dt,
-            )
-            return x0_hat, flow_pred
-
         flow_pred = model_fn(x_t, t_batched * 999)
         coeff_C_yy = std_t**2 / alpha_t
 
@@ -1540,6 +1431,23 @@ class TMPD_fixed_cov(GuidedSampler):
 
         cov_x0 = gmm_model.get_cov_0t_batched(num_t, x_t)
         jac_x_0 = cov_x0 / coeff_C_yy
+
+        # # log determinant correction
+        # def compute_log_det(x_t):
+        #     cov_x0 = gmm_model.get_cov_0t_batched(num_t, x_t)
+        #     C_yy = (
+        #         torch.einsum(
+        #             "ij, bjk, kl -> bil",
+        #             self.H_func.H_mat,
+        #             cov_x0,
+        #             self.H_func.H_mat.T,
+        #         )
+        #         + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
+        #     )
+        #     log_det = torch.linalg.slogdet(C_yy)[1]
+        #     return log_det.sum()
+
+        # grad_log_det = torch.func.grad(compute_log_det)(x_t)
 
         C_yy = (
             torch.einsum(
@@ -1556,8 +1464,9 @@ class TMPD_fixed_cov(GuidedSampler):
             difference,
         )  # (B, d_y)
 
-        grad_ll = torch.einsum(
-            "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
+        grad_ll = (
+            torch.einsum("bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff)
+            # - 0.5 * grad_log_det
         )
 
         gamma_t = 1.0
@@ -1571,17 +1480,7 @@ class TMPD_fixed_cov(GuidedSampler):
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
 
-    def hutchinson_diag_est(self, vjp_est, shape, num_samples=10):
-        res = torch.zeros((shape[0], *shape[1:]))
-
-        for i in range(num_samples):
-            z = 2 * torch.randint(0, 2, size=(shape[0], *shape[1:])) - 1
-            z = z.float()
-            vjpz = vjp_est(z)
-            res += z * vjpz
-
-        return res / num_samples
-
+    
 
 @register_guided_sampler(name="tmpd_fixed_diag")
 class TMPD_fixed_diag(GuidedSampler):
@@ -1647,33 +1546,6 @@ class TMPD_fixed_diag(GuidedSampler):
             # in_dims=(0,),
         )
 
-        ### for testing ###
-        # def estimate_x_0(x):
-        #     flow_pred = model_fn(x, t_batched * 999)
-
-        #     x0_hat = convert_flow_to_x0(
-        #         u_t=flow_pred,
-        #         x_t=x,
-        #         alpha_t=alpha_t,
-        #         std_t=std_t,
-        #         da_dt=da_dt,
-        #         dstd_dt=dstd_dt,
-        #     ).reshape(self.shape[0], -1)
-
-        #     return x0_hat, flow_pred
-        # x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
-        #     estimate_x_0, x_t, has_aux=True
-        # )
-        # def v_vjp_est(x):
-        #     return self.H_func.Vt(vjp_estimate_x_0(self.H_func.V(x))[0])
-        # diagonal_est = self.parallel_hutchinson_diag_est(
-        #         vjp_est=v_vjp_est,
-        #         shape=(self.shape[0], math.prod(self.shape[1:])),
-        #         num_samples=50,
-        #         chunk_size=50,
-        #     )
-        ############################
-
         jac_x_0, flow_pred = jac_x_0_func(x_t)
 
         flow_pred = model_fn(x_t, t_batched * 999)
@@ -1686,22 +1558,40 @@ class TMPD_fixed_diag(GuidedSampler):
         difference = y_obs - h_x_0
 
         diag_jac = torch.diagonal(
-            torch.einsum(
-                "ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat
-            ),
+            jac_x_0,
             dim1=-2,
             dim2=-1,
         )
-        ############################
-        # diag_jac = diagonal_est
-        ############################
 
-        C_yy_diff = self.H_func.HHt_inv_diag(
-            vec=difference,
-            # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
-            diag=diag_jac * coeff_C_yy,
-            sigma_y_2=self.noiser.sigma**2,
+        HHt_sigma = (
+            torch.einsum(
+                "ij, bjk, kl -> bil",
+                self.H_func.H_mat,
+                diag_jac * coeff_C_yy,
+                self.H_func.H_mat.T,
+            )
+            + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
         )
+
+        C_yy_diff = torch.linalg.solve(
+            HHt_sigma,
+            difference,
+        )
+
+        # diag_jac = torch.diagonal(
+        #     torch.einsum(
+        #         "ij, bjk, kl -> bil", self.H_func.V_mat.T, jac_x_0, self.H_func.V_mat
+        #     ),
+        #     dim1=-2,
+        #     dim2=-1,
+        # )
+
+        # C_yy_diff = self.H_func.HHt_inv_diag(
+        #     vec=difference,
+        #     # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
+        #     diag=diag_jac * coeff_C_yy,
+        #     sigma_y_2=self.noiser.sigma**2,
+        # )
 
         # compute the guidance term using vjp
         # h_x_0, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
@@ -1712,7 +1602,8 @@ class TMPD_fixed_diag(GuidedSampler):
             "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff
         )
 
-        gamma_t = 1.0
+        gamma_t = (1 - num_t) ** 2 / coeff_C_yy
+        # gamma_t = 1.0
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
@@ -1721,10 +1612,10 @@ class TMPD_fixed_diag(GuidedSampler):
         # print(scaled_grad.mean())
         # clamp to interval
         if clamp_to is not None:
-            # guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
-            #     flow_pred
-            # )
-            guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
+            guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
+                flow_pred
+            )
+            # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
         else:
             guided_vec = (gamma_t * scaled_grad) + (flow_pred)
         return guided_vec
@@ -1784,9 +1675,33 @@ class TMPD_fixed_diag(GuidedSampler):
 
         C_yy_diff = self.H_func.HHt_inv_diag(
             vec=difference,
+            # diag = torch.diagonal(vjvt, dim1=-2, dim2=-1) * coeff_C_yy,
             diag=diag_jac * coeff_C_yy,
             sigma_y_2=self.noiser.sigma**2,
         )
+
+        # diag_cov = torch.diagonal(
+        #     cov_0t,
+        #     dim1=-2,
+        #     dim2=-1,
+        # )
+
+        # diag_cov = torch.diag_embed(diag_cov, dim1=-2, dim2=-1)
+
+        # HHt_sigma = (
+        #     torch.einsum(
+        #         "ij, bjk, kl -> bil",
+        #         self.H_func.H_mat,
+        #         diag_cov,
+        #         self.H_func.H_mat.T,
+        #     )
+        #     + self.noiser.sigma**2 * torch.eye(self.H_func.H_mat.shape[0])[None]
+        # )
+
+        # C_yy_diff = torch.linalg.solve(
+        #     HHt_sigma,
+        #     difference,
+        # )
 
         grad_ll = torch.einsum(
             "bij, jk, bk -> bi", jac_x_0, self.H_func.H_mat.T, C_yy_diff

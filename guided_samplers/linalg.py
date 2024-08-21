@@ -74,6 +74,9 @@ def apply_rotation(H, cs, ss, j):
 
 @torch.no_grad()
 def gmres(A, b, x=None, maxiter=1, dtype=torch.float64):
+    """
+    Returns x and V, the basis.
+    """
     if x is None:
         x = torch.zeros_like(b)
         r = b
@@ -112,4 +115,4 @@ def gmres(A, b, x=None, maxiter=1, dtype=torch.float64):
 
     x = x + torch.einsum("...i,i", V, y)
 
-    return x.to(b)
+    return x.to(b), V
