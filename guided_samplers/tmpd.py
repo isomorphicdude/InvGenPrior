@@ -551,8 +551,8 @@ class TMPD_gmres(GuidedSampler):
             # temp = (1 - r_t_2) * jac_temp + r_t_2 * temp.view(self.shape)
             # temp = r_t_2 * jac_temp + (1-r_t_2) * temp.view(self.shape)
             # temp = (1-0.5) * jac_temp + 0.5 * temp.view(self.shape)
-            # temp = num_t *jac_temp + (1-num_t) * temp.view(self.shape)
-            temp = cov_temp
+            temp = num_t *cov_temp + (1-num_t) * temp.view(self.shape)
+            # temp = cov_temp
             temp = singulars * self.H_func.Vt(temp)[..., : singulars.shape[0]]
             return temp + self.noiser.sigma**2 * x
 
@@ -739,6 +739,8 @@ class TMPD_hutchinson(GuidedSampler):
         new_noise_std = 0.0
         # y_obs = y_obs + new_noise * new_noise_std
         difference = y_obs - self.H_func.H(x_0_pred)
+        
+        diagonal_est = (num_t) * diagonal_est + (1 - num_t) * 1.0
 
         vjp_product = self.H_func.HHt_inv_diag(
             vec=difference,
