@@ -125,7 +125,7 @@ class TMPD(GuidedSampler):
 
         # difference
         # add noise to the observation
-        new_noise_std = 0.1
+        new_noise_std = 0.25
         # y_obs = y_obs + new_noise * new_noise_std
         difference = y_obs - self.H_func.H(x_0_pred)
 
@@ -179,16 +179,16 @@ class TMPD(GuidedSampler):
                 or self.H_func.__class__.__name__ == "SuperResolution"
             ):
                 if data_name == "celeba":
-                    threshold_time = 1.0
+                    threshold_time = 2.0
                 elif data_name == "afhq":
-                    threshold_time = 1.0
+                    threshold_time = 2.0
                 else:
                     threshold_time = 2.0
             else:
                 if data_name == "celeba":
-                    threshold_time = 1.0
+                    threshold_time = 2.0
                 elif data_name == "afhq":
-                    threshold_time = 1.0
+                    threshold_time = 2.0
                 else:
                     threshold_time = 2.0
             if num_t < threshold_time:

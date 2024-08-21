@@ -65,6 +65,7 @@ def create_samples(
     seed=42,
     verbose=True,
     methods=["tmpd", "pgdm", "dps", "tmpd_og", "tmpd_exact"],
+    clamp_to=20,
 ):
     """
     Return samples from guided samplers as a dictionary of
@@ -161,10 +162,13 @@ def create_samples(
         # run the sampler
         batched_list_samples = sampler.sample(
             y_obs_batched,
-            clamp_to=20, # clampping to the support of the prior
+            clamp_to=clamp_to, # clampping to the support of the prior
             z=start_z,
             return_list=return_list,
             method="euler",
+            gmm_model=gmm,
+            gmres_max_iter = 10
+            
         )
         # convert to numpy
         if return_list:
@@ -322,16 +326,14 @@ def run_exp(
     return_list=False,
     num_samples=1000,
     seed=42,
-    methods=["tmpd_fixed_cov", "pgdm", "dps"],
-    # methods=["tmpd"]
+    # methods=["tmpd_fixed_cov", "pgdm", "dps"],
+    # methods=["tmpd_h", "tmpd_fixed_diag"],
+    methods=['tmpd_gmres'],
+    clamp_to=20,
 ):
     """
     Run the GMM experiment with the given configuration.
     """
-    # set seed
-    # torch.manual_seed(seed)
-    # np.random.seed(seed)
-
     # follows from Boys et al. 2023
     # dim_list = [8, 80, 800]
     # obs_dim_list = [1, 2, 4]
@@ -339,8 +341,9 @@ def run_exp(
 
     # for testing
     dim_list = [8]
-    obs_dim_list = [1, 2, 4]
-    noise_list = [5.0]
+    obs_dim_list = [1,2,4]
+    # noise_list = [0.01]
+    noise_list = [0.01, 0.1, 1.0]
 
     # for debugging
     # dim_list = [8]
@@ -376,6 +379,7 @@ def run_exp(
                 sigma_y=sigma_y,
                 seed=iter_seed,
                 methods=methods,
+                clamp_to=clamp_to,
             )
 
             # compute the Sliced Wasserstein Distance
@@ -397,6 +401,9 @@ def run_exp(
     # compute the mean and std of the SWD
     for method_name in results_dict.keys():
         for key, swd_list in results_dict[method_name].items():
+            # for debugging
+            print(swd_list)
+            
             swd_mean = np.mean(swd_list)
             swd_std = np.std(swd_list)
             results_dict[method_name][key] = {
