@@ -168,7 +168,7 @@ class TMPD(GuidedSampler):
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
         # grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
-
+        print(f"grad_ll mean: {grad_ll.mean()}")
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
         # clamp to interval
