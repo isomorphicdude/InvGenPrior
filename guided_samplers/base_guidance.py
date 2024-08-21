@@ -664,3 +664,60 @@ class GuidedSampler(ABC):
                     print(f"Iteration {i} of {self.sde.sample_N} completed.")
         
         return samples, true_grads, approx_grads
+    
+    def hutchinson_diag_est(self, vjp_est, shape, num_samples=10):
+        """
+        Returns the diagonal of the Jacobian using Hutchinson's diagonal estimator.
+
+        Args:
+          vjp_est (torch.func.vjp): Function that computes the Jacobian-vector product, takes input of shape (B, D), in practice we use V(vjp(Vt(x)))
+
+          shape (tuple): Shape of the Jacobian matrix, (B, *D) e.g. (B, 3, 256, 256) for image data.
+
+          num_samples (int): Number of samples to use for the estimator.
+
+        Returns:
+          torch.Tensor: shape (batch, D), estimated diagonal for each batch.
+        """
+        res = torch.zeros((shape[0], shape[1]), device=self.device)
+
+        for i in range(num_samples):
+            z = (
+                2 * torch.randint(0, 2, size=(shape[0], shape[1]), device=self.device)
+                - 1
+            )
+            z = z.float()
+            vjpz = vjp_est(z)
+            res += z * vjpz
+
+        return res / num_samples
+
+    def parallel_hutchinson_diag_est(
+        self, vjp_est, shape, num_samples=10, chunk_size=10
+    ):
+        output = torch.zeros((shape[0], shape[1]), device=self.device)
+        if not num_samples % chunk_size == 0:
+            chunk_size = num_samples
+
+        for i in range(num_samples // chunk_size):
+            z = (
+                2
+                * torch.randint(
+                    0, 2, size=(chunk_size, shape[0], shape[1]), device=self.device
+                )
+                - 1
+            )
+            z = z.float()
+
+            # map across the first dimension
+            vmapped_vjp = torch.func.vmap(vjp_est, in_dims=0)(z)
+
+            vjpz = torch.sum(z * vmapped_vjp, dim=0)
+
+            output += vjpz
+
+        return output / num_samples
+
+
+
+
