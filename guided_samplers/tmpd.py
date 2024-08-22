@@ -130,7 +130,7 @@ class TMPD(GuidedSampler):
         difference = y_obs - self.H_func.H(x_0_pred)
 
         # diagonal_est = (num_t) * diagonal_est + (1 - num_t) * 1.0
-        diagonal_est = (1 - num_t) * torch.ones_like(x_t)
+        diagonal_est = (1 - num_t) * torch.ones_like(x_t.reshape(x_t.shape[0], -1))
         
         if len(self.shape) > 2:
             # if self.noiser.sigma <= 0.01:
