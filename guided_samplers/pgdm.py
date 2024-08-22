@@ -24,7 +24,7 @@ class PiGDM(GuidedSampler):
         clamp_to,
         clamp_condition,
         noiseless=False,
-        **kwargs
+        **kwargs,
     ):
         """Compute the PiGDM guidance (Song et al., 2022)."""
 
@@ -34,11 +34,11 @@ class PiGDM(GuidedSampler):
         # r_t_2 as in Song et al. 2022
         # r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
         r_t_2 = (1 - alpha_t) * (std_t**2) / alpha_t
-        
+
         # r_t_2 = 1 / (1 + math.exp(- 10 * (0.5 - num_t)))
 
         # r_t_2 = (1-num_t)**2
-        
+
         # get the noise level of observation
         sigma_y = self.noiser.sigma
 
@@ -70,32 +70,56 @@ class PiGDM(GuidedSampler):
                 )
 
         else:
-            with torch.enable_grad():
-                x_t = x_t.clone().to(x_t.device).requires_grad_()
-                flow_pred = model_fn(x_t, t_batched * 999)
+            # with torch.enable_grad():
+            #     x_t = x_t.clone().to(x_t.device).requires_grad_()
+            #     flow_pred = model_fn(x_t, t_batched * 999)
 
-                # pass to model to get x0_hat prediction
+            #     # pass to model to get x0_hat prediction
+            #     x0_hat = convert_flow_to_x0(
+            #         u_t=flow_pred,
+            #         x_t=x_t,
+            #         alpha_t=alpha_t,
+            #         std_t=std_t,
+            #         da_dt=da_dt,
+            #         dstd_dt=dstd_dt,
+            #     )
+            #     # get Sigma_^-1 @ vec
+            #     s_times_vec = self.H_func.HHt_inv(
+            #         y_obs - self.H_func.H(x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
+            #     )
+
+            #     # print(f"Num_t, {num_t:.2f}, mean {s_times_vec.mean():.2f}")
+            #     # get vec.T @ Sigma_^-1 @ vec
+            #     mat = (
+            #         ((y_obs - self.H_func.H(x0_hat)).reshape(x_t.shape[0], -1))
+            #         * s_times_vec
+            #     ).sum()
+
+            # grad_term = torch.autograd.grad(mat, x_t, retain_graph=True)[0] * (-1)
+            
+            def estimate_x_0(x):
+                flow_pred = model_fn(x, t_batched * 999)
+
                 x0_hat = convert_flow_to_x0(
                     u_t=flow_pred,
-                    x_t=x_t,
+                    x_t=x,
                     alpha_t=alpha_t,
                     std_t=std_t,
                     da_dt=da_dt,
                     dstd_dt=dstd_dt,
-                )
-                # get Sigma_^-1 @ vec
-                s_times_vec = self.H_func.HHt_inv(
-                    y_obs - self.H_func.H(x0_hat), r_t_2=r_t_2, sigma_y_2=sigma_y**2
-                )
+                ).reshape(self.shape[0], -1)
 
-                # print(f"Num_t, {num_t:.2f}, mean {s_times_vec.mean():.2f}")
-                # get vec.T @ Sigma_^-1 @ vec
-                mat = (
-                    ((y_obs - self.H_func.H(x0_hat)).reshape(x_t.shape[0], -1))
-                    * s_times_vec
-                ).sum()
+                return x0_hat, flow_pred
 
-            grad_term = torch.autograd.grad(mat, x_t, retain_graph=True)[0] * (-1)
+            x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
+                estimate_x_0, x_t, has_aux=True
+            )
+            
+            s_times_vec = self.H_func.HHt_inv(
+                y_obs - self.H_func.H(x_0_pred), r_t_2=r_t_2, sigma_y_2=sigma_y**2
+            )
+            
+            grad_term = vjp_estimate_x_0(self.H_func.Ht(s_times_vec))[0]
 
         grad_term = grad_term.detach()
 
@@ -202,7 +226,7 @@ class PiGDM_modified(GuidedSampler):
         dstd_dt,
         clamp_to,
         noiseless=False,
-        **kwargs
+        **kwargs,
     ):
         """
         Compute the PiGDM guidance (Song et al., 2022).

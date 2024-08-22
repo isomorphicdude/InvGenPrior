@@ -132,7 +132,7 @@ class H_functions(ABC):
     
     def HHt_inv(self, vec, r_t_2 = 1.0, sigma_y_2 = 1.0):
         """
-        Multiplies the vector v by (H @ H^T + sigma_y^2 I)^{-1}.
+        Multiplies the vector v by (r_t_2 * H @ H^T + sigma_y^2 I)^{-1}.
         assuming vec of dim (B, d_y)
         
         Args:  
