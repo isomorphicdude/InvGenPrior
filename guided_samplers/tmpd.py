@@ -104,22 +104,22 @@ class TMPD(GuidedSampler):
         def v_vjp_est(x):
             return self.H_func.Vt(vjp_estimate_x_0(self.H_func.V(x))[0])
 
-        # compute the diagonal of the Jacobian
-        if len(self.shape) > 2:
-            diagonal_est = self.hutchinson_diag_est(
-                vjp_est=v_vjp_est,
-                shape=(self.shape[0], math.prod(self.shape[1:])),
-                num_samples=num_hutchinson_samples,
-            )
+        # # compute the diagonal of the Jacobian
+        # if len(self.shape) > 2:
+        #     diagonal_est = self.hutchinson_diag_est(
+        #         vjp_est=v_vjp_est,
+        #         shape=(self.shape[0], math.prod(self.shape[1:])),
+        #         num_samples=num_hutchinson_samples,
+        #     )
 
-        elif len(self.shape) <= 2:
-            # print("Using parallel hutchinson")
-            diagonal_est = self.parallel_hutchinson_diag_est(
-                vjp_est=v_vjp_est,
-                shape=(self.shape[0], math.prod(self.shape[1:])),
-                num_samples=num_hutchinson_samples,
-                chunk_size=num_hutchinson_samples,
-            )
+        # elif len(self.shape) <= 2:
+        #     # print("Using parallel hutchinson")
+        #     diagonal_est = self.parallel_hutchinson_diag_est(
+        #         vjp_est=v_vjp_est,
+        #         shape=(self.shape[0], math.prod(self.shape[1:])),
+        #         num_samples=num_hutchinson_samples,
+        #         chunk_size=num_hutchinson_samples,
+        #     )
 
         coeff_C_yy = std_t**2 / (alpha_t)
 
@@ -129,7 +129,9 @@ class TMPD(GuidedSampler):
         # y_obs = y_obs + new_noise * new_noise_std
         difference = y_obs - self.H_func.H(x_0_pred)
 
-        diagonal_est = (num_t) * diagonal_est + (1 - num_t) * 1.0
+        # diagonal_est = (num_t) * diagonal_est + (1 - num_t) * 1.0
+        diagonal_est = (1 - num_t) * torch.ones_like(x_t)
+        
         if len(self.shape) > 2:
             # if self.noiser.sigma <= 0.01:
             #     vjp_product = self.H_func.HHt_inv_diag(
