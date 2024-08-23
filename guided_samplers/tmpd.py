@@ -422,7 +422,7 @@ class TMPD_gmres(GuidedSampler):
                 return(
                     self.noiser.sigma**2 * v
                     + self.H_func.H(
-                        (1 - num_t) * v.reshape(self.shape)
+                        (1 - num_t) * v
                     ) * coeff_C_yy
                 )
             else:

@@ -312,8 +312,44 @@ def convert_flow_to_score(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt):
     return  (-1) * noise / std_t
     
 
+def convert_m0t_to_mst(m_0t, x_t, sde, t, s):
+    """
+    Convert the estimated m_0t to m_st, that is, convert 
+    the estimated E[x0|xt] to E[xs|xt].
+    """
+    alpha_t = sde.alpha_t(t)
+    alpha_s = sde.alpha_t(s)
+    std_t = sde.std_t(t)
+    std_s = sde.std_t(s)
+    
+    alpha_ts = alpha_t / alpha_s
+    std_ts = (alpha_s * std_t - alpha_t * std_s) / alpha_s
+    
+    return (1 / alpha_ts) * (x_t + (std_ts**2 / std_t**2) * (alpha_t * m_0t - x_t))
 
-
+def convert_cov0t_to_covst_func(v, cov_0t, sde, t, s):
+    """
+    Convert the estimated cov_0t to cov_st, that is, convert 
+    the estimated Cov[x0|xt] to Cov[xs|xt].
+    Takes input v and outputs matrix-vector product of v with the cov_st: C_{s|t} @ v.
+    Here cov_0t is a function also outputs matrix-vector product of v with the cov_0t: C_{0|t} @ v.    
+    
+    Args:    
+      v: torch.tensor (b, c, h, w), the input vector.
+    """
+    alpha_t = sde.alpha_t(t)
+    alpha_s = sde.alpha_t(s)
+    std_t = sde.std_t(t)
+    std_s = sde.std_t(s)
+    
+    alpha_ts = alpha_t / alpha_s
+    std_ts = (alpha_s * std_t - alpha_t * std_s) / alpha_s
+    
+    first_term = 1 / alpha_ts * v 
+    second_term = (std_ts**2 * alpha_t**2) / (alpha_ts * std_t**4) * cov_0t(v)
+    third_term = (-1) * std_ts**2 / (alpha_ts * std_t**2) * v
+    
+    return (first_term + second_term + third_term) * (std_ts**2 / alpha_ts)
 
 def restore_checkpoint(ckpt_dir, state, device):
     if not tf.io.gfile.exists(ckpt_dir):
