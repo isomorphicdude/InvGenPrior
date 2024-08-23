@@ -569,7 +569,42 @@ class GMM(object):
         C_0t = torch.eye(self.dim).repeat(batch_size, 1, 1) * sigma_0t + outer_prod
         
         return C_0t
+    
+    
+    def get_cov_st_batched(self, t, x_t, s):
+        """
+        Computes covariance matrix of p(x_s | x_t) for batched x_t at time t.
+        """
+        alpha_t = self.sde.alpha_t(t)
+        alpha_s = self.sde.alpha_t(s)
+        std_t = self.sde.std_t(t)
+        std_s = self.sde.std_t(s)
         
+        alpha_ts = alpha_t / alpha_s
+        std_ts = (alpha_s * std_t - alpha_t * std_s) / alpha_s
+        
+        identity = torch.eye(self.dim).repeat(x_t.shape[0], 1, 1)
+        
+        first_term = 1 / alpha_ts * identity
+        second_term = (std_ts**2 * alpha_t**2) / (alpha_ts * std_t**4) * self.get_cov_0t_batched(t, x_t)
+        third_term = (-1) * std_ts**2 / (alpha_ts * std_t**2) * identity
+        
+        return (first_term + second_term + third_term) * (std_ts**2 / alpha_ts)
+    
+    
+    def convert_m0t_to_mst(self, t, x_t, s, m_0t):
+        """
+        Converts the mean of p(x_0 | x_t) to the mean of p(x_s | x_t).
+        """
+        alpha_t = self.sde.alpha_t(t)
+        alpha_s = self.sde.alpha_t(s)
+        std_t = self.sde.std_t(t)
+        std_s = self.sde.std_t(s)
+        
+        alpha_ts = alpha_t / alpha_s
+        std_ts = (alpha_s * std_t - alpha_t * std_s) / alpha_s
+        
+        return (1 / alpha_ts) * (x_t + (std_ts**2 / std_t**2) * (alpha_t * m_0t - x_t))
         
 
     def get_mean_yt(self, t, x_t, H_mat, sigma_y):

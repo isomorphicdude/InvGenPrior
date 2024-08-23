@@ -414,9 +414,15 @@ class TMPD_gmres(GuidedSampler):
         difference = y_obs - x0_hat_obs
 
         def cov_y_xt(v):
-            return (
+            # return (
+            #     self.noiser.sigma**2 * v
+            #     + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
+            # )
+            return(
                 self.noiser.sigma**2 * v
-                + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
+                + self.H_func.H(
+                    num_t * vjp_estimate_h_x_0(v)[0] + (1 - num_t) * v
+                ) * coeff_C_yy
             )
 
         grad_ll, V_basis = gmres(
@@ -1430,6 +1436,12 @@ class TMPD_fixed_cov(GuidedSampler):
 
         # difference
         x_0_hat = convert_flow_to_x0(flow_pred, x_t, alpha_t, std_t, da_dt, dstd_dt)
+        
+        # ablation
+        s = 0.9 + 0.1 * num_t
+        x_0_hat = gmm_model.convert_m0t_to_mst(num_t, x_t, s, x_0_hat)
+        
+        
         h_x_0 = torch.einsum("ij, bj -> bi", self.H_func.H_mat, x_0_hat)
         difference = y_obs - h_x_0
 
@@ -1452,7 +1464,10 @@ class TMPD_fixed_cov(GuidedSampler):
         #     return log_det.sum()
 
         # grad_log_det = torch.func.grad(compute_log_det)(x_t)
-
+        
+        # ablation
+        cov_x0 = gmm_model.get_cov_st_batched(num_t, x_t, s)
+        
         C_yy = (
             torch.einsum(
                 "ij, bjk, kl -> bil",
