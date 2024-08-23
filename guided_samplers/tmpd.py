@@ -414,10 +414,6 @@ class TMPD_gmres(GuidedSampler):
         difference = y_obs - x0_hat_obs
 
         def cov_y_xt(v):
-            # return (
-            #     self.noiser.sigma**2 * v
-            #     + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
-            # )
             if num_t < 0.5:
                 return(
                     self.noiser.sigma**2 * v
@@ -443,40 +439,8 @@ class TMPD_gmres(GuidedSampler):
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
-            # clamp_to = flow_pred.flatten().abs().max().item()
-            if (
-                self.H_func.__class__.__name__ == "Inpainting"
-                or self.H_func.__class__.__name__ == "SuperResolution"
-            ):
-                if data_name == "celeba":
-                    threshold_time = 0.2
-                elif data_name == "afhq":
-                    threshold_time = 0.5
-                else:
-                    threshold_time = 2.0
-            else:
-                if data_name == "celeba":
-                    threshold_time = 0.1
-                elif data_name == "afhq":
-                    threshold_time = 0.1
-                else:
-                    threshold_time = 2.0
-            if num_t < threshold_time:
-                if data_name == "celeba":
-                    guided_vec = (
-                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
-                    )
-                elif data_name == "afhq":
-                    guided_vec = (
-                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
-                    )
-                    # guided_vec = torch.clamp(
-                    #     scaled_grad + flow_pred, -clamp_to, clamp_to
-                    # )
-                else:
-                    guided_vec = torch.clamp(
-                        scaled_grad + flow_pred, -clamp_to, clamp_to
-                    )
+            if num_t < 0.1:
+                guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
 
             else:
                 guided_vec = scaled_grad + flow_pred
@@ -502,35 +466,17 @@ class TMPD_gmres(GuidedSampler):
         clamp_condition,
         **kwargs
     ):
-        """
-        Using GMRES to solve the linear system for the guidance,
-        alternative implementation using the SVD.
-        """
         data_name = kwargs.get("data_name", None)
-        gmres_max_iter = kwargs.get("gmres_max_iter", 2)
+        gmres_max_iter = kwargs.get("gmres_max_iter", 50)
+        return_basis = kwargs.get("return_basis", False)
+        s = 0.9
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
-        # def estimate_h_x_0(x):
-        #     flow_pred = model_fn(x, t_batched * 999)
-
-        #     # pass to model to get x0_hat prediction
-        #     x0_hat = convert_flow_to_x0(
-        #         u_t=flow_pred,
-        #         x_t=x,
-        #         alpha_t=alpha_t,
-        #         std_t=std_t,
-        #         da_dt=da_dt,
-        #         dstd_dt=dstd_dt,
-        #     )
-
-        #     x0_hat_obs = self.H_func.H(x0_hat)
-
-        #     return (x0_hat_obs, flow_pred)
-
-        def estimate_x_0(x):
+        def estimate_h_x_0(x):
             flow_pred = model_fn(x, t_batched * 999)
 
+            # pass to model to get x0_hat prediction
             x0_hat = convert_flow_to_x0(
                 u_t=flow_pred,
                 x_t=x,
@@ -538,93 +484,62 @@ class TMPD_gmres(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            ).reshape(self.shape[0], -1)
+            )
+            
+            x0_hat = mutils.convert_m0t_to_mst(
+                m_0t=x0_hat,
+                x_t=x,
+                sde=self.sde,
+                t=num_t,
+                s = s
+            )
 
-            return x0_hat, flow_pred
+            x0_hat_obs = self.H_func.H(x0_hat)
 
-        # x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
-        #     estimate_h_x_0, x_t, has_aux=True
+            return (x0_hat_obs, flow_pred)
+
+        # x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
+        #     estimate_x_0, x_t, has_aux=True
         # )
-
-        x0_hat, vjp_estimate_x_0, flow_pred = torch.func.vjp(
-            estimate_x_0, x_t, has_aux=True
+        x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
         )
 
         coeff_C_yy = std_t**2 / (alpha_t)
 
-        difference = y_obs - self.H_func.H(x0_hat)
-        r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
+        difference = y_obs - x0_hat_obs
 
-        # U (SV^t @ cov @ VS^t + sigma^2 I ) U^t
-        def svd_func(x):
-            singulars = self.H_func.singulars()
-            temp = self.H_func.V(self.H_func.add_zeros(x * singulars))
-            cov_temp = vjp_estimate_x_0(temp.view(x.shape[0], -1))[0] * coeff_C_yy
-            # instead of using purely the covariance, perhaps better an interpolation
-            # between identity and true cov
-            # temp = (1 - r_t_2) * jac_temp + r_t_2 * temp.view(self.shape)
-            # temp = r_t_2 * jac_temp + (1-r_t_2) * temp.view(self.shape)
-            # temp = (1-0.5) * jac_temp + 0.5 * temp.view(self.shape)
-            temp = num_t *cov_temp + (1-num_t) * temp.view(self.shape)
-            # temp = cov_temp
-            temp = singulars * self.H_func.Vt(temp)[..., : singulars.shape[0]]
-            return temp + self.noiser.sigma**2 * x
+        def cov_y_xt(v):
+            return(
+                self.noiser.sigma**2 * v
+                + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
+            )
 
         grad_ll, V_basis = gmres(
-            A=svd_func,
-            b=self.H_func.Ut(difference),
+            A=cov_y_xt,
+            b=difference,
             maxiter=gmres_max_iter,
         )
 
-        grad_ll = self.H_func.U(grad_ll)
-
-        grad_ll = vjp_estimate_x_0(self.H_func.Ht(grad_ll))[0]
+        grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
 
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
-            # clamp_to = flow_pred.flatten().abs().max().item()
-            if (
-                self.H_func.__class__.__name__ == "Inpainting"
-                or self.H_func.__class__.__name__ == "SuperResolution"
-            ):
-                if data_name == "celeba":
-                    threshold_time = 0.2
-                elif data_name == "afhq":
-                    threshold_time = 0.5
-                else:
-                    threshold_time = 2.0
-            else:
-                if data_name == "celeba":
-                    threshold_time = 0.1
-                elif data_name == "afhq":
-                    threshold_time = 0.1
-                else:
-                    threshold_time = 2.0
-            if num_t < threshold_time:
-                if data_name == "celeba":
-                    guided_vec = (
-                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
-                    )
-                elif data_name == "afhq":
-                    guided_vec = (
-                        torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
-                    )
-                    # guided_vec = torch.clamp(
-                    #     scaled_grad + flow_pred, -clamp_to, clamp_to
-                    # )
-                else:
-                    guided_vec = torch.clamp(
-                        scaled_grad + flow_pred, -clamp_to, clamp_to
-                    )
+            if num_t < 0.1:
+                guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
 
             else:
                 guided_vec = scaled_grad + flow_pred
         else:
             guided_vec = (scaled_grad) + (flow_pred)
 
-        return guided_vec
+        if not return_basis:
+            return guided_vec
+        else:
+            return guided_vec, V_basis
+        
 
     def get_guidance(
         self,
@@ -641,6 +556,7 @@ class TMPD_gmres(GuidedSampler):
         **kwargs
     ):
         use_svd = kwargs.get("use_svd", False)
+        ablate = kwargs.get("ablate", False)
         if use_svd:
             return self._get_alt_guidance(
                 model_fn,
@@ -669,7 +585,89 @@ class TMPD_gmres(GuidedSampler):
                 clamp_condition,
                 **kwargs,
             )
+        
+@register_guided_sampler(name="tmpd_gmres_ablate")
+class TMPD_gmres_ablate(GuidedSampler):
+    def get_guidance(
+        self,
+        model_fn,
+        x_t,
+        num_t,
+        y_obs,
+        alpha_t,
+        std_t,
+        da_dt,
+        dstd_dt,
+        clamp_to,
+        clamp_condition,
+        **kwargs
+    ):
+        """
+        Using GMRES to solve the linear system for the guidance.
+        """
+        data_name = kwargs.get("data_name", None)
+        gmres_max_iter = kwargs.get("gmres_max_iter", 50)
+        return_basis = kwargs.get("return_basis", False)
 
+        t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
+
+        def estimate_h_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            # pass to model to get x0_hat prediction
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+
+            x0_hat_obs = self.H_func.H(x0_hat)
+
+            return (x0_hat_obs, flow_pred)
+
+        x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+            estimate_h_x_0, x_t, has_aux=True
+        )
+
+        coeff_C_yy = std_t**2 / (alpha_t)
+
+        difference = y_obs - x0_hat_obs
+
+        def cov_y_xt(v):
+            return (
+                self.noiser.sigma**2 * v
+                + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
+            )
+
+        grad_ll, V_basis = gmres(
+            A=cov_y_xt,
+            b=difference,
+            maxiter=gmres_max_iter,
+        )
+
+        grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
+
+        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+
+        # clamp to interval
+        if clamp_to is not None and clamp_condition:
+            if num_t < 0.1:
+                guided_vec = torch.clamp(scaled_grad, -clamp_to, clamp_to) + flow_pred
+
+            else:
+                guided_vec = scaled_grad + flow_pred
+        else:
+            guided_vec = (scaled_grad) + (flow_pred)
+
+        if not return_basis:
+            return guided_vec
+        else:
+            return guided_vec, V_basis
+        
+        
 
 @register_guided_sampler(name="tmpd_h")
 class TMPD_hutchinson(GuidedSampler):
