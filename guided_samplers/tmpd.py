@@ -469,7 +469,7 @@ class TMPD_gmres(GuidedSampler):
         data_name = kwargs.get("data_name", None)
         gmres_max_iter = kwargs.get("gmres_max_iter", 50)
         return_basis = kwargs.get("return_basis", False)
-        s = num_t
+        s = 0.1 + 0.9*num_t
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
