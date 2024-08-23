@@ -414,7 +414,7 @@ class TMPD_gmres(GuidedSampler):
         difference = y_obs - x0_hat_obs
 
         def cov_y_xt(v):
-            if num_t < 0.5:
+            if num_t < 0.1:
                 return(
                     self.noiser.sigma**2 * v
                     + self.H_func.H(
@@ -469,7 +469,7 @@ class TMPD_gmres(GuidedSampler):
         data_name = kwargs.get("data_name", None)
         gmres_max_iter = kwargs.get("gmres_max_iter", 50)
         return_basis = kwargs.get("return_basis", False)
-        s = 0.5 + 0.5 * num_t
+        s = 0.8 + 0.2 * num_t
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
