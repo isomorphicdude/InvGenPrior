@@ -414,7 +414,7 @@ class TMPD_gmres(GuidedSampler):
         difference = y_obs - x0_hat_obs
 
         def cov_y_xt(v):
-            if num_t < 0.8:
+            if num_t < 0.2:
                 return(
                     self.noiser.sigma**2 * v
                     + self.H_func.H(
