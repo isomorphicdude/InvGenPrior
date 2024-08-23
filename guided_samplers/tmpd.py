@@ -418,12 +418,18 @@ class TMPD_gmres(GuidedSampler):
             #     self.noiser.sigma**2 * v
             #     + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
             # )
-            return(
-                self.noiser.sigma**2 * v
-                + self.H_func.H(
-                    num_t * vjp_estimate_h_x_0(v)[0] + (1 - num_t) * v.reshape(self.shape)
-                ) * coeff_C_yy
-            )
+            if num_t < 0.5:
+                return(
+                    self.noiser.sigma**2 * v
+                    + self.H_func.H(
+                        (1 - num_t) * v.reshape(self.shape)
+                    ) * coeff_C_yy
+                )
+            else:
+                return(
+                    self.noiser.sigma**2 * v
+                    + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
+                )
 
         grad_ll, V_basis = gmres(
             A=cov_y_xt,
