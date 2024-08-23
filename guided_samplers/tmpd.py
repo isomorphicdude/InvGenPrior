@@ -469,7 +469,7 @@ class TMPD_gmres(GuidedSampler):
         data_name = kwargs.get("data_name", None)
         gmres_max_iter = kwargs.get("gmres_max_iter", 50)
         return_basis = kwargs.get("return_basis", False)
-        s = 0.9
+        s = 0.9 + 0.1 * num_t
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t
 
@@ -604,6 +604,15 @@ class TMPD_gmres_ablate(GuidedSampler):
     ):
         """
         Using GMRES to solve the linear system for the guidance.
+        This is the original GMRES algorithm in Rozet et al. 2024.
+        However, we observe that it has blurry reconstructions,
+        with smoothed out details.
+        
+        It has a very similar failure mode to the original TMPD
+        in Boys et al. 2024, which uses a row-sum approximation. 
+        
+        We conjecture that this is due to the corruption of the 
+        information about forward operator HH^t.  
         """
         data_name = kwargs.get("data_name", None)
         gmres_max_iter = kwargs.get("gmres_max_iter", 50)
