@@ -417,18 +417,18 @@ class TMPD_gmres(GuidedSampler):
 
         # grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
 
-        # new_diff = self.H_func.HtH_inv(self.H_func.Ht(difference))
-        new_diff = self.H_func.Ht(difference)
+        new_diff = self.H_func.HtH_inv(self.H_func.Ht(difference))
+        # new_diff = self.H_func.Ht(difference)
 
         def new_cov_y_xt(v):
-            # return vjp_estimate_x_0(v)[
-            #     0
-            # ] * coeff_C_yy + self.noiser.sigma**2 * self.H_func.HtH_inv(v)
-            return self.H_func.Ht(
-                self.H_func.H(
-                    vjp_estimate_x_0(v)[0]
-                )
-            ) * coeff_C_yy + self.noiser.sigma**2 * v
+            return vjp_estimate_x_0(v)[
+                0
+            ] * coeff_C_yy + self.noiser.sigma**2 * self.H_func.HtH_inv(v)
+            # return self.H_func.Ht(
+            #     self.H_func.H(
+            #         vjp_estimate_x_0(v)[0]
+            #     )
+            # ) * coeff_C_yy + self.noiser.sigma**2 * v
 
         grad_ll, V_basis = gmres(
             A=new_cov_y_xt,
