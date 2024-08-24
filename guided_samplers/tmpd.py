@@ -375,7 +375,7 @@ class TMPD_gmres(GuidedSampler):
             da_dt=da_dt,
             dstd_dt=dstd_dt,
         )
-        
+
         coeff_C_yy = std_t**2 / (alpha_t)
 
         difference = y_obs - x0_hat_obs
@@ -400,8 +400,10 @@ class TMPD_gmres(GuidedSampler):
         #     maxiter=gmres_max_iter,
         # )
         r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
+
         def preconditioner(v):
-            return v / (self.noiser.sigma**2 + r_t_2)
+            # return v / (self.noiser.sigma**2 + r_t_2)
+            return v
             # return v/(self.noiser.sigma**2)
             # return self.H_func.HHt_inv(
             #     v, r_t_2=r_t_2, sigma_y_2=self.noiser.sigma**2
@@ -418,12 +420,19 @@ class TMPD_gmres(GuidedSampler):
         #     gmres_max_iter = 10
         # else:
         #     gmres_max_iter = 1
-            
-        grad_ll, V_basis = gmres(
-            A=precond_cov_y_xt,
-            b=preconditioner(difference),
-            maxiter=gmres_max_iter,
-        )
+        if num_t <= 0.01:
+            grad_ll = self.H_func.HHt_inv(
+                difference,
+                r_t_2=coeff_C_yy * (1 - num_t),
+                # r_t_2 = r_t_2,
+                sigma_y_2=self.noiser.sigma**2,
+            )
+        else:
+            grad_ll, V_basis = gmres(
+                A=precond_cov_y_xt,
+                b=preconditioner(difference),
+                maxiter=gmres_max_iter,
+            )
 
         grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
 
