@@ -370,8 +370,7 @@ class TMPD_gmres(GuidedSampler):
                 std_t=std_t,
                 da_dt=da_dt,
                 dstd_dt=dstd_dt,
-            # ).reshape(self.shape[0], -1)
-            )
+            ).reshape(self.shape[0], -1)
 
             return (x0_hat, flow_pred)
 
