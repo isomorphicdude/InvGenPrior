@@ -421,11 +421,9 @@ class TMPD_gmres(GuidedSampler):
         # new_diff = self.H_func.Ht(difference)
 
         def new_cov_y_xt(v):
-            print(vjp_estimate_x_0(v)[0].shape)
-            print(self.H_func.HtH_inv(v).shape)
             return vjp_estimate_x_0(v)[
                 0
-            ] * coeff_C_yy + self.noiser.sigma**2 * self.H_func.HtH_inv(v)
+            ].reshape(self.shape[0], -1) * coeff_C_yy + self.noiser.sigma**2 * self.H_func.HtH_inv(v)
             # return self.H_func.Ht(
             #     self.H_func.H(
             #         vjp_estimate_x_0(v)[0]
