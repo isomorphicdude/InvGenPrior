@@ -157,6 +157,19 @@ class H_functions(ABC):
         
         return self.U(temp)
     
+    def HtH_inv(self, vec):
+        """
+        Returns the output as (H^T @ H)^{-1} @ vec.
+        """
+        temp = self.Vt(vec)
+        singulars = self.singulars()
+        singulars_zero = self.add_zeros(singulars)[None]
+        modified_singulars = singulars_zero**2
+        modified_singulars = torch.where(modified_singulars != 0, modified_singulars, 1.0)
+        temp = temp / modified_singulars
+        return self.V(temp)
+        
+    
     def SVt(self, vec):
         """
         Returns the output as S @ V.T @ vec.

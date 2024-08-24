@@ -360,12 +360,26 @@ class TMPD_gmres(GuidedSampler):
 
             return (x0_hat_obs, flow_pred)
 
-        # x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
-        #     estimate_x_0, x_t, has_aux=True
-        # )
-        x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
-            estimate_h_x_0, x_t, has_aux=True
+        def estimate_x_0(x):
+            flow_pred = model_fn(x, t_batched * 999)
+
+            x0_hat = convert_flow_to_x0(
+                u_t=flow_pred,
+                x_t=x,
+                alpha_t=alpha_t,
+                std_t=std_t,
+                da_dt=da_dt,
+                dstd_dt=dstd_dt,
+            )
+
+            return (x0_hat, flow_pred)
+
+        x_0_pred, vjp_estimate_x_0, flow_pred = torch.func.vjp(
+            estimate_x_0, x_t, has_aux=True
         )
+        # x0_hat_obs, vjp_estimate_h_x_0, flow_pred = torch.func.vjp(
+        #     estimate_h_x_0, x_t, has_aux=True
+        # )
 
         x_0_hat = convert_flow_to_x0(
             u_t=flow_pred,
@@ -378,7 +392,8 @@ class TMPD_gmres(GuidedSampler):
 
         coeff_C_yy = std_t**2 / (alpha_t)
 
-        difference = y_obs - x0_hat_obs
+        # difference = y_obs - x0_hat_obs
+        difference = y_obs - self.H_func.H(x_0_pred)
 
         # def cov_y_xt(v):
         #     if num_t <= 0.1:
@@ -399,43 +414,29 @@ class TMPD_gmres(GuidedSampler):
         #     b=difference,
         #     maxiter=gmres_max_iter,
         # )
-        r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
 
-        def preconditioner(v):
-            # return v / (self.noiser.sigma**2 + r_t_2)
-            return v
-            # return v/(self.noiser.sigma**2)
-            # return self.H_func.HHt_inv(
-            #     v, r_t_2=r_t_2, sigma_y_2=self.noiser.sigma**2
-            # )
+        # grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
 
-        def precond_cov_y_xt(v):
-            temp = (
-                self.noiser.sigma**2 * v
-                + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
-            )
-            return preconditioner(temp)
+        # new_diff = self.H_func.HtH_inv(self.H_func.Ht(difference))
+        new_diff = self.H_func.Ht(difference)
 
-        # if num_t < 0.2:
-        #     gmres_max_iter = 10
-        # else:
-        #     gmres_max_iter = 1
-        threshold_time = 0.1 if len(y_obs.shape) > 2 else 0.0
-        if num_t <= threshold_time:
-            grad_ll = self.H_func.HHt_inv(
-                difference,
-                r_t_2=coeff_C_yy * (1 - num_t),
-                # r_t_2 = r_t_2,
-                sigma_y_2=self.noiser.sigma**2,
-            )
-        else:
-            grad_ll, V_basis = gmres(
-                A=precond_cov_y_xt,
-                b=preconditioner(difference),
-                maxiter=gmres_max_iter,
-            )
+        def new_cov_y_xt(v):
+            # return vjp_estimate_x_0(v)[
+            #     0
+            # ] * coeff_C_yy + self.noiser.sigma**2 * self.H_func.HtH_inv(v)
+            return self.H_func.Ht(
+                self.H_func.H(
+                    vjp_estimate_x_0(v)[0]
+                )
+            ) * coeff_C_yy + self.noiser.sigma**2 * v
 
-        grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
+        grad_ll, V_basis = gmres(
+            A=new_cov_y_xt,
+            b=new_diff,
+            maxiter=gmres_max_iter,
+        )
+
+        grad_ll = vjp_estimate_x_0(grad_ll)[0]
 
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
