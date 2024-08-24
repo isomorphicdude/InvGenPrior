@@ -396,25 +396,29 @@ class TMPD_gmres(GuidedSampler):
         # difference = y_obs - self.H_func.H(x_0_pred)
 
         def cov_y_xt(v):
-            if num_t <= 0.01:
-                return(
-                    self.noiser.sigma**2 * v
-                    + self.H_func.H(
-                        self.H_func.Ht(v)
-                    ) * coeff_C_yy
-                )
-            else:
-                return(
-                    self.noiser.sigma**2 * v
-                    + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
-                )
+            # if num_t <= 0.01:
+            #     return(
+            #         self.noiser.sigma**2 * v
+            #         + self.H_func.H(
+            #             self.H_func.Ht(v)
+            #         ) * coeff_C_yy
+            #     )
+            # else:
+            #     return(
+            #         self.noiser.sigma**2 * v
+            #         + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
+            #     )
+            return (
+                self.noiser.sigma**2 * v
+                + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
+            )
 
         # grad_ll, V_basis = gmres(
         #     A=cov_y_xt,
         #     b=difference,
         #     maxiter=gmres_max_iter,
         # )
-        
+
         grad_ll = conjugate_gradient(
             A=cov_y_xt,
             b=difference,
@@ -443,7 +447,7 @@ class TMPD_gmres(GuidedSampler):
         # )
 
         # grad_ll = vjp_estimate_x_0(grad_ll)[0]
-        
+
         grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
         scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
 
@@ -1877,7 +1881,6 @@ class TMPD_h_ablate(GuidedSampler):
         else:
             guided_vec = (scaled_grad) + (flow_pred)
 
-        
         return guided_vec
 
 
