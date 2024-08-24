@@ -83,15 +83,15 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         for sampler_name in __GUIDED_SAMPLERS__
         if sampler_name not in ignore_list
     ]
-    print("Available samplers: ", config_keys)
+    # print("Available samplers: ", config_keys)
 
     configs_copies = {sampler_name: None for sampler_name in config_keys}
 
-    logging.info("Creating configs for each sampler")
+    # logging.info("Creating configs for each sampler")
     print("Available samplers: ", list(configs_copies.keys()))
 
     for sampler_name in config_keys:
-        print(f"Creating config for {sampler_name}")
+        # print(f"Creating config for {sampler_name}")
         new_config = ml_collections.ConfigDict()
         new_config = config
         new_config.sampling.guidance_method = sampler_name
