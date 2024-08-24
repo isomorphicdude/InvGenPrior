@@ -22,27 +22,29 @@ celeba_max_index=1999
 for ((i=0;i<sample_count;i++)); do
     random_index=$((RANDOM % (afhq_max_index - afhq_min_index + 1) + afhq_min_index))
     echo "Running qualitative evaluation for sigma = 0.01 for AFHQ dataset"
+    echo "Random index: $random_index"
     # super-res
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/super_res.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.0 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/super_res.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.01 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
     # deblur
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/deblur.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.0 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/deblur.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.01 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
     # inpaint pixel
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/inpaint_pixel.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.0 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/inpaint_pixel.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.01 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
     # inpaint box
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/inpaint_box.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.0 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/afhq/inpaint_box.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.01 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
 done
 
 for ((i=0;i<sample_count;i++)); do
     random_index=$((RANDOM % (celeba_max_index - celeba_min_index + 1) + celeba_min_index))
     echo "Running qualitative evaluation for sigma = 0.01 for CelebA dataset"
+    echo "Random index: $random_index"
     # super-res
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/super_res.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.0 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/super_res.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.01 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
     # deblur
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/deblur.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.0 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/deblur.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.01 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
     # inpaint pixel
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/inpaint_pixel.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.0 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/inpaint_pixel.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.01 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
     # inpaint box
-    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/inpaint_box.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.0 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
+    python run_qualitative.py --config /content/InvGenPrior/configs/tmpd/celeba/inpaint_box.py --workdir /content/InvGenPrior/ --sample_N 100 --data_index "$random_index" --sampling_var 0.01 --clamp_to 1.0 --noise_sigma 0.01 --max_iter 5
 done
 
 # for sigma in ${sigma_list[@]}; do
