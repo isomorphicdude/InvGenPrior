@@ -8,6 +8,7 @@ the results to a CSV file.
 
 import os
 import gc
+import math
 import time
 import itertools
 import logging
@@ -55,6 +56,63 @@ def get_y_obs(gmm, H_mat, noiser=None):
     return noiser(y_obs)
 
 
+def create_gmm_exp(dim=8, obs_dim=1, sigma_y=0.05, sample_N=1000):
+    """
+    Create a gmm config and the necessary objects for the GMM experiment.
+    Args:
+        dim: int, dimension of the true data.
+        obs_dim: int, dimension of the observation
+        sigma_y: float, noise scale of observation.
+        sample_N: int, number of samples to generate.
+
+    Returns:
+        sde: SDE object, the SDE model.
+        gmm_config: ml_collections.ConfigDict, configuration for the GMM model.
+        gmm: GMM object, the GMM model.
+        H_func: H_func object, the observation operator.
+        noiser: noiser object, the noise operator.
+        y_obs: torch.Tensor, the noisy observation.
+    """
+    # creat new config
+    gmm_config = ml_collections.ConfigDict()
+    gmm_config.dim = dim
+    gmm_config.obs_dim = obs_dim
+    gmm_config.sigma = sigma_y
+
+    H_mat, U, S, V = create_mask.get_H_mat(gmm_config.dim, gmm_config.obs_dim)
+
+    # sampling specifications
+    gmm_config.device = "cpu"
+    gmm_config.sampling_eps = 1e-3
+    gmm_config.init_type = "gaussian"
+    gmm_config.noise_scale = 1.0
+    gmm_config.sde_sigma_var = 0.0
+    gmm_config.sample_N = sample_N  # number of sampling steps
+
+    # put the matrix into config
+    gmm_config.H_mat = H_mat
+    gmm_config.U_mat = U
+    gmm_config.singulars = S
+    gmm_config.V_mat = V
+
+    # set SDE
+    sde = sde_lib.RectifiedFlow(
+        init_type=gmm_config.init_type,
+        noise_scale=gmm_config.noise_scale,
+        sample_N=gmm_config.sample_N,
+        sigma_var=gmm_config.sde_sigma_var,
+    )
+
+    # set GMM model
+    gmm = gmm_model.GMM(dim=gmm_config.dim, sde=sde)
+
+    H_func = operators.get_operator(name="gmm_h", config=gmm_config)
+    noiser = noisers.get_noise(name="gaussian", config=gmm_config)
+    y_obs = get_y_obs(gmm, H_func.H_mat, noiser)
+
+    return sde, gmm_config, gmm, H_func, noiser, y_obs
+
+
 def create_samples(
     gmm_config,
     return_list=False,
@@ -87,42 +145,20 @@ def create_samples(
     np.random.seed(seed)
 
     if gmm_config is None:
-        # creat new config
-        gmm_config = ml_collections.ConfigDict()
-        gmm_config.dim = dim
-        gmm_config.obs_dim = obs_dim
-        gmm_config.sigma = sigma_y
-
-        H_mat, U, S, V = create_mask.get_H_mat(gmm_config.dim, gmm_config.obs_dim)
-
-        # sampling specifications
-        gmm_config.device = "cpu"
-        gmm_config.sampling_eps = 1e-3
-        gmm_config.init_type = "gaussian"
-        gmm_config.noise_scale = 1.0
-        gmm_config.sde_sigma_var = 0.0
-        gmm_config.sample_N = 1000  # number of sampling steps
-
-        # put the matrix into config
-        gmm_config.H_mat = H_mat
-        gmm_config.U_mat = U
-        gmm_config.singulars = S
-        gmm_config.V_mat = V
-
-    # set SDE
-    sde = sde_lib.RectifiedFlow(
-        init_type=gmm_config.init_type,
-        noise_scale=gmm_config.noise_scale,
-        sample_N=gmm_config.sample_N,
-        sigma_var=gmm_config.sde_sigma_var,
-    )
-
-    # set GMM model
-    gmm = gmm_model.GMM(dim=gmm_config.dim, sde=sde)
-
-    H_func = operators.get_operator(name="gmm_h", config=gmm_config)
-    noiser = noisers.get_noise(name="gaussian", config=gmm_config)
-    y_obs = get_y_obs(gmm, H_func.H_mat, noiser)
+        sde, gmm_config, gmm, H_func, noiser, y_obs = create_gmm_exp(
+            dim, obs_dim, sigma_y
+        )
+    else:
+        sde = sde_lib.RectifiedFlow(
+            init_type=gmm_config.init_type,
+            noise_scale=gmm_config.noise_scale,
+            sample_N=gmm_config.sample_N,
+            sigma_var=gmm_config.sde_sigma_var,
+        )
+        gmm = gmm_model.GMM(dim=gmm_config.dim, sde=sde)
+        H_func = operators.get_operator(name="gmm_h", config=gmm_config)
+        noiser = noisers.get_noise(name="gaussian", config=gmm_config)
+        y_obs = get_y_obs(gmm, H_func.H_mat, noiser)
 
     # true posterior
     true_posterior_samples = gmm.sample_from_posterior(
@@ -162,13 +198,12 @@ def create_samples(
         # run the sampler
         batched_list_samples = sampler.sample(
             y_obs_batched,
-            clamp_to=clamp_to, # clampping to the support of the prior
+            clamp_to=clamp_to,  # clampping to the support of the prior
             z=start_z,
             return_list=return_list,
             method="euler",
             gmm_model=gmm,
-            gmres_max_iter = 10
-            
+            # gmres_max_iter = 10
         )
         # convert to numpy
         if return_list:
@@ -328,7 +363,7 @@ def run_exp(
     seed=42,
     # methods=["tmpd_fixed_cov", "pgdm", "dps"],
     # methods=["tmpd_h", "tmpd_fixed_diag"],
-    methods=['tmpd_gmres'],
+    methods=["tmpd_fixed_diag"],
     clamp_to=20,
 ):
     """
@@ -341,7 +376,7 @@ def run_exp(
 
     # for testing
     dim_list = [8]
-    obs_dim_list = [1,2,4]
+    obs_dim_list = [1, 2, 4]
     # noise_list = [0.01]
     noise_list = [0.01, 0.1, 1.0]
 
@@ -355,8 +390,7 @@ def run_exp(
 
     # also removed reddiff
     results_dict = {
-        name: {tup: [] for tup in product_list}
-        for name in methods
+        name: {tup: [] for tup in product_list} for name in methods
     }  # NOTE: add "tmpd_exact" if needed
 
     # to compute the confidence intervals, default 20
@@ -403,7 +437,7 @@ def run_exp(
         for key, swd_list in results_dict[method_name].items():
             # for debugging
             print(swd_list)
-            
+
             swd_mean = np.mean(swd_list)
             swd_std = np.std(swd_list)
             results_dict[method_name][key] = {
@@ -417,6 +451,91 @@ def run_exp(
     results_df = pd.DataFrame(results_dict).T
     current_time = time.strftime("%Y%m%d-%H%M%S")
     results_df.to_csv(os.path.join(workdir, f"results_{current_time}.csv"))
+
+
+def _compute_approx_dist(x_t, t, num_samples=1000, gmm_model=None):
+    """
+    Returns the Sliced Wasserstein distance between the true data and the approximate distribution.
+    for fixed x_t and t.
+    """
+    true_sample = gmm_model.get_distr_0t(t, x_t).sample((num_samples,))
+    mean_0t = gmm_model.get_mean_0t(t, x_t)
+    cov_0t = gmm_model.get_cov_0t(t, x_t)
+    L = torch.linalg.cholesky(cov_0t + 1e-6 * torch.eye(cov_0t.shape[0]))
+    dps_sample = mean_0t.repeat(num_samples, 1)
+
+    alpha_t = gmm_model.sde.alpha_t(t)
+    std_t = gmm_model.sde.std_t(t)
+    r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
+    pgdm_sample = dps_sample + math.sqrt(r_t_2) * torch.randn_like(dps_sample)
+    tmpd_distr = torch.distributions.MultivariateNormal(mean_0t, cov_0t)
+    tmpd_sample = tmpd_distr.sample((num_samples,))
+
+    dps_dist = pot.sliced_wasserstein_distance(
+        true_sample, dps_sample, n_projections=10000
+    )
+    pgdm_dist = pot.sliced_wasserstein_distance(
+        true_sample, pgdm_sample, n_projections=10000
+    )
+    tmpd_dist = pot.sliced_wasserstein_distance(
+        true_sample, tmpd_sample, n_projections=10000
+    )
+
+    return dps_dist, pgdm_dist, tmpd_dist
+
+
+def compute_approx_dist_0t(sample_N=2):
+    """
+    Returns the Sliced Wasserstein distance between the true data and the approximate distribution.
+    Averaged over num_iters of gmm models.
+    
+    Designed for importing to Jupyter notebook.
+    """
+    dim_list = [8]
+    # obs_dim_list = [1, 2, 4]
+    obs_dim_list = [1]
+    # noise_list = [0.01, 0.1, 1.0]
+    noise_list = [0.01, 0.1]
+
+    product_list = list(itertools.product(dim_list, obs_dim_list, noise_list))
+    results_dict = {tup: [] for tup in product_list}
+    for tup in product_list:
+        print(f"Running for {tup}...")
+        dim, obs_dim, sigma_y = tup
+        sde, gmm_config, gmm, H_func, noiser, y_obs = create_gmm_exp(
+            dim, obs_dim, sigma_y, sample_N=sample_N
+        )
+        tmpd_dist_list = []
+        pgdm_dist_list = []
+        dps_dist_list = []
+        for i, t in enumerate(torch.linspace(1e-3, 1 - 1e-3, sample_N)):
+            x_t = gmm.sample_from_prior_t(1, t).squeeze()
+            dps_dist, pgdm_dist, tmpd_dist = _compute_approx_dist(x_t, t, gmm_model=gmm)
+            tmpd_dist_list.append(tmpd_dist)
+            pgdm_dist_list.append(pgdm_dist)
+            dps_dist_list.append(dps_dist)
+
+        results_dict[tup] = {
+            "tmpd": tmpd_dist_list,
+            "pgdm": pgdm_dist_list,
+            "dps": dps_dist_list,
+        }
+
+    # rearrange to get average, mean and std are arrays of shape (sample_N, )
+    results_dict_avg = {
+        method: {"mean": None, "std": None} for method in ["tmpd", "pgdm", "dps"]
+    }
+    for method in ["tmpd", "pgdm", "dps"]:
+        dist_arr = np.zeros((sample_N, len(product_list)))
+        for i, tup in enumerate(product_list):
+            dist_arr[:, i] = results_dict[tup][method]
+        mean_dist = np.mean(dist_arr, axis=1)
+        std_dist = np.std(dist_arr, axis=1)
+
+        results_dict_avg[method]["mean"] = mean_dist
+        results_dict_avg[method]["std"] = std_dist
+
+    return results_dict_avg, results_dict
 
 
 FLAGS = flags.FLAGS
