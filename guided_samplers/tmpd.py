@@ -420,7 +420,8 @@ class TMPD_gmres(GuidedSampler):
         #     gmres_max_iter = 10
         # else:
         #     gmres_max_iter = 1
-        if num_t <= 0.01:
+        threshold_time = 0.1 if len(y_obs.shape) > 2 else 0.0
+        if num_t <= threshold_time:
             grad_ll = self.H_func.HHt_inv(
                 difference,
                 r_t_2=coeff_C_yy * (1 - num_t),
