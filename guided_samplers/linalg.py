@@ -7,23 +7,23 @@ Adapted from Rozet et al. https://github.com/francois-rozet/mmps-benchmark.
 import torch
 
 
-# def safe_normalize(x, eps=1e-6):
-#     norm = torch.linalg.vector_norm(x)
-
-#     new_x = torch.where(
-#         norm > eps,
-#         x / norm,
-#         0.0,
-#     )
-
-#     return new_x, norm
-
 def safe_normalize(x, eps=1e-6):
     norm = torch.linalg.vector_norm(x)
 
-    new_x = x / norm
-    
+    new_x = torch.where(
+        norm > eps,
+        x / norm,
+        0.0,
+    )
+
     return new_x, norm
+
+# def safe_normalize(x, eps=1e-6):
+#     norm = torch.linalg.vector_norm(x)
+
+#     new_x = x / norm
+    
+#     return new_x, norm
 
 
 @torch.no_grad()
