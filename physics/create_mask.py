@@ -176,7 +176,7 @@ def main():
     """
     logging.info("Creating square box mask...")
     mask, missing_indices, kept_indices, coordinates_mask = square_box_mask(
-        center=(0.5, 0.5), width=0.5, height=0.5, D_OR=(3, 256, 256), device=DEVICE
+        center=(0.5, 0.5), width=0.3, height=0.3, D_OR=(3, 256, 256), device=DEVICE
     )
 
     logging.info("Creating random pixel mask...")
