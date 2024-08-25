@@ -7,34 +7,6 @@ Adapted from Rozet et al. https://github.com/francois-rozet/mmps-benchmark.
 import torch
 
 
-@torch.no_grad()
-def conjugate_gradient(A, b, x=None, maxiter=1, dtype=torch.float64):
-    if x is None:
-        x = torch.zeros_like(b)
-        r = b
-    else:
-        r = b - A(x)
-
-    x = x.to(dtype)
-    r = r.to(dtype)
-    rr = torch.sum(r * r)
-    p = r
-
-    for _ in range(maxiter):
-        Ap = A(p.to(b)).to(dtype)
-        pAp = torch.sum(p * Ap)
-        alpha = rr / pAp
-        x_ = x + alpha * p
-        r_ = r - alpha * Ap
-        rr_ = torch.sum(r_ * r_)
-        beta = rr_ / rr
-        p_ = r_ + beta * p
-
-        x, r, rr, p = x_, r_, rr_, p_
-
-    return x.to(b)
-
-
 def safe_normalize(x, eps=1e-6):
     norm = torch.linalg.vector_norm(x)
 
@@ -45,6 +17,47 @@ def safe_normalize(x, eps=1e-6):
     )
 
     return new_x, norm
+
+
+@torch.no_grad()
+def conjugate_gradient(A, b, x=None, At=None, maxiter=1, dtype=torch.float64):
+    if x is None:
+        x = torch.zeros_like(b)
+        r = b
+    else:
+        r = b - A(x)
+
+    x = x.to(dtype)
+    r = r.to(dtype)
+    rr = torch.sum(r * r)
+    p = r
+    
+    if At is not None:
+        def f(x):
+            return 0.5 * (A(x) + At(x))
+    else:
+        f = A
+
+    for _ in range(maxiter):
+        Ap = f(p.to(b)).to(dtype)
+        pAp = torch.sum(p * Ap)
+        alpha = rr / pAp
+        x_ = x + alpha * p
+        r_ = r - alpha * Ap
+        rr_ = torch.sum(r_ * r_)
+        beta, beta_norm = safe_normalize(r_)
+        # beta = rr_ / rr
+        p_ = r_ + beta * p
+
+        old_rr = rr
+        x, r, rr, p = x_, r_, rr_, p_
+        
+        # stopping
+        # if torch.abs(rr - old_rr) / old_rr < 1e-6:
+        if rr < 1e-7:
+            break
+
+    return x.to(b)
 
 
 def arnoldi(p, V, H, j):

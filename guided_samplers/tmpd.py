@@ -318,8 +318,8 @@ class TMPD(GuidedSampler):
         #     )
 
 
-@register_guided_sampler(name="tmpd_gmres")
-class TMPD_gmres(GuidedSampler):
+@register_guided_sampler(name="tmpd_cg")
+class TMPD_cg(GuidedSampler):
     def _get_guidance(
         self,
         model_fn,
@@ -412,6 +412,7 @@ class TMPD_gmres(GuidedSampler):
                 self.noiser.sigma**2 * v
                 + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
             )
+            
 
         # grad_ll, V_basis = gmres(
         #     A=cov_y_xt,
