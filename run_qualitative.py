@@ -74,10 +74,11 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         "tmpd_h",
         "tmpd",
         "tmpd_h_ablate",
-        # "dps",
+        "dps",
         # "tmpd_gmres",
-        # "reddiff",
-        # "tmpd_og"
+        "reddiff",
+        "tmpd_og",
+        "pgdm",
     ]
     config_keys = [
         sampler_name
@@ -250,7 +251,10 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         )
 
         # save
-        save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample.png"))
+        if sampler_name == "tmpd_cg" or sampler_name == "tmpd_gmres_ablate":
+            save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample_{max_iter}.png"))
+        else:
+            save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample.png"))
 
         end_time = time.time()
         logging.info(f"Sampling took {end_time - start_time} seconds.")
