@@ -36,7 +36,7 @@ from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 
 def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
                        sample_N=100, sampling_var=0.1, clamp_to=1.0, use_svd=False,
-                       max_iter=3):
+                       max_iter=3, compare_iter=False):
     """
     Creates a result for each method and compare them.
     """
@@ -251,7 +251,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         )
 
         # save
-        if sampler_name == "tmpd_cg" or sampler_name == "tmpd_gmres_ablate":
+        if (sampler_name == "tmpd_cg" or sampler_name == "tmpd_gmres_ablate") and compare_iter:
             save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample_{max_iter}.png"))
         else:
             save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample.png"))
@@ -309,6 +309,8 @@ flags.DEFINE_string(
 
 flags.DEFINE_bool("use_svd", False, "Use SVD for the guided sampler.")
 
+flags.DEFINE_bool("compare_iter", False, "Compare the results at different iterations.")
+
 flags.mark_flag_as_required("config")
 
 
@@ -344,7 +346,8 @@ def main(argv):
         sampling_var=FLAGS.sampling_var,
         clamp_to=FLAGS.clamp_to,
         use_svd=FLAGS.use_svd,
-        max_iter=FLAGS.max_iter
+        max_iter=FLAGS.max_iter,
+        compare_iter=FLAGS.compare_iter
     )
 
 
