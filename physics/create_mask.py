@@ -17,7 +17,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def square_box_mask(
-    center=(0.5, 0.5), width=0.3, height=0.3, D_OR=(3, 256, 256), device="cpu"
+    center=(0.5, 0.5), width=0.5, height=0.5, D_OR=(3, 256, 256), device="cpu"
 ):
     """
     Generates a sqaure mask inside the image for inpainting.
