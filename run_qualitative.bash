@@ -73,7 +73,8 @@ celeba_max_index=1999
 # done
 
 # run for max_iter 3, 5, 10
-max_iter_list=(3 5 10)
+# max_iter_list=(3 5 10)
+max_iter_list=(1)
 for max_iter in ${max_iter_list[@]}; do
     echo "Running qualitative evaluation for max_iter = $max_iter for AFHQ dataset"
     # inpaint box
