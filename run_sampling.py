@@ -150,6 +150,7 @@ def create_samples(
     logging.info(f"Using {config.sampling.gudiance_method} guided sampler.")
     logging.info(f"Using dataset {config.data.name}.")
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
+    logging.info(f"Maximum number of samples to generate: {max_num_samples}")
     logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
 
     # check if certain images are sampled before
@@ -177,7 +178,7 @@ def create_samples(
         if img_counter not in sampled_images:
             start_time = time.time()
             logging.info(
-                f"Sampling a batch of {config.sampling.batch_size} image {iter_no}"
+                f"Current batch: {iter_no}"
             )
 
             # apply scaler
@@ -247,15 +248,15 @@ def create_samples(
                     degraded_img = y_obs_image[j]
                     save_image(
                         degraded_img,
-                        os.path.join(eval_dir, f"{iter_no}_{j}_degraded.png"),
+                        os.path.join(eval_dir, f"degraded_{iter_no+j}.png"),
                         # normalize=True,
                         # range=(-1, 1),
                     )
                     
-                    true_img = batched_img[j]
+                    true_img = inverse_scaler(batched_img[j])
                     save_image(
                         true_img,
-                        os.path.join(eval_dir, f"{iter_no}_{j}_true.png"),
+                        os.path.join(eval_dir, f"true_{iter_no+j}.png"),
                     )
                     
             end_time = time.time()
@@ -344,6 +345,7 @@ def main(argv):
         save_degraded=True,
         return_list=FLAGS.return_list,
         eval_folder=FLAGS.eval_folder,
+        max_num_samples=FLAGS.max_num_samples,
     )
 
 
