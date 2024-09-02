@@ -140,7 +140,7 @@ def create_samples(
         device=config.device,
         sampling_eps=sampling_eps,
     )
-    
+
     # dumping the config setting into a txt
     with open(os.path.join(eval_dir, "config.txt"), "w") as f:
         f.write(f"{config}")
@@ -177,9 +177,7 @@ def create_samples(
 
         if img_counter not in sampled_images:
             start_time = time.time()
-            logging.info(
-                f"Current batch: {iter_no}"
-            )
+            logging.info(f"Current batch: {iter_no}")
 
             # apply scaler
             batched_img = scaler(batched_img)
@@ -221,7 +219,9 @@ def create_samples(
                     save_image(
                         img,
                         # os.path.join(eval_dir, f"{iter_no}_{j}.png"),
-                        os.path.join(eval_dir, f"{iter_no + j}.png"),
+                        os.path.join(
+                            eval_dir, f"{iter_no * config.sampling.batch_size + j}.png"
+                        ),
                         # normalize=True,
                         # range=(-1, 1),
                     )
@@ -248,17 +248,23 @@ def create_samples(
                     degraded_img = y_obs_image[j]
                     save_image(
                         degraded_img,
-                        os.path.join(eval_dir, f"degraded_{iter_no+j}.png"),
+                        os.path.join(
+                            eval_dir,
+                            f"degraded_{iter_no * config.sampling.batch_size + j}.png",
+                        ),
                         # normalize=True,
                         # range=(-1, 1),
                     )
-                    
+
                     true_img = inverse_scaler(batched_img[j])
                     save_image(
                         true_img,
-                        os.path.join(eval_dir, f"true_{iter_no+j}.png"),
+                        os.path.join(
+                            eval_dir,
+                            f"true_{iter_no * config.sampling.batch_size + j}.png",
+                        ),
                     )
-                    
+
             end_time = time.time()
 
             logging.info(
