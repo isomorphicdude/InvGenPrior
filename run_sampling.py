@@ -352,14 +352,14 @@ def main(argv):
     logger.addHandler(handler)
     logger.setLevel("INFO")
 
-    # create_samples(
-    #     FLAGS.config,
-    #     FLAGS.workdir,
-    #     save_degraded=True,
-    #     return_list=FLAGS.return_list,
-    #     eval_folder=FLAGS.eval_folder,
-    #     max_num_samples=FLAGS.max_num_samples,
-    # )
+    create_samples(
+        FLAGS.config,
+        FLAGS.workdir,
+        save_degraded=True,
+        return_list=FLAGS.return_list,
+        eval_folder=FLAGS.eval_folder,
+        max_num_samples=FLAGS.max_num_samples,
+    )
     
     if FLAGS.compute_recon_metrics:
         # compute recon metrics
