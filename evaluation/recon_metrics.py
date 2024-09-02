@@ -131,8 +131,8 @@ class ZippedDataset(torch.utils.data.Dataset):
         self.model_output_dir = model_output_dir
         self.ground_truth_dset = ground_truth_dset
 
-        if transform is None:
-            transform = transforms.Compose([transforms.ToTensor()])
+        # if transform is None:
+            # transform = transforms.Compose([transforms.ToTensor()])
 
         self.transform = transform
 
