@@ -10,4 +10,4 @@ python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num
 # python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py 
 
 # compute metrics
-python 
+# python evaluation.recon_metrics.

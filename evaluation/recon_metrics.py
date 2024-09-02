@@ -237,16 +237,16 @@ def _compute_recon_metrics(
     torch.save(lpips, os.path.join(model_output_dir, "lpips.pt"))
 
 
-def compute_recon_metrics(config):
+def compute_recon_metrics(config, workdir, eval_folder):
     return _compute_recon_metrics(
-        workdir=config.workdir,
+        workdir=workdir,
         method_name=config.sampling.gudiance_method,
         task_name=config.degredation.task_name,
         dataset_name=config.data.name,
         dataset_path=config.data.lmdb_file_path,
         batch_size=config.sampling.batch_size,
         transform=None,
-        eval_folder=config.eval_folder,
+        eval_folder=eval_folder,
     )
 
 # FLAGS = flags.FLAGS

@@ -365,6 +365,8 @@ def main(argv):
         # compute recon metrics
         recon_metrics.compute_recon_metrics(
             FLAGS.config,
+            workdir=FLAGS.workdir,
+            eval_folder=FLAGS.eval_folder
         )
     
     if FLAGS.compute_fid:
