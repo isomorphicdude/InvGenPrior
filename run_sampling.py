@@ -333,7 +333,7 @@ flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
 
 flags.DEFINE_boolean("compute_recon_metrics", False, "Compute reconstruction metrics: PSNR, SSIM, LPIPS.")
 
-flags.DEFINE_boolean("compute FID and KID", False, "Compute FID and KID.")
+flags.DEFINE_boolean("compute_fid", False, "Compute FID and KID.")
 
 flags.mark_flag_as_required("config")
 
@@ -367,7 +367,7 @@ def main(argv):
             FLAGS.config,
         )
     
-    if FLAGS.compute_FID_and_KID:
+    if FLAGS.compute_fid:
         raise NotImplementedError("FID and KID computation not implemented yet.")
     
 
