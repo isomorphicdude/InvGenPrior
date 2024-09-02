@@ -219,7 +219,8 @@ def create_samples(
                     # img = inverse_scaler(img) # already included in sampler
                     save_image(
                         img,
-                        os.path.join(eval_dir, f"{iter_no}_{j}.png"),
+                        # os.path.join(eval_dir, f"{iter_no}_{j}.png"),
+                        os.path.join(eval_dir, f"{iter_no + j}.png"),
                         # normalize=True,
                         # range=(-1, 1),
                     )
@@ -305,7 +306,7 @@ config_flags.DEFINE_config_file(
     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 )
 
-flags.DEFINE_string("workdir", "Samples", "Work directory.")
+flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
 
 flags.DEFINE_string(
     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
