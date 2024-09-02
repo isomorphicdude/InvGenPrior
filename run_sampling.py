@@ -223,7 +223,7 @@ def create_samples(
                         img,
                         # os.path.join(eval_dir, f"{iter_no}_{j}.png"),
                         os.path.join(
-                            eval_dir, f"{iter_no * config.sampling.batch_size + j}.png"
+                            eval_dir, f"sample_{iter_no * config.sampling.batch_size + j}.png"
                         ),
                         # normalize=True,
                         # range=(-1, 1),
@@ -240,7 +240,7 @@ def create_samples(
                         save_image(
                             img,
                             # os.path.join(eval_dir, f"{iter_no}_{j}_time_{i*sde.sample_N//10}.png"),
-                            os.path.join(eval_dir, f"{iter_no}_{j}_time_{i}.png"),
+                            os.path.join(eval_dir, f"sample_{iter_no * config.sampling.batch_size + j}_time_{i}.png"),
                             # normalize=True,
                             # range=(-1, 1),
                         )
