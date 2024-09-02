@@ -37,18 +37,25 @@ from guided_samplers import tmpd, dps, pgdm, reddiff, bures_jko
 from guided_samplers.registry import get_guided_sampler
 
 
-def create_samples(config, workdir, save_degraded=True, return_list=False,
-                   eval_folder="eval_samples"):
+def create_samples(
+    config,
+    workdir,
+    save_degraded=True,
+    return_list=False,
+    eval_folder="eval_samples",
+    max_num_samples=None,
+):
     """
     Create samples using the guided sampler.
 
     Args:
-      - config: configuration file, used for ml_collections
-      - workdir: working directory, usually just the root directory of repo
-      - save_degraded: whether to save the degraded images
-      - return_list: whether to return a list of samples
-      - eval_folder: folder to save the samples, should be a combination of the
+      config: configuration file, used for ml_collections
+      workdir: working directory, usually just the root directory of repo
+      save_degraded: whether to save the degraded images
+      return_list: whether to return a list of samples
+      eval_folder: folder to save the samples, should be a combination of the
         name of the experiment and the method used to generate the samples
+      max_num_samples: maximum number of samples to generate, if None, generate all
     """
     # Create directory to eval_folder
     eval_dir = os.path.join(
@@ -133,6 +140,7 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
         device=config.device,
         sampling_eps=sampling_eps,
     )
+    
     # dumping the config setting into a txt
     with open(os.path.join(eval_dir, "config.txt"), "w") as f:
         f.write(f"{config}")
@@ -205,7 +213,7 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
             # save the images to eval folder
             logging.info(f"Current batch finished. Saving images...")
             if not return_list:
-                logging.info(f"Returning single batch.")
+                # logging.info(f"Returning single batch.")
                 for j in range(config.sampling.batch_size):
                     img = batched_samples[j]
                     # img = inverse_scaler(img) # already included in sampler
@@ -215,7 +223,7 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
                         # normalize=True,
                         # range=(-1, 1),
                     )
-                        
+
             else:
                 logging.info(f"Returning list of samples.")
                 # save list of batched samples
@@ -231,18 +239,24 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
                             # normalize=True,
                             # range=(-1, 1),
                         )
-                
+
             if save_degraded:
-                logging.info(f"Saving degraded images...")
+                # logging.info(f"Saving degraded images...")
                 for j in range(config.sampling.batch_size):
-                    img = y_obs_image[j]
-                    # img = inverse_scaler(img) # already included in sampler
+                    degraded_img = y_obs_image[j]
                     save_image(
-                        img,
+                        degraded_img,
                         os.path.join(eval_dir, f"{iter_no}_{j}_degraded.png"),
                         # normalize=True,
                         # range=(-1, 1),
                     )
+                    
+                    true_img = batched_img[j]
+                    save_image(
+                        true_img,
+                        os.path.join(eval_dir, f"{iter_no}_{j}_true.png"),
+                    )
+                    
             end_time = time.time()
 
             logging.info(
@@ -266,16 +280,18 @@ def create_samples(config, workdir, save_degraded=True, return_list=False,
             ]
             logging.info(f"Skipping image {img_sampled_in_batch}.")
             img_counter += config.sampling.batch_size
-            
-        if iter_no % 4 == 0 and iter_no != 0:
-            logging.info(f"Finished {iter_no} batches.")
-        
-            # clear memory
-            torch.cuda.empty_cache()
-            gc.collect()
-            
-            # exit
-            break
+
+        # if iter_no % 4 == 0 and iter_no != 0:
+        if max_num_samples is not None:
+            if iter_no * config.sampling.batch_size >= max_num_samples:
+                logging.info(f"Finished {iter_no} batches, exiting...")
+
+                # clear memory
+                torch.cuda.empty_cache()
+                gc.collect()
+
+                # exit
+                break
 
     logging.info("Sampling finished.")
 
@@ -289,10 +305,17 @@ config_flags.DEFINE_config_file(
     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 )
 
-flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
+flags.DEFINE_string("workdir", "Samples", "Work directory.")
 
 flags.DEFINE_string(
     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
+)
+
+flags.DEFINE_integer(
+    "max_num_samples",
+    # None,
+    10,
+    "Maximum number of samples to generate, if None, generate all.",
 )
 
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
