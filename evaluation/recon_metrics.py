@@ -160,7 +160,7 @@ class ZippedDataset(torch.utils.data.Dataset):
         model_output_image = Image.open(model_output_image_path).convert("RGB")
         ground_truth_image = self.ground_truth_dset[idx][0]
 
-        if self.transform:
+        if self.transform is not None:
             model_output_image = self.transform(model_output_image)
             ground_truth_image = self.transform(ground_truth_image)
 
