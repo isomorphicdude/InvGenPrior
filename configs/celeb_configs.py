@@ -40,7 +40,7 @@ def get_config():
     
     # configure the guided sampler for inverse problems
     sampling.use_ode_sampler = "euler" # changed for inverse problems
-    sampling.batch_size = 1
+    sampling.batch_size = 2
     
     # sampling starting time, 0.2, 0.4 in the paper
     sampling.starting_time = 0
@@ -52,7 +52,7 @@ def get_config():
     sampling.clamp_to = None # gradient clipping for the guidance
     
     # inverse problem settings
-    sampling.degredation_sigma = 0.05
+    sampling.degredation_sigma = 0.1
     sampling.degredation_noiser = "gaussian"
     
     # data
