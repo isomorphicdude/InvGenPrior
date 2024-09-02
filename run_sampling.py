@@ -306,7 +306,7 @@ config_flags.DEFINE_config_file(
     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 )
 
-flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
+flags.DEFINE_string("workdir", "", "Work directory.")
 
 flags.DEFINE_string(
     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
