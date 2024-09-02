@@ -131,8 +131,8 @@ class ZippedDataset(torch.utils.data.Dataset):
         self.model_output_dir = model_output_dir
         self.ground_truth_dset = ground_truth_dset
 
-        # if transform is None:
-            # transform = transforms.Compose([transforms.ToTensor()])
+        if transform is None:
+            transform = transforms.Compose([transforms.ToTensor()])
 
         self.transform = transform
 
@@ -162,7 +162,7 @@ class ZippedDataset(torch.utils.data.Dataset):
 
         if self.transform is not None:
             model_output_image = self.transform(model_output_image)
-            ground_truth_image = self.transform(ground_truth_image)
+            # ground_truth_image = self.transform(ground_truth_image)
 
         return model_output_image, ground_truth_image
 
