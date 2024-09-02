@@ -9,6 +9,9 @@ import torch
 import torch.utils
 from torchvision import transforms
 import tensorflow as tf
+from absl import app, flags
+from ml_collections.config_flags import config_flags
+
 from PIL import Image
 from torchmetrics.functional.image import (
     peak_signal_noise_ratio,
@@ -17,6 +20,8 @@ from torchmetrics.functional.image import (
 )
 from torchmetrics.image import LearnedPerceptualImagePatchSimilarity
 from tqdm import tqdm
+
+from datasets import lmdb_dataset
 
 
 # compute Peak Signal-to-Noise Ratio (PSNR)
@@ -30,10 +35,10 @@ def get_psnr(data_loader):
     Using torchmetrics implementation.
 
     Args:
-        - data_loader: torch.utils.data.DataLoader, the data loader to evaluate.
+      data_loader (torch.utils.data.DataLoader): The data loader to evaluate. It should return a pair of tensors,
 
     Returns:
-        - list of PSNR values as torch.Tensor.
+      list: A list of PSNR values as torch.Tensor.
     """
     ret = []
     for output, truth in tqdm(data_loader):
@@ -163,16 +168,22 @@ class ZippedDataset(torch.utils.data.Dataset):
 
 
 def create_eval_dataloader(
-    model_output_dir, ground_truth_dir, transform=None, batch_size=2
+    model_output_dir, ground_truth_dset, transform=None, batch_size=2
 ):
     """
-    Creates a data loader for evaluation.
+    Creates a data loader for evaluation.  
+    
+    Args:
+      model_output_dir: str, the directory containing the model output images.
+      ground_truth_dset: torch.utils.data.Dataset, the ground truth dataset.
+      transform: torchvision.transforms, the transformation to apply to the images.
+      batch_size: int, the batch size for the data loader.
 
     Returns:
-        - torch.utils.data.DataLoader, the data loader for evaluation.
+      torch.utils.data.DataLoader, the data loader for evaluation.
     """
 
-    dataset = ZippedDataset(model_output_dir, ground_truth_dir, transform=transform)
+    dataset = ZippedDataset(model_output_dir, ground_truth_dset, transform=transform)
 
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False
@@ -181,11 +192,12 @@ def create_eval_dataloader(
     return data_loader
 
 
-def compute_recon_metrics(
+def _compute_recon_metrics(
     workdir,
     method_name,
     task_name,
     dataset_name,
+    dataset_path,
     batch_size=2,
     transform=None,
     eval_folder="eval_samples",
@@ -194,5 +206,81 @@ def compute_recon_metrics(
     model_output_dir = os.path.join(
         workdir, eval_folder, dataset_name, method_name, task_name
     )
+    
+    # true data set
+    true_dset = lmdb_dataset.get_dataset(
+        name=dataset_name,
+        db_path=dataset_path,
+        transform=None,  
+    )
+    
+    # create data loader
+    eval_loader = create_eval_dataloader(
+        model_output_dir=model_output_dir,
+        ground_truth_dset=true_dset,
+        transform=transform,
+        batch_size=batch_size,
+    )
+    
+    # compute metrics
+    psnr = get_psnr(eval_loader)
+    ssim = get_ssim(eval_loader)
+    lpips = get_lpips(eval_loader)
+    
+    print(psnr)
+    print(ssim)
+    print(lpips)
+    
+    # save metrics
+    torch.save(psnr, os.path.join(model_output_dir, "psnr.pt"))
+    torch.save(ssim, os.path.join(model_output_dir, "ssim.pt"))
+    torch.save(lpips, os.path.join(model_output_dir, "lpips.pt"))
 
-    # path to the ground truth
+
+def compute_recon_metrics(config):
+    return _compute_recon_metrics(
+        workdir=config.workdir,
+        method_name=config.sampling.gudiance_method,
+        task_name=config.degredation.task_name,
+        dataset_name=config.data.name,
+        dataset_path=config.data.lmdb_file_path,
+        batch_size=config.sampling.batch_size,
+        transform=None,
+        eval_folder=config.eval_folder,
+    )
+
+# FLAGS = flags.FLAGS
+
+# config_flags.DEFINE_config_file(
+#     "config", None, "Path to the method configuration file."
+# )
+
+# flags.DEFINE_string("workdir", "", "Work directory.")
+
+# flags.DEFINE_string(
+#     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
+# )
+
+# def main(argv):
+#     tf.io.gfile.makedirs(FLAGS.workdir)
+#     # Set logger so that it outputs to both console and file
+#     gfile_stream = open(os.path.join(FLAGS.workdir, "stdout.txt"), "w")
+#     handler = logging.StreamHandler(gfile_stream)
+#     formatter = logging.Formatter(
+#         "%(levelname)s - %(filename)s - %(asctime)s - %(message)s"
+#     )
+#     handler.setFormatter(formatter)
+#     logger = logging.getLogger()
+#     logger.addHandler(handler)
+#     logger.setLevel("INFO")
+    
+#     compute_recon_metrics(
+#         workdir=FLAGS.workdir,
+#         method_name=FLAGS.config.sampling.gudiance_method,
+#         task_name=FLAGS.config.degredation.task_name,
+#         dataset_name=FLAGS.config.data.name,
+#         dataset_path=FLAGS.config.data.lmdb_file_path,
+#         batch_size=FLAGS.config.sampling.batch_size,
+#         eval_folder=FLAGS.eval_folder,
+#     )
+    

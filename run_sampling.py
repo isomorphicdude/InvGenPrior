@@ -36,6 +36,9 @@ from physics.noisers import get_noise
 from guided_samplers import tmpd, dps, pgdm, reddiff, bures_jko
 from guided_samplers.registry import get_guided_sampler
 
+# evaluation
+from evaluation import recon_metrics
+
 
 def create_samples(
     config,
@@ -328,6 +331,10 @@ flags.DEFINE_integer(
 
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
 
+flags.DEFINE_boolean("compute_recon_metrics", False, "Compute reconstruction metrics: PSNR, SSIM, LPIPS.")
+
+flags.DEFINE_boolean("compute FID and KID", False, "Compute FID and KID.")
+
 flags.mark_flag_as_required("config")
 
 
@@ -353,7 +360,16 @@ def main(argv):
         eval_folder=FLAGS.eval_folder,
         max_num_samples=FLAGS.max_num_samples,
     )
-
+    
+    if FLAGS.compute_recon_metrics:
+        # compute recon metrics
+        recon_metrics.compute_recon_metrics(
+            FLAGS.config,
+        )
+    
+    if FLAGS.compute_FID_and_KID:
+        raise NotImplementedError("FID and KID computation not implemented yet.")
+    
 
 if __name__ == "__main__":
     app.run(main)
