@@ -285,7 +285,7 @@ def create_samples(
 
         # if iter_no % 4 == 0 and iter_no != 0:
         if max_num_samples is not None:
-            if iter_no * config.sampling.batch_size >= max_num_samples:
+            if (iter_no + 1) * config.sampling.batch_size >= max_num_samples:
                 logging.info(f"Finished {iter_no} batches, exiting...")
 
                 # clear memory
