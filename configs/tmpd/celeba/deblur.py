@@ -54,7 +54,7 @@ def get_config():
     
     # sampling config
     sampling = config.sampling
-    sampling.gudiance_method = "tmpd"
+    sampling.gudiance_method = "tmpd_og"
     sampling.clamp_to = 1 # gradient clipping
         
     return config

@@ -8,6 +8,7 @@ pip install -r requirements.txt
 pip install gdown
 
 # download the models
+mkdir -p checkpoints
 # celebA
 gdown https://drive.google.com/uc?id=1ryhuJGz75S35GEdWDLiq4XFrsbwPdHnF -O "checkpoints/celebA_ckpt.pth"
 # afhq-cats
