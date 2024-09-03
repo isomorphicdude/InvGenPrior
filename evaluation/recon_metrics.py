@@ -231,9 +231,9 @@ def _compute_recon_metrics(
     lpips = get_lpips(eval_loader)
     
     # convert to torch tensor and compute mean
-    mean_psnr = torch.cat(psnr).mean()
-    mean_ssim = torch.cat(ssim).mean()
-    mean_lpips = torch.cat(lpips).mean()
+    mean_psnr = torch.stack(psnr).mean()
+    mean_ssim = torch.stack(ssim).mean()
+    mean_lpips = torch.stack(lpips).mean()
     
     # save metrics
     torch.save(psnr, os.path.join(model_output_dir, "psnr.pt"))
