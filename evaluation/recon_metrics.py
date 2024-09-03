@@ -49,12 +49,12 @@ def get_psnr(data_loader):
             output.shape == truth.shape
         ), f"Output shape {output.shape} != Truth shape {truth.shape}"
         assert output.shape[1] == 3, f"Output shape {output.shape} not RGB"
-        ret.append(peak_signal_noise_ratio(output, truth, reduction=None))
+        ret.append(peak_signal_noise_ratio(output, truth, reduction='none').to('cpu'))
 
     return ret
 
 
-# compute Structural Similarity Index (SSIM)
+# compute Structural Similarity Index Measure (SSIM)
 def get_ssim(data_loader):
     """
     Computes the Structural Similarity Index (SSIM) for a given data loader.
@@ -79,8 +79,7 @@ def get_ssim(data_loader):
             output.shape == truth.shape
         ), f"Output shape {output.shape} != Truth shape {truth.shape}"
         assert output.shape[1] == 3, f"Output shape {output.shape} not RGB"
-        ret.append(structural_similarity_index_measure(output, truth, reduction=None))
-
+        ret.append(structural_similarity_index_measure(output, truth).to('cpu'))
     return ret
 
 
