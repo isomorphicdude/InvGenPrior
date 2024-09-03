@@ -259,14 +259,14 @@ def create_samples(
                         # range=(-1, 1),
                     )
 
-                    true_img = inverse_scaler(batched_img[j])
-                    save_image(
-                        true_img,
-                        os.path.join(
-                            eval_dir,
-                            f"true_{iter_no * config.sampling.batch_size + j}.png",
-                        ),
-                    )
+                    # true_img = inverse_scaler(batched_img[j])
+                    # save_image(
+                    #     true_img,
+                    #     os.path.join(
+                    #         eval_dir,
+                    #         f"true_{iter_no * config.sampling.batch_size + j}.png",
+                    #     ),
+                    # )
 
             end_time = time.time()
 
