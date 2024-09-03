@@ -230,14 +230,24 @@ def _compute_recon_metrics(
     ssim = get_ssim(eval_loader)
     lpips = get_lpips(eval_loader)
     
-    print(psnr)
-    print(ssim)
-    print(lpips)
+    # convert to torch tensor and compute mean
+    mean_psnr = torch.cat(psnr).mean()
+    mean_ssim = torch.cat(ssim).mean()
+    mean_lpips = torch.cat(lpips).mean()
     
     # save metrics
     torch.save(psnr, os.path.join(model_output_dir, "psnr.pt"))
     torch.save(ssim, os.path.join(model_output_dir, "ssim.pt"))
     torch.save(lpips, os.path.join(model_output_dir, "lpips.pt"))
+    
+    # write to txt
+    with open(os.path.join(model_output_dir, "metrics.txt"), "w") as f:
+        f.write(f"Method: {method_name}\n")
+        f.write(f"Task: {task_name}\n")
+        f.write(f"Dataset: {dataset_name}\n")
+        f.write(f"PSNR: {mean_psnr}\n")
+        f.write(f"SSIM: {mean_ssim}\n")
+        f.write(f"LPIPS: {mean_lpips}\n")
 
 
 def compute_recon_metrics(config, workdir, eval_folder):
