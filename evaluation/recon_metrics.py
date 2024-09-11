@@ -250,13 +250,14 @@ def _compute_recon_metrics(
         f.write(f"LPIPS: {mean_lpips}\n")
         
     # create txt file in top dir if not present
-    if not os.path.exists(os.path.join(workdir, "aggregated_metrics.txt")):
-        with open(os.path.join(workdir, "aggregated_metrics.txt"), "w") as f:
+    aggregate_path = os.path.join(workdir, f"{dataset_name}_{task_name}_aggregated_metrics.txt")
+    if not os.path.exists(os.path.join(workdir, aggregate_path)):
+        with open(os.path.join(workdir, aggregate_path), "w") as f:
             # create file
             f.write("Method, Task, Dataset, PSNR, SSIM, LPIPS\n")
             f.write(f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n")
     else:
-        with open(os.path.join(workdir, "aggregated_metrics.txt"), "a") as f:
+        with open(os.path.join(workdir, aggregate_path), "a") as f:
             # append to file
             f.write(f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n")
         
