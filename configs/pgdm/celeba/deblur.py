@@ -1,4 +1,4 @@
-"""Configuration for Gaussian deblurring on CelebA using PseudoGDM."""
+"""Configuration for Gaussian deblurring on CelebA using TMPD."""
 import os
 import sys
 
@@ -56,7 +56,7 @@ def get_config():
     sampling = config.sampling
     sampling.gudiance_method = "pgdm"
     sampling.clamp_to = 1 # gradient clipping
-    
+        
     return config
     
     

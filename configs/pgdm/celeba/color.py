@@ -1,4 +1,4 @@
-"""Configuration for box-masked inpainting on CelebA using TMPD."""
+"""Configuration for inpainting on CelebA using TMPD."""
 import os
 import sys
 
@@ -13,39 +13,35 @@ import numpy as np
 
 import ml_collections
 
-from physics.create_mask import load_mask
 from celeb_configs import get_config as get_celeb_config
 
 def get_config():
     config = get_celeb_config()
     
     # ckpt name
-    config.ckpt_name = "afhq_cats_ckpt.pth"
+    config.ckpt_name = "celebA_ckpt.pth"
     
     # data config (for creating degraded images)
     data = config.data
-    data.name = "afhq"
-    data.lmdb_file_path = "data/afhq/val.lmdb"
+    data.name = "celeba"
+    data.lmdb_file_path = "data/celeba-hq/val.lmdb"
     data.split_name = "val"
     
     # degredation config
     config.degredation = degredation = ml_collections.ConfigDict()
-    degredation.name = "inpainting"
-    degredation.task_name = "inpainting_pixel"
+    degredation.name = "colorization"
+    degredation.task_name = degredation.name
     degredation.channels = config.data.num_channels
     degredation.img_dim = config.data.image_size
     degredation.noiser = config.sampling.degredation_noiser
     degredation.sigma = config.sampling.degredation_sigma
     degredation.device = config.device
     
-    # load mask from masks/
-    mask_path = "masks/random_pixel_mask.npz"
-    degredation.missing_indices = load_mask(mask_path, device=config.degredation.device)[1]
     
     # sampling config
     sampling = config.sampling
     sampling.gudiance_method = "pgdm"
-    # sampling.clamp_to = 1 # gradient clipping for the guidance
+    sampling.clamp_to = 1 # gradient clipping
     
     return config
     

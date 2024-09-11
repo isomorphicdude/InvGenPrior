@@ -20,18 +20,18 @@ def get_config():
     config = get_celeb_config()
     
     # ckpt name
-    config.ckpt_name = "afhq_cats_ckpt.pth"
+    config.ckpt_name = "celebA_ckpt.pth"
     
     # data config (for creating degraded images)
     data = config.data
-    data.name = "afhq"
-    data.lmdb_file_path = "data/afhq/val.lmdb"
+    data.name = "celeba"
+    data.lmdb_file_path = "data/celeba-hq/val.lmdb"
     data.split_name = "val"
     
     # degredation config
     config.degredation = degredation = ml_collections.ConfigDict()
     degredation.name = "inpainting"
-    degredation.task_name = "inpainting_pixel"
+    degredation.task_name = "inpainting_box"
     degredation.channels = config.data.num_channels
     degredation.img_dim = config.data.image_size
     degredation.noiser = config.sampling.degredation_noiser
@@ -39,7 +39,7 @@ def get_config():
     degredation.device = config.device
     
     # load mask from masks/
-    mask_path = "masks/random_pixel_mask.npz"
+    mask_path = "masks/square_box_mask.npz"
     degredation.missing_indices = load_mask(mask_path, device=config.degredation.device)[1]
     
     # sampling config
