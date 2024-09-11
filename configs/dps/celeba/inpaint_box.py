@@ -1,4 +1,4 @@
-"""Configuration for box-masked inpainting on CelebA using DPS."""
+"""Configuration for box-masked inpainting on CelebA using TMPD."""
 import os
 import sys
 
