@@ -52,7 +52,7 @@ def get_config():
     sampling.clamp_to = 1.0 # gradient clipping for the guidance
     
     # inverse problem settings
-    sampling.degredation_sigma = 0.1
+    sampling.degredation_sigma = 0.05
     sampling.degredation_noiser = "gaussian"
     
     # data
