@@ -1,4 +1,4 @@
-"""Configuration for box-masked inpainting on AFHQ-cats using TMPD."""
+"""Configuration for box-masked inpainting on CelebA using TMPD."""
 import os
 import sys
 
@@ -20,12 +20,12 @@ def get_config():
     config = get_celeb_config()
     
     # ckpt name
-    config.ckpt_name = "afhq_cats_ckpt.pth"
+    config.ckpt_name = "celebA_ckpt.pth"
     
     # data config (for creating degraded images)
     data = config.data
-    data.name = "afhq"
-    data.lmdb_file_path = "data/afhq/val.lmdb"
+    data.name = "celeba"
+    data.lmdb_file_path = "data/celeba-hq/val.lmdb"
     data.split_name = "val"
     
     # degredation config
