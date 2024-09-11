@@ -40,7 +40,7 @@ def get_config():
     
     # configure the guided sampler for inverse problems
     sampling.use_ode_sampler = "euler" # changed for inverse problems
-    sampling.batch_size = 2
+    sampling.batch_size = 4
     
     # sampling starting time, 0.2, 0.4 in the paper
     sampling.starting_time = 0
