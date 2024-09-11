@@ -248,6 +248,19 @@ def _compute_recon_metrics(
         f.write(f"PSNR: {mean_psnr}\n")
         f.write(f"SSIM: {mean_ssim}\n")
         f.write(f"LPIPS: {mean_lpips}\n")
+        
+    # create txt file in top dir if not present
+    if not os.path.exists(os.path.join(workdir, "aggregated_metrics.txt")):
+        with open(os.path.join(workdir, "aggregated_metrics.txt"), "w") as f:
+            # create file
+            f.write("Method, Task, Dataset, PSNR, SSIM, LPIPS\n")
+            f.write(f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n")
+    else:
+        with open(os.path.join(workdir, "aggregated_metrics.txt"), "a") as f:
+            # append to file
+            f.write(f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n")
+        
+    
 
 
 def compute_recon_metrics(config, workdir, eval_folder):
@@ -262,6 +275,11 @@ def compute_recon_metrics(config, workdir, eval_folder):
         eval_folder=eval_folder,
     )
 
+# def aggregate_metrics(config, workdir, eval_folder):
+#     """
+#     Put all txt files together.
+#     """
+    
 # FLAGS = flags.FLAGS
 
 # config_flags.DEFINE_config_file(
