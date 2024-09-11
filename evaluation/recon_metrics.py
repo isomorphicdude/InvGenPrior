@@ -203,6 +203,7 @@ def _compute_recon_metrics(
     dataset_path,
     batch_size=2,
     transform=None,
+    noise_std=0.0,
     eval_folder="eval_samples",
 ):
     # path to the model output
@@ -250,7 +251,7 @@ def _compute_recon_metrics(
         f.write(f"LPIPS: {mean_lpips}\n")
         
     # create txt file in top dir if not present
-    aggregate_path = os.path.join(workdir, f"{dataset_name}_{task_name}_aggregated_metrics.txt")
+    aggregate_path = os.path.join(workdir, f"{dataset_name}_{task_name}_{noise_std}_aggregated_metrics.txt")
     if not os.path.exists(os.path.join(workdir, aggregate_path)):
         with open(os.path.join(workdir, aggregate_path), "w") as f:
             # create file
@@ -273,6 +274,7 @@ def compute_recon_metrics(config, workdir, eval_folder):
         dataset_path=config.data.lmdb_file_path,
         batch_size=config.sampling.batch_size,
         transform=None,
+        noise_std=config.sampling.degredation_sigma,
         eval_folder=eval_folder,
     )
 
