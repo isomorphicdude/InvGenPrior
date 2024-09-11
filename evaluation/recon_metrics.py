@@ -79,7 +79,7 @@ def get_ssim(data_loader):
             output.shape == truth.shape
         ), f"Output shape {output.shape} != Truth shape {truth.shape}"
         assert output.shape[1] == 3, f"Output shape {output.shape} not RGB"
-        ret.append(structural_similarity_index_measure(output, truth).to('cpu'))
+        ret.append(structural_similarity_index_measure(output, truth, reduction='none').to('cpu'))
     return ret
 
 
@@ -201,7 +201,7 @@ def _compute_recon_metrics(
     task_name,
     dataset_name,
     dataset_path,
-    batch_size=2,
+    batch_size=1,
     transform=None,
     noise_std=0.0,
     eval_folder="eval_samples",
