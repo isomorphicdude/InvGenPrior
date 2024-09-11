@@ -201,7 +201,7 @@ def _compute_recon_metrics(
     task_name,
     dataset_name,
     dataset_path,
-    batch_size=1,
+    batch_size=4,
     transform=None,
     noise_std=0.0,
     eval_folder="eval_samples",

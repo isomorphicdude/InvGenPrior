@@ -4,10 +4,19 @@
 # Run quantiative benchmarks for AFHQ dataset
 
 # pixel inpainting
-python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
+# python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
 # python run_sampling.py --config configs/tmpd/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
-python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
-python run_sampling.py --config configs/reddiff/afhq/inpaint_pixel.py --max_num_samples 100 --compute_recon_metrics
+# python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
+# python run_sampling.py --config configs/reddiff/afhq/inpaint_pixel.py --max_num_samples 100 --compute_recon_metrics
+
+python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py --compute_recon_metrics
+# python run_sampling.py --config configs/tmpd/afhq/inpaint_pixel.py --compute_recon_metrics
+python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py --compute_recon_metrics
+python run_sampling.py --config configs/reddiff/afhq/inpaint_pixel.py --compute_recon_metrics
+
+# copy results to workspace/
+echo "Copying results to workspace/"
+cp afhq*.txt workspace/
 
 
 # box inpainting
