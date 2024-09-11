@@ -324,8 +324,8 @@ flags.DEFINE_string(
 
 flags.DEFINE_integer(
     "max_num_samples",
-    # None,
-    10,
+    None,
+    # 10,
     "Maximum number of samples to generate, if None, generate all.",
 )
 
