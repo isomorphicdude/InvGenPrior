@@ -344,11 +344,14 @@ class GuidedSampler(ABC):
         if starting_time == 0:
             z = z
         else:
-            assert self.H_func.__name__ == "Inpainting"
-            degraded_image = self.H_func.get_degraded_image(y_obs).detach().clone()
+            if self.H_func.__name__ == "Inpainting" or self.H_func.__name__ == "Deblurring":
+                degraded_image = self.H_func.get_degraded_image(y_obs).detach().clone()
+            else:
+                degraded_image = self.H_func.H_pinv(y_obs).reshape(self.shape).detach().clone()
+            
             z = self.sde.alpha_t(starting_time) * degraded_image + self.sde.std_t(
-                starting_time
-            ) * torch.randn_like(degraded_image).to(self.device)
+                    starting_time
+                ) * torch.randn_like(degraded_image).to(self.device)
 
         if self.return_cov:
             print("Using Euler sampler")
