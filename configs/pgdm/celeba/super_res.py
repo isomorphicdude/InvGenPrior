@@ -45,6 +45,7 @@ def get_config():
     sampling = config.sampling
     sampling.gudiance_method = "pgdm"
     sampling.clamp_to = 1 # gradient clipping
+    sampling.starting_time = 0.2
     
     return config
     
