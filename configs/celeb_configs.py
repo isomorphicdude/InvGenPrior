@@ -43,7 +43,7 @@ def get_config():
     sampling.batch_size = 4
     
     # sampling starting time, 0.2, 0.4 in the paper
-    sampling.starting_time = 0.2
+    sampling.starting_time = 0.0
     # noise to add during sampling
     sampling.sigma_variance = 0.0 # NOTE: tune this add noise and denoise?
     
