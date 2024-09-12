@@ -245,7 +245,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
             return_list=False,
             method=config.sampling.use_ode_sampler,  # euler by default
             clamp_to=clamp_to,
-            starting_time=start_time,
+            starting_time=starting_time,
             new_noise = torch.randn_like(y_obs),
             data_name = config.data.name,
             use_svd = use_svd,
