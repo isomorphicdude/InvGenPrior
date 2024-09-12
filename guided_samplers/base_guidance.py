@@ -344,7 +344,7 @@ class GuidedSampler(ABC):
         if starting_time == 0:
             z = z
         else:
-            if self.H_func.__name__ == "Inpainting" or self.H_func.__name__ == "Deblurring":
+            if self.H_func.__class__.__name__ == "Inpainting" or self.H_func.__class__.__name__ == "Deblurring":
                 degraded_image = self.H_func.get_degraded_image(y_obs).detach().clone()
             else:
                 degraded_image = self.H_func.H_pinv(y_obs).reshape(self.shape).detach().clone()
