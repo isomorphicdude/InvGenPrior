@@ -99,23 +99,7 @@ class PiGDM(GuidedSampler):
 
         # print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None and clamp_condition:
-            if (
-                self.H_func.__class__.__name__ == "Inpainting"
-                or self.H_func.__class__.__name__ == "SuperResolution"
-            ):
-                if data_name == "celeba":
-                    threshold_time = 0.2
-                elif data_name == "afhq":
-                    threshold_time = 0.2
-                else:
-                    threshold_time = 2.0
-            else:
-                if data_name == "celeba":
-                    threshold_time = 0.2
-                elif data_name == "afhq":
-                    threshold_time = 0.2
-                else:
-                    threshold_time = 2.0
+            threshold_time = 0.1
             if num_t < threshold_time:
                 if data_name == "celeba":
                     guided_vec = (

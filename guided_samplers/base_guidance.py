@@ -121,14 +121,14 @@ class GuidedSampler(ABC):
                     )
 
                 else:
-                    if (
-                        # i <= self.sde.sample_N // 2
-                        # and self.__class__.__name__ != "REDdiff"
-                        self.__class__.__name__ != "REDdiff"
-                    ):
-                        clamp_condition = True
-                    else:
-                        clamp_condition = False
+                    # if (
+                    #     # i <= self.sde.sample_N // 2
+                    #     # and self.__class__.__name__ != "REDdiff"
+                    #     self.__class__.__name__ != "REDdiff"
+                    # ):
+                    #     clamp_condition = True
+                    # else:
+                    #     clamp_condition = False
 
                     guided_vec = self.get_guidance(
                         model_fn,
@@ -140,7 +140,7 @@ class GuidedSampler(ABC):
                         da_dt,
                         dstd_dt,
                         clamp_to=clamp_to,
-                        clamp_condition=clamp_condition,
+                        clamp_condition=True,
                         **kwargs,
                     )
                     # if i<=self.sde.sample_N//2 and self.__class__.__name__ != "REDdiff":
