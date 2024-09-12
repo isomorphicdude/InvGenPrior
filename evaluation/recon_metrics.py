@@ -137,10 +137,15 @@ class ZippedDataset(torch.utils.data.Dataset):
 
         # sort output images and ground truth images
         # sanity check needed
-        model_output_images_list = sorted(os.listdir(model_output_dir))
+        model_output_images_list = os.listdir(model_output_dir)
+        
         self.model_output_images = [
             img for img in model_output_images_list if img.endswith(".png") and img.startswith("sample")
         ]
+        # sort output according to the indices
+        self.model_output_images = sorted(
+            self.model_output_images, key=lambda x: int(x.split("_")[-1].split(".")[0])
+        )
         
 
         # allow for only subset
