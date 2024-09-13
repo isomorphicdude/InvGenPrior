@@ -204,9 +204,12 @@ def create_samples(
                 y_obs_image = inverse_scaler(y_obs_image)
 
             # pass to guided sampler
+            start_z = torch.randn(config.sampling.batch_size, *sampling_shape[1:]).to(
+                config.device
+            )
             batched_samples = guided_sampler.sample(
                 y_obs=y_obs,
-                z=None,  # maybe can use latent encoding
+                z=start_z,  # maybe can use latent encoding
                 return_list=return_list,
                 method=config.sampling.use_ode_sampler,  # euler or rk45
                 # method="euler",
