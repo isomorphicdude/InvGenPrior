@@ -2,7 +2,8 @@
 
 # Run quantiative benchmarks for AFHQ dataset
 
-noise_levels=(0.0 0.01 0.05)
+# noise_levels=(0.0 0.01 0.05)
+noise_levels=(0.05)
 
 # back up the celeba config
 cp configs/celeb_configs.py configs/celeb_configs_backup.py
@@ -14,9 +15,9 @@ for noise_lv in ${noise_levels[@]}; do
 
     echo "Running sampling for AFHQ dataset with noise level ${noise_lv}"
     # pixel inpainting
-    python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics
+    # python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics
     # python run_sampling.py --config configs/tmpd/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
-    python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics
+    # python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics
     # python run_sampling.py --config configs/reddiff/afhq/inpaint_pixel.py --max_num_samples 100 --compute_recon_metrics
 
     # python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py --compute_recon_metrics
@@ -32,7 +33,7 @@ for noise_lv in ${noise_levels[@]}; do
 
 
     # deblurring
-    # python run_sampling.py --config configs/tmpd_cg/afhq/deblur.py  --max_num_samples 100 --compute_recon_metrics
+    python run_sampling.py --config configs/tmpd_cg/afhq/deblur.py  --max_num_samples 4 --compute_recon_metrics
     # python run_sampling.py --config configs/pgdm/afhq/deblur.py  --max_num_samples 100 --compute_recon_metrics
     # python run_sampling.py --config configs/reddiff/afhq/deblur.py --max_num_samples 100 --compute_recon_metrics
 
