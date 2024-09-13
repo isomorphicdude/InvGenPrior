@@ -67,7 +67,7 @@ def create_samples(
         config.data.name,
         config.sampling.gudiance_method,
         config.degredation.task_name,
-        config.degredation.sigma,
+        f"{config.degredation.sigma}",
     )
     tf.io.gfile.makedirs(eval_dir)
 
