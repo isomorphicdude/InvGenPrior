@@ -49,7 +49,7 @@ def get_psnr(data_loader):
             output.shape == truth.shape
         ), f"Output shape {output.shape} != Truth shape {truth.shape}"
         assert output.shape[1] == 3, f"Output shape {output.shape} not RGB"
-        ret.append(peak_signal_noise_ratio(output, truth, reduction='none').to('cpu'))
+        ret.append(peak_signal_noise_ratio(output, truth, reduction="none").to("cpu"))
 
     return ret
 
@@ -79,7 +79,11 @@ def get_ssim(data_loader):
             output.shape == truth.shape
         ), f"Output shape {output.shape} != Truth shape {truth.shape}"
         assert output.shape[1] == 3, f"Output shape {output.shape} not RGB"
-        ret.append(structural_similarity_index_measure(output, truth, reduction='none').to('cpu'))
+        ret.append(
+            structural_similarity_index_measure(output, truth, reduction="none").to(
+                "cpu"
+            )
+        )
     return ret
 
 
@@ -138,15 +142,16 @@ class ZippedDataset(torch.utils.data.Dataset):
         # sort output images and ground truth images
         # sanity check needed
         model_output_images_list = os.listdir(model_output_dir)
-        
+
         self.model_output_images = [
-            img for img in model_output_images_list if img.endswith(".png") and img.startswith("sample")
+            img
+            for img in model_output_images_list
+            if img.endswith(".png") and img.startswith("sample")
         ]
         # sort output according to the indices
         self.model_output_images = sorted(
             self.model_output_images, key=lambda x: int(x.split("_")[-1].split(".")[0])
         )
-        
 
         # allow for only subset
         if len(self.model_output_images) < len(self.ground_truth_dset):
@@ -179,8 +184,8 @@ def create_eval_dataloader(
     model_output_dir, ground_truth_dset, transform=None, batch_size=2
 ):
     """
-    Creates a data loader for evaluation.  
-    
+    Creates a data loader for evaluation.
+
     Args:
       model_output_dir: str, the directory containing the model output images.
       ground_truth_dset: torch.utils.data.Dataset, the ground truth dataset.
@@ -213,16 +218,16 @@ def _compute_recon_metrics(
 ):
     # path to the model output
     model_output_dir = os.path.join(
-        workdir, eval_folder, dataset_name, method_name, task_name
+        workdir, eval_folder, dataset_name, method_name, task_name, f"sigma_{noise_std}"
     )
-    
+
     # true data set
     true_dset = lmdb_dataset.get_dataset(
         name=dataset_name,
         db_path=dataset_path,
-        transform=None,  
+        transform=None,
     )
-    
+
     # create data loader
     eval_loader = create_eval_dataloader(
         model_output_dir=model_output_dir,
@@ -230,22 +235,22 @@ def _compute_recon_metrics(
         transform=transform,
         batch_size=batch_size,
     )
-    
+
     # compute metrics
     psnr = get_psnr(eval_loader)
     ssim = get_ssim(eval_loader)
     lpips = get_lpips(eval_loader)
-    
+
     # convert to torch tensor and compute mean
     mean_psnr = torch.stack(psnr).mean()
     mean_ssim = torch.stack(ssim).mean()
     mean_lpips = torch.stack(lpips).mean()
-    
+
     # save metrics
     torch.save(psnr, os.path.join(model_output_dir, "psnr.pt"))
     torch.save(ssim, os.path.join(model_output_dir, "ssim.pt"))
     torch.save(lpips, os.path.join(model_output_dir, "lpips.pt"))
-    
+
     # write to txt
     with open(os.path.join(model_output_dir, "metrics.txt"), "w") as f:
         f.write(f"Method: {method_name}\n")
@@ -254,20 +259,24 @@ def _compute_recon_metrics(
         f.write(f"PSNR: {mean_psnr}\n")
         f.write(f"SSIM: {mean_ssim}\n")
         f.write(f"LPIPS: {mean_lpips}\n")
-        
+
     # create txt file in top dir if not present
-    aggregate_path = os.path.join(workdir, f"{dataset_name}_{task_name}_{noise_std}_aggregated_metrics.txt")
+    aggregate_path = os.path.join(
+        workdir, f"{dataset_name}_{task_name}_{noise_std}_aggregated_metrics.txt"
+    )
     if not os.path.exists(os.path.join(workdir, aggregate_path)):
         with open(os.path.join(workdir, aggregate_path), "w") as f:
             # create file
             f.write("Method, Task, Dataset, PSNR, SSIM, LPIPS\n")
-            f.write(f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n")
+            f.write(
+                f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n"
+            )
     else:
         with open(os.path.join(workdir, aggregate_path), "a") as f:
             # append to file
-            f.write(f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n")
-        
-    
+            f.write(
+                f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n"
+            )
 
 
 def compute_recon_metrics(config, workdir, eval_folder):
@@ -283,11 +292,12 @@ def compute_recon_metrics(config, workdir, eval_folder):
         eval_folder=eval_folder,
     )
 
+
 # def aggregate_metrics(config, workdir, eval_folder):
 #     """
 #     Put all txt files together.
 #     """
-    
+
 # FLAGS = flags.FLAGS
 
 # config_flags.DEFINE_config_file(
@@ -312,7 +322,7 @@ def compute_recon_metrics(config, workdir, eval_folder):
 #     logger = logging.getLogger()
 #     logger.addHandler(handler)
 #     logger.setLevel("INFO")
-    
+
 #     compute_recon_metrics(
 #         workdir=FLAGS.workdir,
 #         method_name=FLAGS.config.sampling.gudiance_method,
@@ -322,4 +332,3 @@ def compute_recon_metrics(config, workdir, eval_folder):
 #         batch_size=FLAGS.config.sampling.batch_size,
 #         eval_folder=FLAGS.eval_folder,
 #     )
-    
