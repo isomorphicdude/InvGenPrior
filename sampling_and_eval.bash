@@ -9,10 +9,10 @@ cp configs/celeb_configs.py configs/celeb_configs_backup.py
 
 for noise_lv in ${noise_levels[@]}; do
     # create a new config by changing the noise level
-    echo "Modifying celeb_configs.py with sampling.degredation_sigma = ${noise}"
-    sed -i "s/sampling\.degredation_sigma = .*/sampling\.degredation_sigma = ${noise}/g" configs/celeb_configs.py
+    echo "Modifying with noise level ${noise_lv}"
+    sed -i "s/sampling\.degredation_sigma = .*/sampling\.degredation_sigma = ${noise_lv}/g" configs/celeb_configs.py
 
-    echo "Running sampling for AFHQ dataset with noise level ${noise}"
+    echo "Running sampling for AFHQ dataset with noise level ${noise_lv}"
     # pixel inpainting
     # python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
     # python run_sampling.py --config configs/tmpd/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
