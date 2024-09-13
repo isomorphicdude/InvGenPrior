@@ -700,7 +700,7 @@ class Colorization(H_functions):
 
 
 # Deblurring
-# @register_operator(name="deblurring")
+@register_operator(name="deblurring2")
 class Deblurring2(H_functions):
     def __init__(self, config):
         # a custom implementation using torchvision so can match with Pokle et al. 2024
@@ -714,7 +714,6 @@ class Deblurring2(H_functions):
         self.channels = channels
         self.device = device
         # do not use anisotropic blurring for now
-        # this is implemented by Cardoso et al. 2023 in Deblurring2D
         self.gaussian_blur_torch = transforms.GaussianBlur(kernel_size, sigma=intensity).to(device)
         
         
