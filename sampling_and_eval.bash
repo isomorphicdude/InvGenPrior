@@ -14,7 +14,7 @@ for noise_lv in ${noise_levels[@]}; do
 
     echo "Running sampling for AFHQ dataset with noise level ${noise_lv}"
     # pixel inpainting
-    # python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
+    python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics
     # python run_sampling.py --config configs/tmpd/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
     python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics
     # python run_sampling.py --config configs/reddiff/afhq/inpaint_pixel.py --max_num_samples 100 --compute_recon_metrics
