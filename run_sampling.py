@@ -67,6 +67,7 @@ def create_samples(
         config.data.name,
         config.sampling.gudiance_method,
         config.degredation.task_name,
+        config.degredation.sigma,
     )
     tf.io.gfile.makedirs(eval_dir)
 
@@ -155,6 +156,8 @@ def create_samples(
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
     logging.info(f"Maximum number of samples to generate: {max_num_samples}")
     logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
+    logging.info(f"Task is {config.degredation.task_name}.")
+    logging.info(f"The noise level is {config.degredation.sigma}.")
 
     # check if certain images are sampled before
     # the img_idx will be written to disk
