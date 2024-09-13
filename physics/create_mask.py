@@ -17,32 +17,34 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def square_box_mask(
-    center=(0.5, 0.5), width=0.5, height=0.5, D_OR=(3, 256, 256), device="cpu"
+    center=(0.5, 0.5), width_pixel=80, height_pixel=80, 
+    D_OR=(3, 256, 256), device="cpu"
 ):
     """
-    Generates a sqaure mask inside the image for inpainting.
+    Generates a square mask inside the image for inpainting.
+
     Args:
-        - center: Tuple of floats (x, y) representing the center of the square.
-        - width: Float representing the width of the square.
-        - height: Float representing the height of the square.
-        - D_OR: Tuple of integers representing the shape of the image tensor (channels, height, width).
-        - device: String representing the device to use; default is 'cpu'.
+        center: Tuple of floats (x, y) representing the center of the square.
+        width_pixel: Int representing the width of the square.
+        height_pixel: Int representing the height of the square.
+        D_OR: Tuple of integers representing the shape of the image tensor (channels, height, width).
+        device: String representing the device to use; default is 'cpu'.
 
     Returns:
-        - mask: torch.tensor (height, width) representing the mask.
-        - missing_indices: torch.tensor (n,) length same as flattened missing part
-        - kept_indices: torch.tensor (n,) length same as flattened kept part
-        - coordinates_mask: torch.tensor (c*h*w, ), entries are boolean
+        mask: torch.tensor (height, width) representing the mask.
+        missing_indices: torch.tensor (n,) length same as flattened missing part.
+        kept_indices: torch.tensor (n,) length same as flattened kept part.
+        coordinates_mask: torch.tensor (c*h*w, ), entries are boolean.
     """
     channels, h, w = D_OR
 
     range_width = (
-        math.floor((center[0] - width / 2) * D_OR[1]),
-        math.ceil((center[0] + width / 2) * D_OR[1]),
+        math.floor((center[0] * D_OR[1] - width_pixel / 2)),
+        math.ceil((center[0] * D_OR[1] + width_pixel / 2)),
     )
     range_height = (
-        math.floor((center[1] - height / 2) * D_OR[2]),
-        math.ceil((center[1] + width / 2) * D_OR[2]),
+        math.floor((center[1] * D_OR[2] - height_pixel / 2)),
+        math.ceil((center[1] * D_OR[2] + height_pixel / 2)),
     )
     mask = torch.zeros(*D_OR[1:])
 
@@ -176,7 +178,7 @@ def main():
     """
     logging.info("Creating square box mask...")
     mask, missing_indices, kept_indices, coordinates_mask = square_box_mask(
-        center=(0.5, 0.5), width=0.3, height=0.3, D_OR=(3, 256, 256), device=DEVICE
+        center=(0.5, 0.5), width_pixel=80, height_pixel=80, D_OR=(3, 256, 256), device=DEVICE
     )
 
     logging.info("Creating random pixel mask...")
