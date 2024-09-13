@@ -218,7 +218,7 @@ def _compute_recon_metrics(
 ):
     # path to the model output
     model_output_dir = os.path.join(
-        workdir, eval_folder, dataset_name, method_name, task_name, f"sigma_{noise_std}"
+        workdir, eval_folder, dataset_name, method_name, task_name, f"{noise_std}"
     )
 
     # true data set
