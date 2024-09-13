@@ -41,7 +41,7 @@ def get_config():
     
     # if using torch implementation
     degredation.kernel_size = 61
-    degredation.intensity = 4.0
+    degredation.intensity = 3.0
     
     # if using custom implementation from NVlabs
     def pdf(x, sigma=10):
