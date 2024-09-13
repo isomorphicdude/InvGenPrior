@@ -700,7 +700,7 @@ class Colorization(H_functions):
 
 
 # Deblurring
-@register_operator(name="deblurring2")
+@register_operator(name="deblurring")
 class Deblurring2(H_functions):
     def __init__(self, config):
         # a custom implementation using torchvision so can match with Pokle et al. 2024
@@ -807,7 +807,7 @@ class H_func_gmm(H_functions):
             raise ValueError(f"Input shape not recognized, got {vec.shape}")
         return temp        
 
-@register_operator(name="deblurring")
+# @register_operator(name="deblurring")
 class Deblurring(H_functions):
     # TODO: can use einops to make the code more readable
     def mat_by_img(self, M, v):
