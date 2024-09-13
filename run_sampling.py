@@ -216,6 +216,7 @@ def create_samples(
                 clamp_to=config.sampling.clamp_to,
                 # clamp_to=1,
                 starting_time=config.sampling.starting_time,
+                data_name=config.data.name,
             )
 
             # save the images to eval folder
