@@ -39,7 +39,7 @@ class Clean(Noise):
 class GaussianNoise(Noise):
     def __init__(self, config):
         self.sigma = config.sigma
-        print(f"Using Gaussian noise with sigma={self.sigma}")
+        # print(f"Using Gaussian noise with sigma={self.sigma}")
     
     def forward(self, data):
         return data + torch.randn_like(data, device=data.device) * self.sigma
