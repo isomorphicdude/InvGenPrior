@@ -18,6 +18,7 @@ import logging
 import numpy as np
 import tensorflow as tf
 from absl import app, flags
+import ml_collections
 from ml_collections.config_flags import config_flags
 import matplotlib.pyplot as plt
 
@@ -47,6 +48,9 @@ def create_samples(
     return_list=False,
     eval_folder="eval_samples",
     max_num_samples=None,
+    noise_level=None,
+    starting_time=0.0,
+    gmres_max_iter=1,
 ):
     """
     Create samples using the guided sampler.
@@ -59,6 +63,12 @@ def create_samples(
       eval_folder: folder to save the samples, should be a combination of the
         name of the experiment and the method used to generate the samples
       max_num_samples: maximum number of samples to generate, if None, generate all
+      noise_level: noise level to use for the degredation operator
+      starting_time: starting time for the sampling process (for PGDM)
+      gmres_max_iter: maximum number of iterations for GMRES (for TMPD)  
+      
+    Returns:
+      eval_dir: directory where the samples are saved
     """
     # Create directory to eval_folder
     eval_dir = os.path.join(
@@ -66,8 +76,10 @@ def create_samples(
         eval_folder,
         config.data.name,
         config.sampling.gudiance_method,
+        f"start_{starting_time}",
+        f"num_iter_{gmres_max_iter}",
         config.degredation.task_name,
-        f"{config.degredation.sigma}",
+        f"{noise_level}",
     )
     tf.io.gfile.makedirs(eval_dir)
 
@@ -123,7 +135,10 @@ def create_samples(
 
     # build degredation operator
     H_func = get_operator(name=config.degredation.name, config=config.degredation)
-    noiser = get_noise(name=config.degredation.noiser, config=config.degredation)
+    
+    new_deg_config = ml_collections.ConfigDict()
+    new_deg_config.sigma = noise_level
+    noiser = get_noise(name=config.degredation.noiser, config=new_deg_config)
 
     # build sampling function
     sampling_shape = (
@@ -214,9 +229,9 @@ def create_samples(
                 method=config.sampling.use_ode_sampler,  # euler or rk45
                 # method="euler",
                 clamp_to=config.sampling.clamp_to,
-                # clamp_to=1,
-                starting_time=config.sampling.starting_time,
+                starting_time=starting_time,
                 data_name=config.data.name,
+                gmres_max_iter=gmres_max_iter,
             )
 
             # save the images to eval folder
@@ -266,15 +281,6 @@ def create_samples(
                         # range=(-1, 1),
                     )
 
-                    # true_img = inverse_scaler(batched_img[j])
-                    # save_image(
-                    #     true_img,
-                    #     os.path.join(
-                    #         eval_dir,
-                    #         f"true_{iter_no * config.sampling.batch_size + j}.png",
-                    #     ),
-                    # )
-
             end_time = time.time()
 
             logging.info(
@@ -315,6 +321,8 @@ def create_samples(
 
     # clear memory
     torch.cuda.empty_cache()
+    
+    return eval_dir
 
 
 FLAGS = flags.FLAGS
@@ -335,6 +343,12 @@ flags.DEFINE_integer(
     # 10,
     "Maximum number of samples to generate, if None, generate all.",
 )
+
+flags.DEFINE_float("noise_level", 0.1, "Noise level for degredation operator.")
+
+flags.DEFINE_float("starting_time", 0.0, "Starting time for the sampling process.")
+
+flags.DEFINE_integer("gmres_max_iter", 1, "Maximum number of iterations for GMRES.")
 
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
 
@@ -359,13 +373,16 @@ def main(argv):
     logger.addHandler(handler)
     logger.setLevel("INFO")
 
-    create_samples(
+    samples_eval_dir = create_samples(
         FLAGS.config,
         FLAGS.workdir,
         save_degraded=True,
         return_list=FLAGS.return_list,
         eval_folder=FLAGS.eval_folder,
         max_num_samples=FLAGS.max_num_samples,
+        gmres_max_iter=FLAGS.gmres_max_iter,
+        noise_level=FLAGS.noise_level,
+        starting_time=FLAGS.starting_time,
     )
     
     if FLAGS.compute_recon_metrics:
@@ -373,7 +390,7 @@ def main(argv):
         recon_metrics.compute_recon_metrics(
             FLAGS.config,
             workdir=FLAGS.workdir,
-            eval_folder=FLAGS.eval_folder
+            model_output_dir=samples_eval_dir,
         )
     
     if FLAGS.compute_fid:

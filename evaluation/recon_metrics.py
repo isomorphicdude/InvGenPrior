@@ -214,12 +214,12 @@ def _compute_recon_metrics(
     batch_size=4,
     transform=None,
     noise_std=0.0,
-    eval_folder="eval_samples",
+    model_output_dir="",
 ):
     # path to the model output
-    model_output_dir = os.path.join(
-        workdir, eval_folder, dataset_name, method_name, task_name, f"{noise_std}"
-    )
+    # model_output_dir = os.path.join(
+    #     workdir, eval_folder, dataset_name, method_name, task_name, f"{noise_std}"
+    # )
 
     # true data set
     true_dset = lmdb_dataset.get_dataset(
@@ -279,7 +279,7 @@ def _compute_recon_metrics(
             )
 
 
-def compute_recon_metrics(config, workdir, eval_folder):
+def compute_recon_metrics(config, workdir, model_output_dir):
     return _compute_recon_metrics(
         workdir=workdir,
         method_name=config.sampling.gudiance_method,
@@ -289,7 +289,7 @@ def compute_recon_metrics(config, workdir, eval_folder):
         batch_size=config.sampling.batch_size,
         transform=None,
         noise_std=config.sampling.degredation_sigma,
-        eval_folder=eval_folder,
+        model_output_dir=model_output_dir,
     )
 
 
