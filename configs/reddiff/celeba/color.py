@@ -40,7 +40,7 @@ def get_config():
     
     # sampling config
     sampling = config.sampling
-    sampling.sample_N = 1000 # NOTE: tune this
+    sampling.sample_N = 100 # NOTE: tune this
     sampling.gudiance_method = "reddiff"
     sampling.clamp_to = 1 # gradient clipping
     
