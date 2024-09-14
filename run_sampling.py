@@ -413,12 +413,19 @@ def main(argv):
         random_subset=FLAGS.random_subset,
     )
     
+    additional_params = {
+        "noise_level": FLAGS.noise_level,
+        "starting_time": FLAGS.starting_time,
+        "gmres_max_iter": FLAGS.gmres_max_iter,
+    }
     if FLAGS.compute_recon_metrics:
         # compute recon metrics
         recon_metrics.compute_recon_metrics(
             FLAGS.config,
             workdir=FLAGS.workdir,
             model_output_dir=samples_eval_dir,
+            random_indices=sample_indices,
+            additional_params=additional_params,
         )
     
     if FLAGS.compute_fid:
