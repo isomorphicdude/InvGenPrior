@@ -424,6 +424,7 @@ def main(argv):
             FLAGS.config,
             workdir=FLAGS.workdir,
             model_output_dir=samples_eval_dir,
+            noise_std=FLAGS.noise_level,
             random_indices=sample_indices,
             additional_params=additional_params,
         )
