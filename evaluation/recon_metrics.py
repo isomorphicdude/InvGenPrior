@@ -308,7 +308,12 @@ def _compute_recon_metrics(
 
 
 def compute_recon_metrics(
-    config, workdir, model_output_dir, random_indices=None, additional_params=None
+    config, 
+    workdir, 
+    model_output_dir,
+    noise_std,
+    random_indices=None,
+    additional_params=None
 ):
 
     return _compute_recon_metrics(
@@ -319,7 +324,7 @@ def compute_recon_metrics(
         dataset_path=config.data.lmdb_file_path,
         batch_size=config.sampling.batch_size,
         transform=None,
-        noise_std=config.sampling.degredation_sigma,
+        noise_std=noise_std,
         model_output_dir=model_output_dir,
         random_indices=random_indices,
         additional_params=additional_params,
