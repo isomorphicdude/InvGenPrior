@@ -97,7 +97,7 @@ class TMPD_cgr(GuidedSampler):
                 + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy
             )
             
-        _grad_ll = gmres(
+        _grad_ll = conjugate_gradient(
             A=cov_y_xt,
             b=difference,
             x=init_guess,
