@@ -16,7 +16,7 @@ for noise_lv in ${noise_levels[@]}; do
         python run_sampling.py --config configs/pgdm/afhq/deblur.py  --max_num_samples 100 --compute_recon_metrics --noise_level ${noise_lv} --starting_time ${starting_time}
         python run_sampling.py --config configs/pgdm/afhq/super_res.py  --max_num_samples 100 --compute_recon_metrics --noise_level ${noise_lv} --starting_time ${starting_time}
     done
-
+done
     
 
 
