@@ -51,6 +51,7 @@ def create_samples(
     noise_level=None,
     starting_time=0.0,
     gmres_max_iter=1,
+    random_subset=False,
 ):
     """
     Create samples using the guided sampler.
@@ -66,6 +67,7 @@ def create_samples(
       noise_level: noise level to use for the degredation operator
       starting_time: starting time for the sampling process (for PGDM)
       gmres_max_iter: maximum number of iterations for GMRES (for TMPD)  
+      random_subset: whether to sample a random subset of the data
       
     Returns:
       eval_dir: directory where the samples are saved
@@ -89,6 +91,15 @@ def create_samples(
         db_path=config.data.lmdb_file_path,
         transform=None,  # overridden by child class
     )
+    
+    # get random subset of data
+    if random_subset:
+        indices = np.random.choice(len(dset), max_num_samples, replace=False)
+        dset = torch.utils.data.Subset(dset, indices)
+        
+    else:
+        if max_num_samples is not None:
+            dset = torch.utils.data.Subset(dset, list(range(max_num_samples)))
 
     data_loader = torch.utils.data.DataLoader(
         dset,
@@ -169,7 +180,11 @@ def create_samples(
     logging.info(f"Using {config.sampling.gudiance_method} guided sampler.")
     logging.info(f"Using dataset {config.data.name}.")
     logging.info(f"Dataset size is {len(data_loader.dataset)}")
-    logging.info(f"Maximum number of samples to generate: {max_num_samples}")
+    if max_num_samples is not None:
+        logging.info(f"Maximum number of samples to generate: {max_num_samples}")
+    else:
+        max_num_samples = len(data_loader.dataset)
+        logging.info(f"Generating all samples.")
     logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
     logging.info(f"Task is {config.degredation.task_name}.")
     logging.info(f"The noise level is {config.degredation.sigma}.")
@@ -288,7 +303,7 @@ def create_samples(
             )
             # additional time
             logging.info(
-                f"Estimated time remaining: {(end_time - start_time) * (len(data_loader) - iter_no):.3f} seconds; Or {(end_time - start_time) * (len(data_loader) - iter_no) / 60:.3f} minutes."
+                f"Estimated time remaining: {(end_time - start_time) * (max_num_samples - iter_no):.3f} seconds; Or {(end_time - start_time) * (len(data_loader) - iter_no) / 60:.3f} minutes."
             )
 
             # write to file to store index
@@ -306,16 +321,16 @@ def create_samples(
             img_counter += config.sampling.batch_size
 
         # if iter_no % 4 == 0 and iter_no != 0:
-        if max_num_samples is not None:
-            if (iter_no + 1) * config.sampling.batch_size >= max_num_samples:
-                logging.info(f"Finished {iter_no} batches, exiting...")
+        # if max_num_samples is not None:
+        #     if (iter_no + 1) * config.sampling.batch_size >= max_num_samples:
+        #         logging.info(f"Finished {iter_no} batches, exiting...")
 
-                # clear memory
-                torch.cuda.empty_cache()
-                gc.collect()
+        #         # clear memory
+        #         torch.cuda.empty_cache()
+        #         gc.collect()
 
-                # exit
-                break
+        #         # exit
+        #         break
 
     logging.info("Sampling finished.")
 
@@ -343,6 +358,8 @@ flags.DEFINE_integer(
     # 10,
     "Maximum number of samples to generate, if None, generate all.",
 )
+
+flags.DEFINE_boolean("random_subset", True, "Sample a random subset of the data.")
 
 flags.DEFINE_float("noise_level", 0.1, "Noise level for degredation operator.")
 
@@ -383,6 +400,7 @@ def main(argv):
         gmres_max_iter=FLAGS.gmres_max_iter,
         noise_level=FLAGS.noise_level,
         starting_time=FLAGS.starting_time,
+        random_subset=FLAGS.random_subset,
     )
     
     if FLAGS.compute_recon_metrics:
