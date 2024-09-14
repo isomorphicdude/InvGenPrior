@@ -34,8 +34,8 @@ for noise_lv in ${noise_levels[@]}; do
 
     # deblurring
     # python run_sampling.py --config configs/tmpd_cg/afhq/deblur.py  --max_num_samples 20 --compute_recon_metrics
-    python run_sampling.py --config configs/pgdm/afhq/deblur.py  --max_num_samples 4 --compute_recon_metrics
-    # python run_sampling.py --config configs/reddiff/afhq/deblur.py --max_num_samples 20 --compute_recon_metrics
+    # python run_sampling.py --config configs/pgdm/afhq/deblur.py  --max_num_samples 4 --compute_recon_metrics
+    python run_sampling.py --config configs/reddiff/afhq/deblur.py --max_num_samples 20 --compute_recon_metrics
 
 
     # super-resolution
