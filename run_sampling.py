@@ -71,6 +71,7 @@ def create_samples(
       
     Returns:
       eval_dir: directory where the samples are saved
+      indices: indices of the samples generated (reconstructed)
     """
     # Create directory to eval_folder
     eval_dir = os.path.join(
@@ -99,7 +100,16 @@ def create_samples(
         
     else:
         if max_num_samples is not None:
+            indices = list(range(max_num_samples))
             dset = torch.utils.data.Subset(dset, list(range(max_num_samples)))
+        else:
+            indices = list(range(len(dset)))
+            
+    # dump random indices
+    with open(os.path.join(eval_dir, "indices.txt"), "w") as f:
+        for idx in indices:
+            f.write(f"{idx}\n")
+        
 
     data_loader = torch.utils.data.DataLoader(
         dset,
@@ -337,7 +347,7 @@ def create_samples(
     # clear memory
     torch.cuda.empty_cache()
     
-    return eval_dir
+    return eval_dir, indices
 
 
 FLAGS = flags.FLAGS
@@ -390,7 +400,7 @@ def main(argv):
     logger.addHandler(handler)
     logger.setLevel("INFO")
 
-    samples_eval_dir = create_samples(
+    samples_eval_dir, sample_indices = create_samples(
         FLAGS.config,
         FLAGS.workdir,
         save_degraded=True,

@@ -130,7 +130,9 @@ class ZippedDataset(torch.utils.data.Dataset):
     and the second entry is the ground truth.
     """
 
-    def __init__(self, model_output_dir, ground_truth_dset, transform=None):
+    def __init__(
+        self, model_output_dir, ground_truth_dset, transform=None, random_indices=None
+    ):
         self.model_output_dir = model_output_dir
         self.ground_truth_dset = ground_truth_dset
 
@@ -158,9 +160,14 @@ class ZippedDataset(torch.utils.data.Dataset):
             print(
                 f"Warning: Model output images less than ground truth images. Truncating ground truth images."
             )
-            self.ground_truth_dset = torch.utils.data.Subset(
-                self.ground_truth_dset, range(len(self.model_output_images))
-            )
+            if random_indices is not None:
+                self.ground_truth_dset = torch.utils.data.Subset(
+                    self.ground_truth_dset, random_indices
+                )
+            else:
+                raise ValueError(
+                    "Sample indices must be provided when model output images are less than ground truth images."
+                )
 
     def __len__(self):
         return len(self.model_output_images)
@@ -181,7 +188,11 @@ class ZippedDataset(torch.utils.data.Dataset):
 
 
 def create_eval_dataloader(
-    model_output_dir, ground_truth_dset, transform=None, batch_size=2
+    model_output_dir,
+    ground_truth_dset,
+    transform=None,
+    batch_size=2,
+    random_indices=None,
 ):
     """
     Creates a data loader for evaluation.
@@ -191,12 +202,18 @@ def create_eval_dataloader(
       ground_truth_dset: torch.utils.data.Dataset, the ground truth dataset.
       transform: torchvision.transforms, the transformation to apply to the images.
       batch_size: int, the batch size for the data loader.
+      random_indices: list, the indices to sample from the ground truth dataset.
 
     Returns:
       torch.utils.data.DataLoader, the data loader for evaluation.
     """
 
-    dataset = ZippedDataset(model_output_dir, ground_truth_dset, transform=transform)
+    dataset = ZippedDataset(
+        model_output_dir,
+        ground_truth_dset,
+        transform=transform,
+        random_indices=random_indices,
+    )
 
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False
@@ -215,6 +232,8 @@ def _compute_recon_metrics(
     transform=None,
     noise_std=0.0,
     model_output_dir="",
+    random_indices=None,
+    additional_params=None,
 ):
     # path to the model output
     # model_output_dir = os.path.join(
@@ -234,6 +253,7 @@ def _compute_recon_metrics(
         ground_truth_dset=true_dset,
         transform=transform,
         batch_size=batch_size,
+        random_indices=random_indices,
     )
 
     # compute metrics
@@ -260,6 +280,12 @@ def _compute_recon_metrics(
         f.write(f"SSIM: {mean_ssim}\n")
         f.write(f"LPIPS: {mean_lpips}\n")
 
+    # get additional params
+    starting_time = additional_params.get("starting_time", 0.0)
+    sample_N = additional_params.get("sample_N", 100)
+    # clamp_to = additional_params.get("clamp_to", 1.0)
+    gmres_max_iter = additional_params.get("gmres_max_iter", 100)
+
     # create txt file in top dir if not present
     aggregate_path = os.path.join(
         workdir, f"{dataset_name}_{task_name}_{noise_std}_aggregated_metrics.txt"
@@ -267,19 +293,24 @@ def _compute_recon_metrics(
     if not os.path.exists(os.path.join(workdir, aggregate_path)):
         with open(os.path.join(workdir, aggregate_path), "w") as f:
             # create file
-            f.write("Method, Task, Dataset, PSNR, SSIM, LPIPS\n")
             f.write(
-                f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n"
+                "Method, Task, Dataset, starting_time, sample_N, gmres_max_iter, PSNR, SSIM, LPIPS\n"
+            )
+            f.write(
+                f"{method_name}, {task_name}, {dataset_name}, {starting_time}, {sample_N}, {gmres_max_iter}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n"
             )
     else:
         with open(os.path.join(workdir, aggregate_path), "a") as f:
             # append to file
             f.write(
-                f"{method_name}, {task_name}, {dataset_name}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n"
+                f"{method_name}, {task_name}, {dataset_name}, {starting_time}, {sample_N}, {gmres_max_iter}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n"
             )
 
 
-def compute_recon_metrics(config, workdir, model_output_dir):
+def compute_recon_metrics(
+    config, workdir, model_output_dir, random_indices=None, additional_params=None
+):
+
     return _compute_recon_metrics(
         workdir=workdir,
         method_name=config.sampling.gudiance_method,
@@ -290,6 +321,8 @@ def compute_recon_metrics(config, workdir, model_output_dir):
         transform=None,
         noise_std=config.sampling.degredation_sigma,
         model_output_dir=model_output_dir,
+        random_indices=random_indices,
+        additional_params=additional_params,
     )
 
 
