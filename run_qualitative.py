@@ -30,7 +30,7 @@ from datasets import lmdb_dataset
 # inverse problems
 from physics.operators import get_operator
 from physics.noisers import get_noise
-from guided_samplers import tmpd, dps, pgdm, reddiff, bures_jko
+from guided_samplers import tmpd, dps, pgdm, reddiff, bures_jko, tmpd_cgr
 from guided_samplers.registry import get_guided_sampler, __GUIDED_SAMPLERS__
 
 
@@ -78,10 +78,11 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         "tmpd_h_ablate",
         "dps",
         "tmpd_gmres",
+        "tmpd_cg",
         "tmpd_gmres_ablate",
-        # "reddiff",
+        "reddiff",
         "tmpd_og",
-        # "pgdm",
+        "pgdm",
     ]
     config_keys = [
         sampler_name
