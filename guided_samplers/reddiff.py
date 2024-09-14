@@ -78,7 +78,7 @@ class REDdiff(GuidedSampler):
             
             # reconstruction loss
             e_obs = y_obs - self.H_func.H(x0_pred)
-            loss_obs = (e_obs**2).mean()/(2 * self.noiser.sigma**2)
+            loss_obs = (e_obs**2).mean()/2
             
             # Regularization loss
             # grad = E_{t~U(0,1) and noise~N(0,1)} [lambda_t (score - noise)]
