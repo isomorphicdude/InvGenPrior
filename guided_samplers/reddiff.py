@@ -69,8 +69,8 @@ class REDdiff(GuidedSampler):
             
             # initialize, with just x0_pred=mu
             x0_pred = mu
-            if clamp_to is not None:
-                x0_pred = torch.clamp(x0_pred, -clamp_to, clamp_to)
+            # if clamp_to is not None:
+            #     x0_pred = torch.clamp(x0_pred, -clamp_to, clamp_to)
             
             # conditional distribution q(x_t | y) by diffusing the variational distribution
             noise_xt = torch.randn_like(mu).to(self.device)
