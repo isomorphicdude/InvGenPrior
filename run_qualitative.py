@@ -80,7 +80,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         "tmpd_gmres",
         "tmpd_cg",
         "tmpd_gmres_ablate",
-        "reddiff",
+        # "reddiff",
         "tmpd_og",
         # "pgdm",
     ]

@@ -303,7 +303,7 @@ def create_samples(
             )
             # additional time
             logging.info(
-                f"Estimated time remaining: {(end_time - start_time) * (max_num_samples - iter_no):.3f} seconds; Or {(end_time - start_time) * (len(data_loader) - iter_no) / 60:.3f} minutes."
+                f"Estimated time remaining: {(end_time - start_time) * (len(data_loader) - iter_no):.3f} seconds; Or {(end_time - start_time) * (len(data_loader) - iter_no) / 60:.3f} minutes."
             )
 
             # write to file to store index
