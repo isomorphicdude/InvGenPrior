@@ -22,7 +22,7 @@ for noise_lv in ${noise_levels[@]}; do
 done
 
 # find best hyperparameters
-python evaluation/recon_metrics.py --config configs/pgdm/afhq/inpaint_pixel.py --method pgdm --data_name afhq
+python evaluation/recon_metrics.py --method pgdm --data_name afhq
 
 
     
