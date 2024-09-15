@@ -344,29 +344,29 @@ def _get_best_config_df(df):
 
     return best_row
 
-def _get_best_config(workdir, dataset_name, task_name, noise_std, method_name):
-    # Read the aggregated metrics file
-    df = pd.read_csv(os.path.join(workdir, f"{dataset_name}_{task_name}_{noise_std}_aggregated_metrics.txt"))
+# def _get_best_config(workdir, dataset_name, task_name, noise_std, method_name):
+#     # Read the aggregated metrics file
+#     df = pd.read_csv(os.path.join(workdir, f"{dataset_name}_{task_name}_{noise_std}_aggregated_metrics.txt"))
 
-    best_row = _get_best_config_df(df)
+#     best_row = _get_best_config_df(df)
     
-    # write to txt
-    best_param_path =  f"{method_name}_best_params.txt"
-    if not os.path.exists(os.path.join(workdir, best_param_path)):
-        with open(os.path.join(workdir, best_param_path), "w") as f:
-            f.write(best_row.to_string())
-    else:
-        with open(os.path.join(workdir, best_param_path), "a") as f:
-            f.write(best_row.to_string())
+#     # write to txt
+#     best_param_path =  f"{method_name}_best_params.txt"
+#     if not os.path.exists(os.path.join(workdir, best_param_path)):
+#         with open(os.path.join(workdir, best_param_path), "w") as f:
+#             f.write(best_row.to_string())
+#     else:
+#         with open(os.path.join(workdir, best_param_path), "a") as f:
+#             f.write(best_row.to_string())
 
-    return best_row
+#     return best_row
 
 
-def get_best_config(config, workdir, noise_std, additional_params=None):
-    return _get_best_config(
-        workdir=workdir,
-        dataset_name=config.data.name,
-        task_name=config.degredation.task_name,
-        noise_std=noise_std,
-        method_name=config.sampling.gudiance_method,
-    )
+# def get_best_config(config, workdir, noise_std, additional_params=None):
+#     return _get_best_config(
+#         workdir=workdir,
+#         dataset_name=config.data.name,
+#         task_name=config.degredation.task_name,
+#         noise_std=noise_std,
+#         method_name=config.sampling.gudiance_method,
+#     )

@@ -436,13 +436,13 @@ def main(argv):
             additional_params=additional_params,
         )
         
-    if FLAGS.tune_hyp:
-        recon_metrics.get_best_config(
-            config=FLAGS.config,
-            workdir=FLAGS.workdir,
-            noise_std=FLAGS.noise_level,
-            additional_params=additional_params,
-        )
+    # if FLAGS.tune_hyp:
+    #     recon_metrics.get_best_config(
+    #         config=FLAGS.config,
+    #         workdir=FLAGS.workdir,
+    #         noise_std=FLAGS.noise_level,
+    #         additional_params=additional_params,
+    #     )
     
     if FLAGS.compute_fid:
         raise NotImplementedError("FID and KID computation not implemented yet.")
