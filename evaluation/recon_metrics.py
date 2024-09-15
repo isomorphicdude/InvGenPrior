@@ -282,7 +282,7 @@ def _compute_recon_metrics(
 
     # get additional params
     starting_time = additional_params.get("starting_time", 0.0)
-    sample_N = additional_params.get("sample_N", 100)
+    sample_N = additional_params.get("nfe", 100)
     # clamp_to = additional_params.get("clamp_to", 1.0)
     gmres_max_iter = additional_params.get("gmres_max_iter", 100)
 
@@ -331,42 +331,42 @@ def compute_recon_metrics(
     )
 
 
-# def aggregate_metrics(config, workdir, eval_folder):
-#     """
-#     Put all txt files together.
-#     """
+def _get_best_config_df(df):
+    # Normalize the metrics (SSIM and PSNR should be maximized, LPIPS minimized)
+    df['PSNR_norm'] = df['PSNR'] / df['PSNR'].max()
+    df['SSIM_norm'] = df['SSIM'] / df['SSIM'].max()
+    df['LPIPS_norm'] = df['LPIPS'].min() / df['LPIPS']  # Lower LPIPS is better, so inverse
 
-# FLAGS = flags.FLAGS
+    df['combined_score'] = df['PSNR_norm'] + df['SSIM_norm'] + df['LPIPS_norm']
 
-# config_flags.DEFINE_config_file(
-#     "config", None, "Path to the method configuration file."
-# )
 
-# flags.DEFINE_string("workdir", "", "Work directory.")
+    best_row = df.loc[df['combined_score'].idxmax()]
 
-# flags.DEFINE_string(
-#     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
-# )
+    return best_row
 
-# def main(argv):
-#     tf.io.gfile.makedirs(FLAGS.workdir)
-#     # Set logger so that it outputs to both console and file
-#     gfile_stream = open(os.path.join(FLAGS.workdir, "stdout.txt"), "w")
-#     handler = logging.StreamHandler(gfile_stream)
-#     formatter = logging.Formatter(
-#         "%(levelname)s - %(filename)s - %(asctime)s - %(message)s"
-#     )
-#     handler.setFormatter(formatter)
-#     logger = logging.getLogger()
-#     logger.addHandler(handler)
-#     logger.setLevel("INFO")
+def _get_best_config(workdir, dataset_name, task_name, noise_std, method_name):
+    # Read the aggregated metrics file
+    df = pd.read_csv(os.path.join(workdir, f"{dataset_name}_{task_name}_{noise_std}_aggregated_metrics.txt"))
 
-#     compute_recon_metrics(
-#         workdir=FLAGS.workdir,
-#         method_name=FLAGS.config.sampling.gudiance_method,
-#         task_name=FLAGS.config.degredation.task_name,
-#         dataset_name=FLAGS.config.data.name,
-#         dataset_path=FLAGS.config.data.lmdb_file_path,
-#         batch_size=FLAGS.config.sampling.batch_size,
-#         eval_folder=FLAGS.eval_folder,
-#     )
+    best_row = _get_best_config_df(df)
+    
+    # write to txt
+    best_param_path =  f"{method_name}_best_params.txt"
+    if not os.path.exists(os.path.join(workdir, best_param_path)):
+        with open(os.path.join(workdir, best_param_path), "w") as f:
+            f.write(best_row.to_string())
+    else:
+        with open(os.path.join(workdir, best_param_path), "a") as f:
+            f.write(best_row.to_string())
+
+    return best_row
+
+
+def get_best_config(config, workdir, noise_std, additional_params=None):
+    return _get_best_config(
+        workdir=workdir,
+        dataset_name=config.data.name,
+        task_name=config.degredation.task_name,
+        noise_std=noise_std,
+        method_name=config.sampling.gudiance_method,
+    )

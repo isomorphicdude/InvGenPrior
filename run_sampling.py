@@ -46,6 +46,7 @@ def create_samples(
     workdir,
     save_degraded=True,
     return_list=False,
+    nfe=100,
     eval_folder="eval_samples",
     max_num_samples=None,
     noise_level=None,
@@ -61,6 +62,7 @@ def create_samples(
       workdir: working directory, usually just the root directory of repo
       save_degraded: whether to save the degraded images
       return_list: whether to return a list of samples
+      nfe: number of function evaluations for the ODE solver
       eval_folder: folder to save the samples, should be a combination of the
         name of the experiment and the method used to generate the samples
       max_num_samples: maximum number of samples to generate, if None, generate all
@@ -79,10 +81,8 @@ def create_samples(
         eval_folder,
         config.data.name,
         config.sampling.gudiance_method,
-        f"start_{starting_time}",
-        f"num_iter_{gmres_max_iter}",
         config.degredation.task_name,
-        f"{noise_level}",
+        f"start_{starting_time}_iter_{gmres_max_iter}_nfe_{nfe}_noise_{noise_level}",
     )
     tf.io.gfile.makedirs(eval_dir)
 
@@ -148,7 +148,8 @@ def create_samples(
             use_ode_sampler=config.sampling.use_ode_sampler,
             sigma_var=config.sampling.sigma_variance,
             ode_tol=config.sampling.ode_tol,
-            sample_N=config.sampling.sample_N,
+            # sample_N=config.sampling.sample_N,
+            sample_N=nfe,
         )
         sampling_eps = 1e-3
     else:
@@ -369,6 +370,10 @@ flags.DEFINE_integer(
     "Maximum number of samples to generate, if None, generate all.",
 )
 
+flags.DEFINE_boolean("tune_hyp", False, "Tune hyperparameters.")
+
+flags.DEFINE_integer("nfe", 100, "Number of function evaluations for the ODE solver.")
+
 flags.DEFINE_boolean("random_subset", True, "Sample a random subset of the data.")
 
 flags.DEFINE_float("noise_level", 0.1, "Noise level for degredation operator.")
@@ -411,12 +416,14 @@ def main(argv):
         noise_level=FLAGS.noise_level,
         starting_time=FLAGS.starting_time,
         random_subset=FLAGS.random_subset,
+        nfe=FLAGS.nfe,
     )
     
     additional_params = {
         "noise_level": FLAGS.noise_level,
         "starting_time": FLAGS.starting_time,
         "gmres_max_iter": FLAGS.gmres_max_iter,
+        "nfe": FLAGS.nfe,
     }
     if FLAGS.compute_recon_metrics:
         # compute recon metrics
@@ -426,6 +433,14 @@ def main(argv):
             model_output_dir=samples_eval_dir,
             noise_std=FLAGS.noise_level,
             random_indices=sample_indices,
+            additional_params=additional_params,
+        )
+        
+    if FLAGS.tune_hyp:
+        recon_metrics.get_best_config(
+            config=FLAGS.config,
+            workdir=FLAGS.workdir,
+            noise_std=FLAGS.noise_level,
             additional_params=additional_params,
         )
     
