@@ -370,7 +370,7 @@ flags.DEFINE_integer(
     "Maximum number of samples to generate, if None, generate all.",
 )
 
-flags.DEFINE_boolean("tune_hyp", False, "Tune hyperparameters.")
+# flags.DEFINE_boolean("tune_hyp", False, "Tune hyperparameters.")
 
 flags.DEFINE_integer("nfe", 100, "Number of function evaluations for the ODE solver.")
 
