@@ -49,6 +49,7 @@ flags.DEFINE_string("method", "", "Guidance method.")
 flags.DEFINE_string("data_name", "", "Data name.")
 
 def main(argv):
+    print(os.getcwd())
     # method = FLAGS.config.sampling.gudiance_method
     data_name = FLAGS.data_name
     method = FLAGS.method
@@ -57,7 +58,7 @@ def main(argv):
     
     # list all the txt results in workdir
     workdir = ""
-    all_txt = os.listdir(workdir)
+    all_txt = os.listdir(os.getcwd())
     all_tx = [f for f in all_txt if f.endswith(".txt") and f.startswith(f"{data_name}_")]
     
     # write to txt
