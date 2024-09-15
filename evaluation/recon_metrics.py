@@ -370,3 +370,37 @@ def _get_best_config_df(df):
 #         noise_std=noise_std,
 #         method_name=config.sampling.gudiance_method,
 #     )
+
+
+
+
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string("workdir", "", "Work directory.")
+config_flags.DEFINE_config_file(
+    "config", None, "Sampling configuration.", lock_config=False  # might want to lock
+)
+
+def main(argv):
+    method = FLAGS.config.sampling.gudiance_method
+    data_name = FLAGS.config.data.name
+    # task_name = FLAGS.config.degredation.task_name
+    # noise_std = FLAGS.config.data.noise_std
+    
+    # list all the txt results in workdir
+    workdir = FLAGS.workdir
+    all_txt = os.listdir(workdir)
+    all_tx = [f for f in all_txt if f.endswith(".txt") and f.startswith(f"{data_name}_")]
+    
+    # write to txt
+    best_param_path =  f"{method}_best_params.txt"
+    for txt_file in all_tx:
+        df = pd.read_csv(os.path.join(workdir, txt_file))
+        best_row = _get_best_config_df(df)
+        if not os.path.exists(os.path.join(workdir, best_param_path)):
+            with open(os.path.join(workdir, best_param_path), "w") as f:
+                f.write(best_row.to_string())
+        else:
+            with open(os.path.join(workdir, best_param_path), "a") as f:
+                f.write(best_row.to_string())
+    

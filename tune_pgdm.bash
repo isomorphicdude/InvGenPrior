@@ -20,7 +20,9 @@ for noise_lv in ${noise_levels[@]}; do
         python run_sampling.py --config configs/pgdm/afhq/super_res.py  --max_num_samples ${max_samp} --compute_recon_metrics --noise_level ${noise_lv} --starting_time ${starting_time}
     done
 done
-    
+
+# find best hyperparameters
+python evaluation/recon_metrics.py --config configs/pgdm/afhq/inpaint_pixel.py
 
 
     
