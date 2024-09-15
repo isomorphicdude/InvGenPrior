@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 import torch.utils
 from torchvision import transforms
-import tensorflow as tf
+# import tensorflow as tf
 from absl import app, flags
 from ml_collections.config_flags import config_flags
 
@@ -71,4 +71,8 @@ def main(argv):
         else:
             with open(os.path.join(workdir, best_param_path), "a") as f:
                 f.write(best_row.to_string())
+                
+                
+if __name__ == "__main__":
+    app.run(main)
     
