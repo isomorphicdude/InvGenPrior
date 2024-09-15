@@ -44,7 +44,7 @@ def get_config():
     
     # sampling config
     sampling = config.sampling
-    sampling.gudiance_method = "tmpd_cgr"
+    sampling.gudiance_method = "tmpd_recycle"
     # sampling.clamp_to = 1 # gradient clipping for the guidance
     
     return config
