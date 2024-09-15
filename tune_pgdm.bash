@@ -22,7 +22,7 @@ for noise_lv in ${noise_levels[@]}; do
 done
 
 # find best hyperparameters
-python evaluation/recon_metrics.py --method pgdm --data_name afhq
+python evaluation/find_hyp.py --method pgdm --data_name afhq
 
 
     
