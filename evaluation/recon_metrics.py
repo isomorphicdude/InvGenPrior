@@ -294,16 +294,16 @@ def _compute_recon_metrics(
         with open(os.path.join(workdir, aggregate_path), "w") as f:
             # create file
             f.write(
-                "Method, Task, Dataset, starting_time, sample_N, gmres_max_iter, PSNR, SSIM, LPIPS\n"
+                "Method,Task,Dataset,starting_time,sample_N,gmres_max_iter,PSNR,SSIM,LPIPS\n"
             )
             f.write(
-                f"{method_name}, {task_name}, {dataset_name}, {starting_time}, {sample_N}, {gmres_max_iter}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n"
+                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{mean_psnr},{mean_ssim},{mean_lpips}\n"
             )
     else:
         with open(os.path.join(workdir, aggregate_path), "a") as f:
             # append to file
             f.write(
-                f"{method_name}, {task_name}, {dataset_name}, {starting_time}, {sample_N}, {gmres_max_iter}, {mean_psnr}, {mean_ssim}, {mean_lpips}\n"
+                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{mean_psnr},{mean_ssim},{mean_lpips}\n"
             )
 
 
