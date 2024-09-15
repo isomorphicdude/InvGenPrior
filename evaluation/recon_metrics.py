@@ -376,14 +376,17 @@ def _get_best_config_df(df):
 
 FLAGS = flags.FLAGS
 
-config_flags.DEFINE_config_file(
-    "config", None, "Sampling configuration.", lock_config=False  # might want to lock
-)
+# config_flags.DEFINE_config_file(
+#     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
+# )
 flags.DEFINE_string("workdir", "", "Work directory.")
+flags.DEFINE_string("method", "", "Guidance method.")
+flags.DEFINE_string("data_name", "", "Data name.")
 
 def main(argv):
-    method = FLAGS.config.sampling.gudiance_method
-    data_name = FLAGS.config.data.name
+    # method = FLAGS.config.sampling.gudiance_method
+    data_name = FLAGS.data_name
+    method = FLAGS.method
     # task_name = FLAGS.config.degredation.task_name
     # noise_std = FLAGS.config.data.noise_std
     
