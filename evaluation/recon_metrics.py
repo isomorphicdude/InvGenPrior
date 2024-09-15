@@ -379,7 +379,7 @@ FLAGS = flags.FLAGS
 # config_flags.DEFINE_config_file(
 #     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 # )
-flags.DEFINE_string("workdir", "", "Work directory.")
+# flags.DEFINE_string("workdir", "", "Work directory.")
 flags.DEFINE_string("method", "", "Guidance method.")
 flags.DEFINE_string("data_name", "", "Data name.")
 
@@ -391,7 +391,7 @@ def main(argv):
     # noise_std = FLAGS.config.data.noise_std
     
     # list all the txt results in workdir
-    workdir = FLAGS.workdir
+    workdir = ""
     all_txt = os.listdir(workdir)
     all_tx = [f for f in all_txt if f.endswith(".txt") and f.startswith(f"{data_name}_")]
     
