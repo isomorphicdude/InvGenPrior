@@ -376,10 +376,10 @@ def _get_best_config_df(df):
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("workdir", "", "Work directory.")
 config_flags.DEFINE_config_file(
     "config", None, "Sampling configuration.", lock_config=False  # might want to lock
 )
+flags.DEFINE_string("workdir", "", "Work directory.")
 
 def main(argv):
     method = FLAGS.config.sampling.gudiance_method
