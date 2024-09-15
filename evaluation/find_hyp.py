@@ -69,9 +69,13 @@ def main(argv):
         if not os.path.exists(os.path.join(workdir, best_param_path)):
             with open(os.path.join(workdir, best_param_path), "w") as f:
                 f.write(best_row.to_string())
+                f.write("\n")
+                f.write("-"*50)
         else:
             with open(os.path.join(workdir, best_param_path), "a") as f:
                 f.write(best_row.to_string())
+                f.write("\n")
+                f.write("-"*50)
                 
                 
 if __name__ == "__main__":
