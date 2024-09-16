@@ -53,6 +53,7 @@ def create_samples(
     starting_time=0.0,
     gmres_max_iter=1,
     random_subset=False,
+    seed=0,
 ):
     """
     Create samples using the guided sampler.
@@ -70,6 +71,7 @@ def create_samples(
       starting_time: starting time for the sampling process (for PGDM)
       gmres_max_iter: maximum number of iterations for GMRES (for TMPD)  
       random_subset: whether to sample a random subset of the data
+      seed: random seed
       
     Returns:
       eval_dir: directory where the samples are saved
@@ -95,7 +97,9 @@ def create_samples(
     
     # get random subset of data
     if random_subset:
+        np.random.seed(seed)
         indices = np.random.choice(len(dset), max_num_samples, replace=False)
+        print(f"Random indices: {indices}")
         dset = torch.utils.data.Subset(dset, indices)
         
     else:
@@ -196,6 +200,7 @@ def create_samples(
     else:
         max_num_samples = len(data_loader.dataset)
         logging.info(f"Generating all samples.")
+        
     logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
     logging.info(f"Task is {config.degredation.task_name}.")
     logging.info(f"The noise level is {config.degredation.sigma}.")
@@ -370,6 +375,8 @@ flags.DEFINE_integer(
     "Maximum number of samples to generate, if None, generate all.",
 )
 
+flags.DEFINE_integer("seed", 0, "Random seed.")
+
 # flags.DEFINE_boolean("tune_hyp", False, "Tune hyperparameters.")
 
 flags.DEFINE_integer("nfe", 100, "Number of function evaluations for the ODE solver.")
@@ -417,6 +424,7 @@ def main(argv):
         starting_time=FLAGS.starting_time,
         random_subset=FLAGS.random_subset,
         nfe=FLAGS.nfe,
+        seed=FLAGS.seed,
     )
     
     additional_params = {

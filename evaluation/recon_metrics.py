@@ -261,10 +261,15 @@ def _compute_recon_metrics(
     ssim = get_ssim(eval_loader)
     lpips = get_lpips(eval_loader)
 
-    # convert to torch tensor and compute mean
+    # convert to torch tensor and compute mean and std
     mean_psnr = torch.stack(psnr).mean()
     mean_ssim = torch.stack(ssim).mean()
     mean_lpips = torch.stack(lpips).mean()
+    
+    std_psnr = torch.stack(psnr).std()
+    std_ssim = torch.stack(ssim).std()
+    std_lpips = torch.stack(lpips).std()
+    
 
     # save metrics
     torch.save(psnr, os.path.join(model_output_dir, "psnr.pt"))
@@ -294,16 +299,16 @@ def _compute_recon_metrics(
         with open(os.path.join(workdir, aggregate_path), "w") as f:
             # create file
             f.write(
-                "Method,Task,Dataset,starting_time,sample_N,gmres_max_iter,PSNR,SSIM,LPIPS\n"
+                "Method,Task,Dataset,starting_time,sample_N,gmres_max_iter,PSNR,SSIM,LPIPS,std_PSNR,std_SSIM,std_LPIPS\n"
             )
             f.write(
-                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{mean_psnr},{mean_ssim},{mean_lpips}\n"
+                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{mean_psnr},{mean_ssim},{mean_lpips},{std_psnr},{std_ssim},{std_lpips}\n"
             )
     else:
         with open(os.path.join(workdir, aggregate_path), "a") as f:
             # append to file
             f.write(
-                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{mean_psnr},{mean_ssim},{mean_lpips}\n"
+                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{mean_psnr},{mean_ssim},{mean_lpips},{std_psnr},{std_ssim},{std_lpips}\n"
             )
 
 
