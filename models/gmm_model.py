@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from models import sde_lib
-from models.utils import convert_x0_to_flow, convert_flow_to_x0
+from models.utils import convert_x0_to_flow, convert_flow_to_x0, convert_score_to_flow
 
 
 class GMM(object):
@@ -144,14 +144,32 @@ class GMM(object):
         da_dt = self.sde.da_dt(t)
         dstd_dt = self.sde.dstd_dt(t)
 
-        return convert_x0_to_flow(
-            x0_hat=self.x0_pred(x_t, t),
+        # print(convert_x0_to_flow(
+        #     x0_hat=self.x0_pred(x_t, t),
+        #     x_t=x_t,
+        #     alpha_t=a_t,
+        #     std_t=std_t,
+        #     da_dt=da_dt,
+        #     dstd_dt=dstd_dt,
+        # ).mean())
+        # print(convert_score_to_flow(
+        #     score_t=self.score_prior_t(x_t, t),
+        #     x_t=x_t,
+        #     alpha_t=a_t,
+        #     std_t=std_t,
+        #     da_dt=da_dt,
+        #     dstd_dt=dstd_dt,
+        # ).mean()
+        # )
+        return convert_score_to_flow(
+            score_t=self.score_prior_t(x_t, t),
             x_t=x_t,
             alpha_t=a_t,
             std_t=std_t,
             da_dt=da_dt,
             dstd_dt=dstd_dt,
         )
+        
 
     def get_posterior(self, y_obs, H_mat, sigma_y):
         """
