@@ -170,7 +170,7 @@ class TMPD(GuidedSampler):
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
         # grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
         # print(f"grad_ll mean: {grad_ll.mean()}")
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
@@ -260,7 +260,7 @@ class TMPD(GuidedSampler):
             gamma_t = math.sqrt(alpha_t / (alpha_t**2 + std_t**2))
 
         # print(gamma_t)
-        scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
+        scaled_grad = grad_term * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t) * gamma_t
 
         # print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None:
@@ -409,7 +409,7 @@ class TMPD_cg(GuidedSampler):
         )
 
         grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
@@ -496,7 +496,7 @@ class TMPD_cg(GuidedSampler):
 
         grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
 
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
@@ -508,10 +508,9 @@ class TMPD_cg(GuidedSampler):
         else:
             guided_vec = (scaled_grad) + (flow_pred)
 
-        if not return_basis:
-            return guided_vec
-        else:
-            return guided_vec, V_basis
+        
+        return guided_vec
+        
 
     def get_guidance(
         self,
@@ -632,7 +631,7 @@ class TMPD_gmres_ablate(GuidedSampler):
 
         grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
 
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
@@ -747,7 +746,7 @@ class TMPD_hutchinson(GuidedSampler):
 
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
 
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         gamma_t = 1.0
 
@@ -846,7 +845,7 @@ class TMPD_trace(GuidedSampler):
 
         grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
 
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # print(scaled_grad.mean())
 
@@ -983,7 +982,7 @@ class TMPD_ensemble(GuidedSampler):
         gamma_t = 1.0
 
         scaled_grad = (
-            grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
+            grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t) * gamma_t
         )
 
         # clamp to interval
@@ -1265,7 +1264,7 @@ class TMPD_og(GuidedSampler):
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # print(scaled_grad.mean())
 
@@ -1383,7 +1382,7 @@ class TMPD_fixed_cov(GuidedSampler):
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # print(scaled_grad.mean())
         # clamp to interval
@@ -1477,7 +1476,7 @@ class TMPD_fixed_cov(GuidedSampler):
         )
 
         gamma_t = 1.0
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         if clamp_to is not None:
             guided_vec = (gamma_t * scaled_grad).clamp(-clamp_to, clamp_to) + (
@@ -1613,7 +1612,7 @@ class TMPD_fixed_diag(GuidedSampler):
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # print(scaled_grad.mean())
         # clamp to interval
@@ -1713,7 +1712,7 @@ class TMPD_fixed_diag(GuidedSampler):
         )
 
         gamma_t = 1.0
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         if clamp_to is not None:
             # guided_vec = (gamma_t * scaled_grad + flow_pred).clamp(-clamp_to, clamp_to)
@@ -1831,7 +1830,7 @@ class TMPD_h_ablate(GuidedSampler):
         grad_ll = vjp_estimate_x_0(self.H_func.Ht(vjp_product))[0]
         # grad_ll = vjp_estimate_h_x_0(vjp_product)[0]
         # print(f"grad_ll mean: {grad_ll.mean()}")
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # clamp to interval
         if clamp_to is not None and clamp_condition:
@@ -1933,7 +1932,7 @@ class TMPD_ablation(GuidedSampler):
 
         # true vector field guidance
         # true_grad = gmm_model.grad_yt(num_t, x_t, y_obs, self.H_func.H_mat, self.noiser.sigma)
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         gamma_t = 1.0
         if clamp_to is not None:
@@ -2068,7 +2067,7 @@ class TMPD_exact(GuidedSampler):
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # print(scaled_grad.mean())
         if clamp_to is not None:
@@ -2186,7 +2185,7 @@ class TMPD_row_exact(GuidedSampler):
 
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
-        scaled_grad = grad_ll.detach() * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
 
         # print(scaled_grad.mean())
         guided_vec = (scaled_grad) + (flow_pred)

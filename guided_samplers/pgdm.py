@@ -95,7 +95,10 @@ class PiGDM(GuidedSampler):
         # only use for images but not GMM example
         # (using OT path)
         gamma_t = 1.0
-        scaled_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
+        # scaled_grad_1 = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t) * gamma_t
+        scaled_grad = grad_term * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t) * gamma_t
+        # print("scaled_grad", scaled_grad.mean())
+        # print("scaled_grad_1", scaled_grad_1.mean())
 
         # print("scaled_grad", scaled_grad.mean())
         if clamp_to is not None and clamp_condition:
