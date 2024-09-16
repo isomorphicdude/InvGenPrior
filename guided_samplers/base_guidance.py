@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 import math
 
+import numpy as np
 from tqdm import tqdm
 import torch
 from scipy import integrate
@@ -90,15 +91,21 @@ class GuidedSampler(ABC):
             dt = 1.0 / self.sde.sample_N
             eps = 1e-3  # default: 1e-3
 
-            for i in range(self.sde.sample_N):
+            if self.sde.__class__.__name__ != "RectifiedFlow":
+                timesteps = np.linspace(self.sde.T, eps, self.sde.sample_N)
+            elif self.sde.__class__.__name__ == "RectifiedFlow":
+                timesteps = np.linspace(eps, self.sde.T-eps, self.sde.sample_N)
+                
+            
+            for i, num_t in enumerate(timesteps):
                 # sampling steps default to 1000
-                num_t = i / self.sde.sample_N * (self.sde.T - eps) + eps  # scalar time
+                
+                # num_t2 = i / self.sde.sample_N * (self.sde.T - eps) + eps  # scalar time
 
                 # t_batched = torch.ones(self.shape[0], device=self.device) * num_t
 
                 # convert to diffusion models if sampling.sigma_variance > 0.0 while perserving the marginal probability
                 sigma_t = self.sde.sigma_t(num_t)
-
                 alpha_t = self.sde.alpha_t(num_t)
                 std_t = self.sde.std_t(num_t)
                 da_dt = self.sde.da_dt(num_t)
@@ -143,45 +150,24 @@ class GuidedSampler(ABC):
                         clamp_condition=True,
                         **kwargs,
                     )
-                    # if i<=self.sde.sample_N//2 and self.__class__.__name__ != "REDdiff":
-                    #     guided_vec = self.get_guidance(
-                    #         model_fn,
-                    #         x,
-                    #         num_t,
-                    #         y_obs,
-                    #         alpha_t,
-                    #         std_t,
-                    #         da_dt,
-                    #         dstd_dt,
-                    #         clamp_to=1.0,
-                    #         **kwargs,
-                    #     )
-                    # else:
-                    #     guided_vec = self.get_guidance(
-                    #         model_fn,
-                    #         x,
-                    #         num_t,
-                    #         y_obs,
-                    #         alpha_t,
-                    #         std_t,
-                    #         da_dt,
-                    #         dstd_dt,
-                    #         clamp_to=clamp_to,
-                    #         **kwargs,
-                    #     )
 
-                x = (
-                    x.detach().clone()
-                    + guided_vec * dt
-                    + sigma_t
-                    * math.sqrt(dt)
-                    * torch.randn_like(guided_vec).to(self.device)
-                )
+                if self.sde.__class__.__name__ == "RectifiedFlow":
+                    x = (
+                        x.detach().clone()
+                        + guided_vec * dt
+                        + sigma_t
+                        * math.sqrt(dt)
+                        * torch.randn_like(guided_vec).to(self.device)
+                    )
+                else:
+                    x = (
+                        x.detach().clone()
+                        - guided_vec * dt
+                        + sigma_t
+                        * math.sqrt(dt)
+                        * torch.randn_like(guided_vec).to(self.device)
+                    )
 
-                # if return_list and i % (self.sde.sample_N // 10) == 0:
-                #     samples.append(x.detach().clone())
-                # if i == self.sde.sample_N - 1 and return_list:
-                #     samples.append(x.detach().clone())
                 if return_list:
                     samples.append(x.detach().clone())
 
@@ -189,26 +175,6 @@ class GuidedSampler(ABC):
                     list_mean_0t.append(mean_0t)
                     list_cov_yt.append(cov_yt)
 
-                # print name
-                if (
-                    self.__class__.__name__ == "TMPD"
-                    and i % 10 == 0
-                    and len(self.shape) > 2
-                ):
-                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
-
-                elif (
-                    self.__class__.__name__ == "TMPD_trace"
-                    and i % 10 == 0
-                    and len(self.shape) > 2
-                ):
-                    print(f"Iteration {i} of {self.sde.sample_N} completed.")
-                    
-                # elif(
-                #     self.__class__.__name__ == "TMPD_fixed_cov" or self.__class__.__name__ == "TMPD_exact"
-                # ):
-                #     print(f"Iteration {i} of {self.sde.sample_N} completed.")
-        # print(self.return_cov)
         if not self.return_cov:
             if return_list:
                 for i in range(len(samples)):
