@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# Run quantiative benchmarks for AFHQ dataset
+# Run quantiative benchmarks for AFHQ and CelebA datasets
 
 noise_levels=(0.0 0.05 0.1 1.0)
 # noise_levels=(0.05)
+max_num_samples=500
+max_num_samples_celeba=1000
 
 # back up the celeba config
 # cp configs/celeb_configs.py configs/celeb_configs_backup.py
@@ -13,34 +15,28 @@ for noise_lv in ${noise_levels[@]}; do
     echo "Sampling with noise level ${noise_lv}"
     # sed -i "s/sampling\.degredation_sigma = .*/sampling\.degredation_sigma = ${noise_lv}/g" configs/celeb_configs.py
 
-    echo "Running sampling for AFHQ dataset with noise level ${noise_lv}"
+    echo "Running sampling with noise level ${noise_lv}"
     # pixel inpainting
-    python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
-    python run_sampling.py --config configs/tmpd_cg/celeba/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
-    # python run_sampling.py --config configs/tmpd_cgr/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
-    # python run_sampling.py --config configs/tmpd/afhq/inpaint_pixel.py  --max_num_samples 100 --compute_recon_metrics
-    # python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py  --max_num_samples 4 --compute_recon_metrics
-    # python run_sampling.py --config configs/reddiff/afhq/inpaint_pixel.py --max_num_samples 100 --compute_recon_metrics
-
-    # python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py --compute_recon_metrics
-    # python run_sampling.py --config configs/tmpd/afhq/inpaint_pixel.py --compute_recon_metrics
-    #python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py --compute_recon_metrics
-    #python run_sampling.py --config configs/reddiff/afhq/inpaint_pixel.py --compute_recon_metrics
+    python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_pixel.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
+    # python run_sampling.py --config configs/tmpd_cg/celeba/inpaint_pixel.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
+    python run_sampling.py --config configs/pgdm/afhq/inpaint_pixel.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
 
 
     # box inpainting
-    # python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_box.py  --max_num_samples 100 --compute_recon_metrics
-    # python run_sampling.py --config configs/pgdm/afhq/inpaint_box.py  --max_num_samples 100 --compute_recon_metrics
+    python run_sampling.py --config configs/tmpd_cg/afhq/inpaint_box.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
+    python run_sampling.py --config configs/pgdm/afhq/inpaint_box.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
     # python run_sampling.py --config configs/reddiff/afhq/inpaint_box.py --max_num_samples 100 --compute_recon_metrics
 
 
     # deblurring
-    # python run_sampling.py --config configs/tmpd_cg/afhq/deblur.py  --max_num_samples 20 --compute_recon_metrics
-    # python run_sampling.py --config configs/pgdm/afhq/deblur.py  --max_num_samples 4 --compute_recon_metrics
+    python run_sampling.py --config configs/tmpd_cg/afhq/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
+    python run_sampling.py --config configs/pgdm/afhq/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
     # python run_sampling.py --config configs/reddiff/afhq/deblur.py --max_num_samples 4 --compute_recon_metrics
 
 
     # super-resolution
+    python run_sampling.py --config configs/tmpd_cg/afhq/super_res.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
+    python run_sampling.py --config configs/pgdm/afhq/super_res.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
     # python run_sampling.py --config configs/tmpd_cg/afhq/super_res.py  --max_num_samples 100 --compute_recon_metrics
     # python run_sampling.py --config configs/pgdm/afhq/super_res.py  --max_num_samples 100 --compute_recon_metrics
     # python run_sampling.py --config configs/reddiff/afhq/super_res.py --max_num_samples 100 --compute_recon_metrics
