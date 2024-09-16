@@ -102,6 +102,7 @@ def create_gmm_exp(dim=8, obs_dim=1, sigma_y=0.05, sample_N=1000):
         sample_N=gmm_config.sample_N,
         sigma_var=gmm_config.sde_sigma_var,
     )
+    # sde = sde_lib.VPSDE()
 
     # set GMM model
     gmm = gmm_model.GMM(dim=gmm_config.dim, sde=sde)
@@ -141,8 +142,10 @@ def create_samples(
       methods: list of strings, list of methods to run.
     """
     # set seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    if seed is not None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+    
 
     if gmm_config is None:
         sde, gmm_config, gmm, H_func, noiser, y_obs = create_gmm_exp(
@@ -203,7 +206,7 @@ def create_samples(
             return_list=return_list,
             method="euler",
             gmm_model=gmm,
-            # gmres_max_iter = 10
+            gmres_max_iter = 5
         )
         # convert to numpy
         if return_list:
@@ -363,7 +366,7 @@ def run_exp(
     seed=42,
     # methods=["tmpd_fixed_cov", "pgdm", "dps"],
     # methods=["tmpd_h", "tmpd_fixed_diag"],
-    methods=["tmpd_fixed_diag"],
+    methods=["tmpd_cg"],
     clamp_to=20,
 ):
     """
@@ -375,15 +378,14 @@ def run_exp(
     # noise_list = [0.01, 0.1, 1.0]
 
     # for testing
-    dim_list = [8]
-    obs_dim_list = [1, 2, 4]
-    # noise_list = [0.01]
-    noise_list = [0.01, 0.1, 1.0]
+    # dim_list = [8]
+    # obs_dim_list = [1, 2, 4]
+    # noise_list = [0.01, 0.1, 1.0]
 
     # for debugging
-    # dim_list = [8]
-    # obs_dim_list = [4]
-    # noise_list = [1.0]
+    dim_list = [8]
+    obs_dim_list = [1]
+    noise_list = [0.01]
 
     # get cartesian product of the lists
     product_list = list(itertools.product(dim_list, obs_dim_list, noise_list))
@@ -395,14 +397,14 @@ def run_exp(
 
     # to compute the confidence intervals, default 20
     num_iters = 20
-    for iter in range(num_iters):
-        iter_seed = iter
-        logging.info(f"\nIteration {iter}...\n")
-        for tup in product_list:
-            dim, obs_dim, sigma_y = tup
-            logging.info(
-                f"Running for dim={dim}, obs_dim={obs_dim}, sigma_y={sigma_y}..."
-            )
+    for tup in product_list:
+        dim, obs_dim, sigma_y = tup
+        logging.info(
+            f"Running for dim={dim}, obs_dim={obs_dim}, sigma_y={sigma_y}..."
+        )
+        for iter in range(num_iters):
+            logging.info(f"\nIteration {iter}...\n")
+            iter_seed = iter
             # use specified parameters for experiments, thus set gmm config to None
             samples_dict = create_samples(
                 None,
@@ -424,8 +426,9 @@ def run_exp(
                 swd = pot.sliced_wasserstein_distance(
                     samples,
                     samples_dict["true_posterior"],
-                    n_projections=10000,
+                    n_projections=10_000,
                     seed=iter_seed,
+                    p=1,
                 )
                 logging.info(f"SWD for {method_name} is {swd}")
                 results_dict[method_name][tup].append(swd)
@@ -437,7 +440,8 @@ def run_exp(
         for key, swd_list in results_dict[method_name].items():
             # for debugging
             print(swd_list)
-
+            # remove nan values
+            swd_list = [swd for swd in swd_list if not np.isnan(swd)]
             swd_mean = np.mean(swd_list)
             swd_std = np.std(swd_list)
             results_dict[method_name][key] = {
