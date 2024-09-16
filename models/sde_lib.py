@@ -1,6 +1,7 @@
 """Abstract SDE classes, Reverse SDE, and VE/VP SDEs."""
 
 import abc
+import math
 import torch
 import numpy as np
 from models import utils as mutils
@@ -320,7 +321,12 @@ class SDE(abc.ABC):
 
 class VPSDE(SDE):
     def __init__(
-        self, beta_min=0.1, beta_max=20, N=1000, init_samples=None, init_times=1.0
+        self,
+        beta_min=0.1,
+        beta_max=30,
+        N=1000,
+        init_samples=None,
+        init_times=1.0,
     ):
         """Construct a Variance Preserving SDE.
 
@@ -330,11 +336,13 @@ class VPSDE(SDE):
           N: number of discretization steps
           init_samples: initial samples for the SDE
           init_times: initial times for the SDE, default to 1.0
+          inverted: whether to start from time 0 instead of 1
         """
         super().__init__(N)
         self.beta_0 = beta_min
         self.beta_1 = beta_max
         self.N = N
+        self.sample_N = N
         self.discrete_betas = torch.linspace(beta_min / N, beta_max / N, N)
         self.alphas = 1.0 - self.discrete_betas
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
@@ -387,18 +395,53 @@ class VPSDE(SDE):
         f = torch.sqrt(alpha)[:, None, None, None] * x - x
         G = sqrt_beta
         return f, G
-    
+
     def alpha_t(self, t):
         log_mean_coeff = (
             -0.25 * t**2 * (self.beta_1 - self.beta_0) - 0.5 * t * self.beta_0
         )
-        return torch.exp(log_mean_coeff)
-        
+        if isinstance(log_mean_coeff, torch.Tensor):
+            return torch.exp(log_mean_coeff)
+        else:
+            return math.exp(log_mean_coeff)
+
     def std_t(self, t):
         log_mean_coeff = (
             -0.25 * t**2 * (self.beta_1 - self.beta_0) - 0.5 * t * self.beta_0
         )
-        return torch.sqrt(1 - torch.exp(2.0 * log_mean_coeff))
+        if isinstance(log_mean_coeff, torch.Tensor):
+            return torch.sqrt(1 - torch.exp(2.0 * log_mean_coeff))
+        else:
+            return math.sqrt(1 - math.exp(2.0 * log_mean_coeff))
+
+    def sigma_t(self, t):
+        # beta_t = self.beta_0 + t * (self.beta_1 - self.beta_0)
+        # return torch.sqrt(beta_t)
+        return 0
+
+    def da_dt(self, t):
+        return (
+            self.alpha_t(t) * (-0.5) * (self.beta_0 + t * (self.beta_1 - self.beta_0))
+        )
+
+    def dstd_dt(self, t):
+        log_mean_coeff = (
+            -0.25 * t**2 * (self.beta_1 - self.beta_0) - 0.5 * t * self.beta_0
+        )
+        if isinstance(log_mean_coeff, torch.Tensor):
+            return (
+                0.5
+                * (1 / torch.sqrt(self.std_t(t)))
+                * torch.exp(2.0 * log_mean_coeff)
+                * (self.beta_0 + t * (self.beta_1 - self.beta_0))
+            )
+        else:
+            return (
+                0.5
+                * (1 / math.sqrt(self.std_t(t)))
+                * math.exp(2.0 * log_mean_coeff)
+                * (self.beta_0 + t * (self.beta_1 - self.beta_0))
+            )
 
 
 class subVPSDE(SDE):
