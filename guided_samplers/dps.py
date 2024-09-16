@@ -61,7 +61,7 @@ class DPS(GuidedSampler):
         
         grad_term = (-1) * grad_term.detach()
         
-        corrected_grad = grad_term * (std_t**2) * (1 / alpha_t + 1 / std_t)
+        corrected_grad = grad_term * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
         scaled_grad = dps_scaling_const * corrected_grad
         if clamp_to is not None and clamp_condition:
             if data_name == "celeba":
