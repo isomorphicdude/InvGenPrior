@@ -2068,7 +2068,6 @@ class TMPD_exact(GuidedSampler):
         # scale gradient for flows
         # TODO: implement this as derivatives for more generality
         scaled_grad = grad_ll.detach() * (std_t * da_dt - alpha_t * dstd_dt) * (std_t / alpha_t)
-
         # print(scaled_grad.mean())
         if clamp_to is not None:
             # guided_vec = (scaled_grad).clamp(-clamp_to, clamp_to) + (flow_pred)
