@@ -310,7 +310,16 @@ def convert_flow_to_score(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt):
     noise = convert_flow_to_noise(u_t, x_t, alpha_t, std_t, da_dt, dstd_dt)
     
     return  (-1) * noise / std_t
+
+def convert_score_to_flow(score_t, x_t, alpha_t, std_t, da_dt, dstd_dt):
+    """
+    Convert score prediction to flow prediction.   
+    """
+    coeff_xt = da_dt / alpha_t
     
+    coeff_score = (std_t / alpha_t) * (std_t * da_dt - alpha_t * dstd_dt)
+    
+    return coeff_xt * x_t + coeff_score * score_t
 
 def convert_m0t_to_mst(m_0t, x_t, sde, t, s):
     """
