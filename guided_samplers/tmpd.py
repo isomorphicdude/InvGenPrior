@@ -558,8 +558,8 @@ class TMPD_cg(GuidedSampler):
             )
 
 
-@register_guided_sampler(name="tmpd_gmres_ablate")
-class TMPD_gmres_ablate(GuidedSampler):
+@register_guided_sampler(name="tmpd_gmres")
+class TMPD_gmres(GuidedSampler):
     def get_guidance(
         self,
         model_fn,
@@ -587,7 +587,7 @@ class TMPD_gmres_ablate(GuidedSampler):
         information about forward operator HH^t.
         """
         data_name = kwargs.get("data_name", None)
-        gmres_max_iter = kwargs.get("gmres_max_iter", 50)
+        gmres_max_iter = kwargs.get("gmres_max_iter", 5)
         return_basis = kwargs.get("return_basis", False)
 
         t_batched = torch.ones(x_t.shape[0], device=self.device) * num_t

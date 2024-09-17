@@ -79,7 +79,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         "dps",
         "tmpd_gmres",
         "tmpd_cg",
-        "tmpd_gmres_ablate",
+        "tmpd_gmres",
         # "reddiff",
         "tmpd_og",
         # "pgdm",
@@ -255,7 +255,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         )
 
         # save
-        if (sampler_name == "tmpd_cg" or sampler_name == "tmpd_gmres_ablate") and compare_iter:
+        if (sampler_name == "tmpd_cg" or sampler_name == "tmpd_gmres") and compare_iter:
             save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample_{max_iter}.png"))
         else:
             save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample.png"))
