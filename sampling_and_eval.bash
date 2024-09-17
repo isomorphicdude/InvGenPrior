@@ -6,6 +6,9 @@ noise_levels=(0.0 0.05 0.1 1.0)
 # noise_levels=(0.05)
 max_num_samples=500
 max_num_samples_celeba=1000
+nfe=100
+gmres_max_iter=1
+
 
 # back up the celeba config
 # cp configs/celeb_configs.py configs/celeb_configs_backup.py
@@ -28,7 +31,7 @@ for noise_lv in ${noise_levels[@]}; do
 
     # deblurring
     python run_sampling.py --config configs/tmpd_cg/afhq/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
-    # python run_sampling.py --config configs/pgdm/afhq/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
+    python run_sampling.py --config configs/pgdm/afhq/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
 
 
     # super-resolution
