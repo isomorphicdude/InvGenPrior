@@ -54,6 +54,7 @@ def create_samples(
     gmres_max_iter=1,
     random_subset=False,
     seed=0,
+    tmpd_alt_impl=False,
 ):
     """
     Create samples using the guided sampler.
@@ -263,6 +264,7 @@ def create_samples(
                 starting_time=starting_time,
                 data_name=config.data.name,
                 gmres_max_iter=gmres_max_iter,
+                alt_impl=tmpd_alt_impl,
             )
 
             # save the images to eval folder
@@ -389,6 +391,8 @@ flags.DEFINE_float("starting_time", 0.0, "Starting time for the sampling process
 
 flags.DEFINE_integer("gmres_max_iter", 1, "Maximum number of iterations for GMRES.")
 
+flags.DEFINE_boolean("tmpd_alt_impl", False, "Use alternative TMPD implementation.")
+
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
 
 flags.DEFINE_boolean("compute_recon_metrics", False, "Compute reconstruction metrics: PSNR, SSIM, LPIPS.")
@@ -425,6 +429,7 @@ def main(argv):
         random_subset=FLAGS.random_subset,
         nfe=FLAGS.nfe,
         seed=FLAGS.seed,
+        tmpd_alt_impl=FLAGS.tmpd_alt_impl,
     )
     
     additional_params = {
@@ -432,6 +437,7 @@ def main(argv):
         "starting_time": FLAGS.starting_time,
         "gmres_max_iter": FLAGS.gmres_max_iter,
         "nfe": FLAGS.nfe,
+        "alt_impl": FLAGS.tmpd_alt_impl,
     }
     if FLAGS.compute_recon_metrics:
         # compute recon metrics

@@ -30,8 +30,8 @@ for noise_lv in ${noise_levels[@]}; do
 
 
     # deblurring
-    python run_sampling.py --config configs/tmpd_cg/celeba/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
-    python run_sampling.py --config configs/tmpd_cgr/celeba/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
+    python run_sampling.py --config configs/tmpd_cg/celeba/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0 --tmpd_alt_impl
+    # python run_sampling.py --config configs/tmpd_cgr/celeba/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
     python run_sampling.py --config configs/pgdm/celeba/deblur.py  --max_num_samples ${max_num_samples} --compute_recon_metrics --noise_level ${noise_lv} --starting_time 0.0
 
 
