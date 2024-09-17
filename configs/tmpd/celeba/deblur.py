@@ -47,8 +47,8 @@ def get_config():
     def pdf(x, sigma=10):
         """Gaussian PDF."""
         return torch.exp(torch.tensor([-0.5 * (x / sigma) ** 2]))
-    sigma = 3
-    window = 61
+    sigma = degredation.intensity
+    window = degredation.kernel_size
     kernel = torch.Tensor([pdf(t, sigma) for t in range(-(window-1)//2, (window-1)//2)])
     degredation.kernel = kernel / kernel.sum()
     
