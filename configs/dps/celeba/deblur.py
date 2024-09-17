@@ -40,7 +40,7 @@ def get_config():
     degredation.device = config.device
     
     # if using torch implementation
-    degredation.kernel_size = 61
+    degredation.kernel_size = 9
     degredation.intensity = 3.0
     
     # if using custom implementation from NVlabs

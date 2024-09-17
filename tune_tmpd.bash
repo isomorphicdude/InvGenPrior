@@ -4,7 +4,7 @@
 noise_levels=(0.0 0.1 1.0)
 # noise_levels=(0.05)
 
-gmres_max_iters=(1 2 3 5)
+gmres_max_iters=(1 2 3)
 max_samp=20
 
 for noise_lv in ${noise_levels[@]}; do
