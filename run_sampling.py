@@ -96,10 +96,10 @@ def create_samples(
     )
     
     # get random subset of data
-    if random_subset:
+    if random_subset and max_num_samples < len(dset):
         np.random.seed(seed)
         indices = np.random.choice(len(dset), max_num_samples, replace=False)
-        print(f"Random indices: {indices}")
+        # print(f"Random indices: {indices}")
         dset = torch.utils.data.Subset(dset, indices)
         
     else:
@@ -203,7 +203,7 @@ def create_samples(
         
     logging.info(f"Sampling {config.sampling.batch_size} images at a time.")
     logging.info(f"Task is {config.degredation.task_name}.")
-    logging.info(f"The noise level is {config.degredation.sigma}.")
+    logging.info(f"The noise level is {noise_level}.")
 
     # check if certain images are sampled before
     # the img_idx will be written to disk
