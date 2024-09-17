@@ -415,7 +415,7 @@ def main(argv):
     samples_eval_dir, sample_indices = create_samples(
         FLAGS.config,
         FLAGS.workdir,
-        save_degraded=True,
+        save_degraded=False,
         return_list=FLAGS.return_list,
         eval_folder=FLAGS.eval_folder,
         max_num_samples=FLAGS.max_num_samples,
@@ -454,6 +454,13 @@ def main(argv):
     
     if FLAGS.compute_fid:
         raise NotImplementedError("FID and KID computation not implemented yet.")
+    
+    # remove all samples after metrics are computed
+    logging.info("Removing all samples...")
+    img_dir = os.listdir(samples_eval_dir)
+    for img in img_dir:
+        if img.endswith(".png"):
+            os.remove(os.path.join(samples_eval_dir, img))
     
 
 if __name__ == "__main__":
