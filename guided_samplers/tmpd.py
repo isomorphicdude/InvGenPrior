@@ -569,21 +569,26 @@ class TMPD_cg(GuidedSampler):
         r_t_2 = std_t**2 / (alpha_t**2 + std_t**2)
         weighting_t = math.sin(math.pi * num_t) ** 2
         # weighting_t = 4 * num_t * (1 - num_t)
-        weighting_t = 1 - (1 - num_t)**2
+        weighting_t = 1 - (1 - num_t) ** 2
         # weighting_t = 1 - r_t_2
 
         def cov_y_xt(v):
             return (
                 self.noiser.sigma**2 * v
                 + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy * weighting_t
-                + (1 - weighting_t) * self.H_func.H(self.H_func.Ht(v))
             )
 
-        grad_ll = conjugate_gradient(
+        cov_grad = conjugate_gradient(
             A=cov_y_xt,
             b=difference,
             maxiter=gmres_max_iter,
         )
+
+        identity_grad = self.H_func.HHt_inv(
+            difference, r_t_2=1 - weighting_t, sigma_y_2=self.noiser.sigma**2
+        )
+
+        grad_ll = weighting_t * cov_grad + identity_grad
 
         grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
         scaled_grad = (
