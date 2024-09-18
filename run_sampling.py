@@ -85,7 +85,7 @@ def create_samples(
         config.data.name,
         config.sampling.gudiance_method,
         config.degredation.task_name,
-        f"start_{starting_time}_iter_{gmres_max_iter}_nfe_{nfe}_noise_{noise_level}",
+        f"start_{starting_time}_iter_{gmres_max_iter}_nfe_{nfe}_noise_{noise_level}_alt_{tmpd_alt_impl}",
     )
     tf.io.gfile.makedirs(eval_dir)
 

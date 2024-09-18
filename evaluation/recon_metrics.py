@@ -291,6 +291,7 @@ def _compute_recon_metrics(
     sample_N = additional_params.get("nfe", 100)
     # clamp_to = additional_params.get("clamp_to", 1.0)
     gmres_max_iter = additional_params.get("gmres_max_iter", 100)
+    tmpd_alt_impl = additional_params.get("tmpd_alt_impl", False)
 
     # create txt file in top dir if not present
     aggregate_path = os.path.join(
@@ -300,16 +301,16 @@ def _compute_recon_metrics(
         with open(os.path.join(workdir, aggregate_path), "w") as f:
             # create file
             f.write(
-                "Method,Task,Dataset,starting_time,sample_N,gmres_max_iter,PSNR,SSIM,LPIPS\n"
+                "Method,Task,Dataset,starting_time,sample_N,gmres_max_iter,alt_impl,PNSR,SSIM,LPIPS\n"
             )
             f.write(
-                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{mean_psnr},{mean_ssim},{mean_lpips}\n"
+                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{tmpd_alt_impl},{mean_psnr},{mean_ssim},{mean_lpips}\n"
             )
     else:
         with open(os.path.join(workdir, aggregate_path), "a") as f:
             # append to file
             f.write(
-                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{mean_psnr},{mean_ssim},{mean_lpips}\n"
+                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{tmpd_alt_impl},{mean_psnr},{mean_ssim},{mean_lpips}\n"
             )
 
 
