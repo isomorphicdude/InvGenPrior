@@ -578,17 +578,18 @@ class TMPD_cg(GuidedSampler):
                 + self.H_func.H(vjp_estimate_h_x_0(v)[0]) * coeff_C_yy * weighting_t
             )
 
-        cov_grad = conjugate_gradient(
-            A=cov_y_xt,
-            b=difference,
-            maxiter=gmres_max_iter,
-        )
+        # cov_grad = conjugate_gradient(
+        #     A=cov_y_xt,
+        #     b=difference,
+        #     maxiter=gmres_max_iter,
+        # )
 
         identity_grad = self.H_func.HHt_inv(
             difference, r_t_2=1 - weighting_t, sigma_y_2=self.noiser.sigma**2
         )
 
-        grad_ll = weighting_t * cov_grad + identity_grad
+        # grad_ll = weighting_t * cov_grad + identity_grad
+        grad_ll = identity_grad 
 
         grad_ll = vjp_estimate_h_x_0(grad_ll)[0]
         scaled_grad = (
