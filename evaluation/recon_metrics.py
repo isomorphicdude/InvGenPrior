@@ -291,7 +291,7 @@ def _compute_recon_metrics(
     sample_N = additional_params.get("nfe", 100)
     # clamp_to = additional_params.get("clamp_to", 1.0)
     gmres_max_iter = additional_params.get("gmres_max_iter", 100)
-    tmpd_alt_impl = additional_params.get("tmpd_alt_impl", False)
+    tmpd_alt_impl = additional_params.get("alt_impl", False)
 
     # create txt file in top dir if not present
     aggregate_path = os.path.join(
