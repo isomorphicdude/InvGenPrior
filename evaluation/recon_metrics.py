@@ -65,10 +65,10 @@ def get_ssim(data_loader):
     Using torchmetrics implementation.
 
     Args:
-        - data_loader: torch.utils.data.DataLoader, the data loader to evaluate.
+        data_loader: torch.utils.data.DataLoader, the data loader to evaluate.
 
     Returns:
-        - list of SSIM values as torch.Tensor.
+        list of SSIM values as torch.Tensor.
     """
     ret = []
     for output, truth in tqdm(data_loader):
@@ -98,10 +98,10 @@ def get_lpips(data_loader):
     Using torchmetrics implementation.
 
     Args:
-        - data_loader: torch.utils.data.DataLoader, the data loader to evaluate.
+        data_loader (torch.utils.data.DataLoader): The data loader to evaluate. It should return a pair of tensors.
 
     Returns:
-        - list of LPIPS values as torch.Tensor.
+        list: A list of LPIPS values as torch.Tensor.
     """
     ret = []
     for output, truth in tqdm(data_loader):
@@ -267,11 +267,15 @@ def _compute_recon_metrics(
     mean_lpips = torch.stack(lpips).mean()
     
     # current implementation with batches make this computation incorrect
-    # std_psnr = torch.stack(psnr).std()
-    # std_ssim = torch.stack(ssim).std()
-    # std_lpips = torch.stack(lpips).std()
+    if batch_size == 1:
+        std_psnr = torch.stack(psnr).std()
+        std_ssim = torch.stack(ssim).std()
+        std_lpips = torch.stack(lpips).std()
+    else:
+        std_psnr = 0
+        std_ssim = 0
+        std_lpips = 0
     
-
     # save metrics
     torch.save(psnr, os.path.join(model_output_dir, "psnr.pt"))
     torch.save(ssim, os.path.join(model_output_dir, "ssim.pt"))
@@ -301,16 +305,16 @@ def _compute_recon_metrics(
         with open(os.path.join(workdir, aggregate_path), "w") as f:
             # create file
             f.write(
-                "Method,Task,Dataset,starting_time,sample_N,gmres_max_iter,alt_impl,PNSR,SSIM,LPIPS\n"
+                "Method,Task,Dataset,starting_time,sample_N,gmres_max_iter,alt_impl,PNSR,SSIM,LPIPS,std_PSNR,std_SSIM,std_LPIPS\n"
             )
             f.write(
-                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{tmpd_alt_impl},{mean_psnr},{mean_ssim},{mean_lpips}\n"
+                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{tmpd_alt_impl},{mean_psnr},{mean_ssim},{mean_lpips},{std_psnr},{std_ssim},{std_lpips}\n"
             )
     else:
         with open(os.path.join(workdir, aggregate_path), "a") as f:
             # append to file
             f.write(
-                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{tmpd_alt_impl},{mean_psnr},{mean_ssim},{mean_lpips}\n"
+                f"{method_name},{task_name},{dataset_name},{starting_time},{sample_N},{gmres_max_iter},{tmpd_alt_impl},{mean_psnr},{mean_ssim},{mean_lpips},{std_psnr},{std_ssim},{std_lpips}\n"
             )
 
 
@@ -329,7 +333,7 @@ def compute_recon_metrics(
         task_name=config.degredation.task_name,
         dataset_name=config.data.name,
         dataset_path=config.data.lmdb_file_path,
-        batch_size=config.sampling.batch_size,
+        batch_size=1,
         transform=None,
         noise_std=noise_std,
         model_output_dir=model_output_dir,
@@ -339,7 +343,6 @@ def compute_recon_metrics(
 
 
 def _get_best_config_df(df):
-    # Normalize the metrics (SSIM and PSNR should be maximized, LPIPS minimized)
     df['PSNR_norm'] = df['PSNR'] / df['PSNR'].max()
     df['SSIM_norm'] = df['SSIM'] / df['SSIM'].max()
     df['LPIPS_norm'] = df['LPIPS'].min() / df['LPIPS']  # Lower LPIPS is better, so inverse
@@ -350,33 +353,6 @@ def _get_best_config_df(df):
     best_row = df.loc[df['combined_score'].idxmax()]
 
     return best_row
-
-# def _get_best_config(workdir, dataset_name, task_name, noise_std, method_name):
-#     # Read the aggregated metrics file
-#     df = pd.read_csv(os.path.join(workdir, f"{dataset_name}_{task_name}_{noise_std}_aggregated_metrics.txt"))
-
-#     best_row = _get_best_config_df(df)
-    
-#     # write to txt
-#     best_param_path =  f"{method_name}_best_params.txt"
-#     if not os.path.exists(os.path.join(workdir, best_param_path)):
-#         with open(os.path.join(workdir, best_param_path), "w") as f:
-#             f.write(best_row.to_string())
-#     else:
-#         with open(os.path.join(workdir, best_param_path), "a") as f:
-#             f.write(best_row.to_string())
-
-#     return best_row
-
-
-# def get_best_config(config, workdir, noise_std, additional_params=None):
-#     return _get_best_config(
-#         workdir=workdir,
-#         dataset_name=config.data.name,
-#         task_name=config.degredation.task_name,
-#         noise_std=noise_std,
-#         method_name=config.sampling.gudiance_method,
-#     )
 
 
 
