@@ -1265,7 +1265,7 @@ class TMPD_fixed_cov(GuidedSampler):
 
         cov_x0 = gmm_model.get_cov_0t_batched(num_t, x_t)
         jac_x_0 = cov_x0 / coeff_C_yy
-        print(torch.linalg.eigvals(jac_x_0).real.max())
+        # print(torch.linalg.eigvals(jac_x_0).real.max())
 
         # # log determinant correction
         # def compute_log_det(x_t):
