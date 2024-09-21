@@ -71,10 +71,10 @@ def conjugate_gradient(A, b, x=None, maxiter=1, dtype=torch.float64):
         beta = rr_ / rr
         p_ = r_ + beta * p
 
-        x, r, rr, p = x_, r_, rr_, p_
-        
-        if rr < 1e-7:
-            break
+        if torch.isnan(x_).any():
+            return x.to(b)
+        else:
+            x, r, rr, p = x_, r_, rr_, p_
 
     return x.to(b)
 
