@@ -206,7 +206,8 @@ def create_samples(
             return_list=return_list,
             method="euler",
             gmm_model=gmm,
-            gmres_max_iter = 5
+            gmres_max_iter = 5,
+            use_svd = False
         )
         # convert to numpy
         if return_list:
@@ -442,13 +443,15 @@ def run_exp(
             print(swd_list)
             # remove nan values
             swd_list = [swd for swd in swd_list if not np.isnan(swd)]
-            swd_mean = np.mean(swd_list)
-            swd_std = np.std(swd_list)
+            swd_mean = np.nanmean(swd_list)
+            swd_std = np.nanstd(swd_list)
+            confidence_interval = 1.96 * swd_std / np.sqrt(num_iters)
             results_dict[method_name][key] = {
                 "mean": swd_mean,
                 "std": swd_std,
+                "CI": confidence_interval,
             }
-            logging.info(f"Method: {method_name}, {key}, SWD: {swd_mean} +/- {swd_std}")
+            logging.info(f"Method: {method_name}, {key}, SWD: {swd_mean} +/- {confidence_interval}")
 
     # store the results to a CSV file
     tf.io.gfile.makedirs(workdir)
