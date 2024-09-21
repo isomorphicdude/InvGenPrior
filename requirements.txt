@@ -16,3 +16,4 @@ deepinv # for colab notebook demo
 torchmetrics
 lmdb
 pandas
+pot
