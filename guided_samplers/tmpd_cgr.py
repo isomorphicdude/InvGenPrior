@@ -124,6 +124,8 @@ class TMPD_cgr(GuidedSampler):
     def guided_euler_sampler(
         self, y_obs, z=None, return_list=False, clamp_to=1, **kwargs
     ):
+        recycle_start_time = kwargs.get("recycle_start_time", 10) # default: 10
+        
         if return_list:
             samples = []
 
@@ -180,7 +182,7 @@ class TMPD_cgr(GuidedSampler):
                     **kwargs,
                 )
                 
-                init_guess = prev_soln if i > 10 else torch.zeros_like(y_obs).to(self.device)
+                init_guess = prev_soln if i > recycle_start_time else torch.zeros_like(y_obs).to(self.device)
 
                 x = (
                     x.detach().clone()

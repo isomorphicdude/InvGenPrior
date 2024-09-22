@@ -55,6 +55,7 @@ def create_samples(
     random_subset=False,
     seed=0,
     tmpd_alt_impl=False,
+    recycle_start_time=0.0,
 ):
     """
     Create samples using the guided sampler.
@@ -73,6 +74,8 @@ def create_samples(
       gmres_max_iter: maximum number of iterations for GMRES (for TMPD)  
       random_subset: whether to sample a random subset of the data
       seed: random seed
+      tmpd_alt_impl: whether to use the alternative TMPD implementation
+      recycle_start_time: starting time for the Krylov recycling process (for TMPD)
       
     Returns:
       eval_dir: directory where the samples are saved
@@ -85,7 +88,7 @@ def create_samples(
         config.data.name,
         config.sampling.gudiance_method,
         config.degredation.task_name,
-        f"start_{starting_time}_iter_{gmres_max_iter}_nfe_{nfe}_noise_{noise_level}_alt_{tmpd_alt_impl}",
+        f"start_{starting_time}_iter_{gmres_max_iter}_nfe_{nfe}_noise_{noise_level}_alt_{tmpd_alt_impl}_cgr_{recycle_start_time}",
     )
     tf.io.gfile.makedirs(eval_dir)
 
@@ -393,6 +396,8 @@ flags.DEFINE_integer("gmres_max_iter", 1, "Maximum number of iterations for GMRE
 
 flags.DEFINE_boolean("tmpd_alt_impl", False, "Use alternative TMPD implementation.")
 
+flags.DEFINE_integer("recycle_start_time", 10, "Starting time for the Krylov recycling process.")
+
 flags.DEFINE_boolean("return_list", False, "Return a list of samples.")
 
 flags.DEFINE_boolean("compute_recon_metrics", False, "Compute reconstruction metrics: PSNR, SSIM, LPIPS.")
@@ -430,6 +435,7 @@ def main(argv):
         nfe=FLAGS.nfe,
         seed=FLAGS.seed,
         tmpd_alt_impl=FLAGS.tmpd_alt_impl,
+        recycle_start_time=FLAGS.recycle_start_time,
     )
     
     additional_params = {
@@ -438,6 +444,7 @@ def main(argv):
         "gmres_max_iter": FLAGS.gmres_max_iter,
         "nfe": FLAGS.nfe,
         "alt_impl": FLAGS.tmpd_alt_impl,
+        "recycle_start_time": FLAGS.recycle_start_time,
     }
     if FLAGS.compute_recon_metrics:
         # compute recon metrics
