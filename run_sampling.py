@@ -55,7 +55,7 @@ def create_samples(
     random_subset=False,
     seed=0,
     tmpd_alt_impl=False,
-    recycle_start_time=0.0,
+    recycle_start_time=10,
 ):
     """
     Create samples using the guided sampler.
