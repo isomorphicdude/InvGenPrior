@@ -288,7 +288,7 @@ class SMCDiffOpt(GuidedSampler):
                 else:
                     eps_pred = model_fn(x_t.view(model_input_shape), vec_t)
                     if eps_pred.shape[1] == 2 * self.shape[1]:
-                        eps_pred, model_var_values = torch.split(eps_pred, self.shape[1], dim=1)
+                        model_var_values, eps_pred = torch.split(eps_pred, self.shape[1], dim=1)
                         print(eps_pred.mean(), model_var_values.mean())
 
                 x_new, x_mean_new = self.proposal_X_t(
