@@ -251,7 +251,6 @@ def main(argv):
         noise_sigma=FLAGS.noise_sigma,
         sample_N=FLAGS.sample_N,
         clamp_to=FLAGS.clamp_to,
-        starting_time=FLAGS.starting_time,
         num_particles=FLAGS.num_particles,
     )
 
