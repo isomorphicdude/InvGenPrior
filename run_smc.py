@@ -158,7 +158,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     current_sample, _ = guided_sampler.sample(
         y_obs=y_obs,
         z=start_z,  # maybe can use latent encoding
-        return_list=False,
+        return_list=True,
         method=config.sampling.use_ode_sampler,  # euler by default
         clamp_to=clamp_to,
         starting_time=starting_time,
@@ -166,7 +166,11 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     )
 
     # save
-    save_image(current_sample, os.path.join(eval_dir, f"{sampler_name}_sample.png"))
+    save_image(current_sample[-1], os.path.join(eval_dir, f"{sampler_name}_sample.png"))
+    
+    # save the list of images
+    for i, img in enumerate(current_sample):
+        save_image(img, os.path.join(eval_dir, f"{sampler_name}_sample_{i}.png"))
 
     end_time = time.time()
     logging.info(f"Sampling took {end_time - start_time} seconds.")
