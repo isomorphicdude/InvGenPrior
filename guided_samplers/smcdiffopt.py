@@ -180,7 +180,7 @@ class SMCDiffOpt(GuidedSampler):
             r_t_2=d_t**2,
             sigma_y_2=c_t**2 * self.noiser.sigma**2,
         )
-        _mean = 1/std**2 * x_mean + self.H_func.Ht(rescaled_y)
+        _mean = 1/std**2 * x_mean.reshape(x_mean.shape[0], -1) + self.H_func.Ht(rescaled_y)
         
         # some similar hack to get the inverse of the covariance
         mean = self.H_func.cov_inv_diff_opt(
