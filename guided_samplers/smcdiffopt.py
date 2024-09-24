@@ -190,7 +190,7 @@ class SMCDiffOpt(GuidedSampler):
         """
         N = len(weights)
 
-        positions = (torch.rand(1) + torch.arange(N)) / N
+        positions = ((torch.rand(1) + torch.arange(N)) / N).to(weights.device)
 
         #indexes = np.zeros(N, 'i')
         indexes = torch.zeros(N, dtype=torch.int32, device=weights.device)
