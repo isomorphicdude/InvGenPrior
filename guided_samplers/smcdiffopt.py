@@ -251,6 +251,7 @@ class SMCDiffOpt(GuidedSampler):
         # create y_obs sequence for filtering
         # data = self._construct_obs_sequence(y_obs)
         num_particles = kwargs.get("num_particles", 10)
+        score_output = kwargs.get("score_output", False)
 
         ts, dt = self._get_times(self.sde.N)
         reverse_ts = ts[::-1]
@@ -279,9 +280,12 @@ class SMCDiffOpt(GuidedSampler):
                 # here N = batch * num_particles
                 model_input_shape = (self.shape[0] * num_particles, *self.shape[1:])
 
-                eps_pred = (
-                    model_fn(x_t.view(model_input_shape), vec_t) * (-1) * d_t_func(i)
-                )  # (batch * num_particles, 3, 256, 256)
+                if score_output:
+                    eps_pred = (
+                        model_fn(x_t.view(model_input_shape), vec_t) * (-1) * d_t_func(i)
+                    )  # (batch * num_particles, 3, 256, 256)
+                else:
+                    eps_pred = model_fn(x_t.view(model_input_shape), vec_t)
 
                 x_new, x_mean_new = self.proposal_X_t(
                     num_t, x_t.view(model_input_shape), eps_pred
