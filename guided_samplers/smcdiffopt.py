@@ -86,9 +86,9 @@ class SMCDiffOpt(GuidedSampler):
         ts, dt = self._get_times(self.sde.N)
         timestep = self.get_timestep(num_t * torch.ones(1), ts[0], ts[-1], self.sde.N)
         m = self.sde.sqrt_alphas_cumprod[timestep]
-        sqrt_1m_alpha = (self.sde.sqrt_1m_alphas_cumprod[timestep])
+        sqrt_1m_alpha = self.sde.sqrt_1m_alphas_cumprod[timestep]
 
-        v = (sqrt_1m_alpha**2)
+        v = sqrt_1m_alpha**2
 
         alpha_cumprod = self.sde.alphas_cumprod[timestep]
 
@@ -178,11 +178,11 @@ class SMCDiffOpt(GuidedSampler):
         denominator = self.log_gauss_liklihood(x_old, y_old, c_old, d_old)
 
         return numerator - denominator
-    
+
     def _systematic_resample(self, weights):
         """
         Perform systematic resampling of the given weights.
-        
+
         Args:
             weights (torch.Tensor): shape (N, )
         Returns:
@@ -192,10 +192,10 @@ class SMCDiffOpt(GuidedSampler):
 
         positions = ((torch.rand(1) + torch.arange(N)) / N).to(weights.device)
 
-        #indexes = np.zeros(N, 'i')
+        # indexes = np.zeros(N, 'i')
         indexes = torch.zeros(N, dtype=torch.int32, device=weights.device)
-        cumulative_sum = torch.cumsum(weights,dim=0)
-        
+        cumulative_sum = torch.cumsum(weights, dim=0)
+
         # i, j = 0, 0
         # while i < N:
         #     if positions[i] < cumulative_sum[j]:
@@ -206,15 +206,15 @@ class SMCDiffOpt(GuidedSampler):
         # NOTE: here cumsum is an increasing sequence
         # the while loop above starts by finding the first element
         # in positions that is less than the min of cumsum
-        # resulting in indexes such that each element of it gives the position 
+        # resulting in indexes such that each element of it gives the position
         # to insert position into cumsum to maintain the increasing order
         indexes = torch.searchsorted(cumulative_sum, positions)
         return indexes
-    
+
     def _multinomial_resample(self, weights):
         """
         Perform multinomial resampling of the given weights.
-        
+
         Args:
             weights (torch.Tensor): shape (N, )
         Returns:
@@ -223,7 +223,7 @@ class SMCDiffOpt(GuidedSampler):
         N = len(weights)
         indexes = torch.multinomial(weights, N, replacement=True)
         return indexes
-    
+
     def resample(self, weights, method="systematic"):
         if method == "systematic":
             return self._systematic_resample(weights)
@@ -231,7 +231,6 @@ class SMCDiffOpt(GuidedSampler):
             return self._multinomial_resample(weights)
         else:
             raise ValueError("Invalid resampling method.")
-    
 
     def sample(
         self,
@@ -241,7 +240,7 @@ class SMCDiffOpt(GuidedSampler):
         clamp_to=1,
         starting_time=0,
         z=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Returns both samples and weights.
@@ -265,7 +264,9 @@ class SMCDiffOpt(GuidedSampler):
         model_fn = mutils.get_model_fn(self.model, train=False)
         # flattened initial x, shape (batch * num_particles, dim_x)
         # where for images dim = 3*256*256
-        x_t = torch.randn(self.shape[0] * num_particles, np.prod(self.shape[1:]), device=self.device)
+        x_t = torch.randn(
+            self.shape[0] * num_particles, np.prod(self.shape[1:]), device=self.device
+        )
 
         with torch.no_grad():
             for i, num_t in enumerate(reverse_ts):
@@ -275,9 +276,13 @@ class SMCDiffOpt(GuidedSampler):
                 y_old = y_obs * c_t_prev_func(i)  # (batch, dim_y)
 
                 if self.shape[1] == 1:
-                    vec_t = (torch.ones(self.shape[0]) * (reverse_ts[i-1])).to(x_t.device)
+                    vec_t = (torch.ones(self.shape[0]) * (reverse_ts[i - 1])).to(
+                        x_t.device
+                    )
                 else:
-                    vec_t = (torch.ones(self.shape[0]) * (i-1)).to(x_t.device)
+                    vec_t = (torch.ones(self.shape[0]) * reverse_ts[i - 1] * 999).to(
+                        x_t.device
+                    )
 
                 # get model prediction
                 # assume input is (N, 3, 256, 256)
@@ -286,20 +291,24 @@ class SMCDiffOpt(GuidedSampler):
 
                 if score_output:
                     eps_pred = (
-                        model_fn(x_t.view(model_input_shape), vec_t) * (-1) * d_t_func(i)
+                        model_fn(x_t.view(model_input_shape), vec_t)
+                        * (-1)
+                        * d_t_func(i)
                     )  # (batch * num_particles, 3, 256, 256)
                 else:
                     eps_pred = model_fn(x_t.view(model_input_shape), vec_t)
                     print(vec_t)
                     if eps_pred.shape[1] == 2 * self.shape[1]:
-                        eps_pred, model_var_values = torch.split(eps_pred, self.shape[1], dim=1)
+                        eps_pred, model_var_values = torch.split(
+                            eps_pred, self.shape[1], dim=1
+                        )
 
                 x_new, x_mean_new = self.proposal_X_t(
                     num_t, x_t.view(model_input_shape), eps_pred
                 )  # (batch * num_particles, 3, 256, 256)
-                
+
                 print(x_new.mean())
-                
+
                 # x_new = x_new.clamp(-clamp_to, clamp_to)
 
                 x_input_shape = (self.shape[0] * num_particles, -1)
@@ -313,7 +322,6 @@ class SMCDiffOpt(GuidedSampler):
                 #     d_new=d_t_func(i),
                 #     d_old=d_t_prev_func(i),
                 # ).view(self.shape[0], num_particles)
-                
 
                 # # normalise weights
                 # log_weights = log_weights - torch.logsumexp(
@@ -332,7 +340,7 @@ class SMCDiffOpt(GuidedSampler):
                 log_weights = torch.tensor([0.0])
                 if return_list:
                     samples.append(
-                            x_t.reshape(self.shape[0] * num_particles, *self.shape[1:])
+                        x_t.reshape(self.shape[0] * num_particles, *self.shape[1:])
                     )
                     # samples.append(
                     #     x_t.view(num_particles, self.shape[0], *self.shape[1:])[-1]
