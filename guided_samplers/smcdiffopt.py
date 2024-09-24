@@ -84,11 +84,9 @@ class SMCDiffOpt(GuidedSampler):
         # TODO: change this to a parameter
         eta = 1.0
         ts, dt = self._get_times(self.sde.N)
-        timestep = self.get_timestep(num_t * torch.ones(1), ts[0], ts[-1], self.sde.N).to(
-            x_t.device
-        )
+        timestep = self.get_timestep(num_t * torch.ones(1), ts[0], ts[-1], self.sde.N)
         m = self.sde.sqrt_alphas_cumprod[timestep].to(x_t.device)
-        sqrt_1m_alpha = self.sde.sqrt_1m_alphas_cumprod[timestep].to(x_t.device)
+        sqrt_1m_alpha = (self.sde.sqrt_1m_alphas_cumprod[timestep]).to(x_t.device)
 
         v = (sqrt_1m_alpha**2).to(x_t.device)
 
