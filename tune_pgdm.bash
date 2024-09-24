@@ -7,7 +7,7 @@ noise_levels=(0.0 0.05 0.1 1.0)
 # noise_levels=(0.05)
 starting_times=(0.0 0.1 0.2 0.3 0.4 0.5 0.6)
 # starting_times=(0.0 0.1)
-max_samp=40
+max_samp=100
 
 for noise_lv in ${noise_levels[@]}; do
     echo "Tuning hyperparameters for PGDM with noise level ${noise_lv}"

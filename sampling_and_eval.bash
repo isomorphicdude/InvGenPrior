@@ -4,7 +4,7 @@
 
 noise_levels=(0.01 0.1 1.0)
 # noise_levels=(0.05)
-max_num_samples=40
+max_num_samples=100
 max_num_samples_celeba=1000
 nfe=100
 gmres_max_iters=(1 2 3 5)
