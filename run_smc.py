@@ -83,7 +83,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     eps_model.eval()
 
     # set up SDE, use default parameters    
-    sde = sde_lib.VPSDE()
+    sde = sde_lib.VPSDE(N=sample_N)
     sampling_eps = 1e-3
 
     # build degredation operator
