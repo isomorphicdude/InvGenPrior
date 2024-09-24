@@ -133,6 +133,23 @@ class CelebADataset(LMDBDataset):
 
     # we may want to use a subset of the celeba dataset
     # require selecting the subset beforehand
+    
+    
+@register_dataset(name="ffhq256")
+class FFHQ256Dataset(LMDBDataset):
+    def __init__(
+        self,
+        db_path,
+        transform=torchvision.transforms.ToTensor(),
+        target_transform=None,
+    ):
+        super().__init__(db_path, transform, target_transform)
+        self.transform = torchvision.transforms.Compose(
+            [
+                torchvision.transforms.Resize(256),
+                torchvision.transforms.ToTensor(),
+            ]
+        )
 
 
 # cat face
