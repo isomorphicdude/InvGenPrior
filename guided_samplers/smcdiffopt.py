@@ -97,11 +97,6 @@ class SMCDiffOpt(GuidedSampler):
         m_prev = self.sde.sqrt_alphas_cumprod_prev[timestep]
         v_prev = self.sde.sqrt_1m_alphas_cumprod_prev[timestep] ** 2
 
-        
-        print(x_t.shape)
-        print(eps_pred.shape)
-        print(sqrt_1m_alpha)
-        print(m)
         x_0 = (x_t - sqrt_1m_alpha * eps_pred) / m
 
         coeff1 = (
@@ -291,6 +286,8 @@ class SMCDiffOpt(GuidedSampler):
                     )  # (batch * num_particles, 3, 256, 256)
                 else:
                     eps_pred = model_fn(x_t.view(model_input_shape), vec_t)
+                    if eps_pred.shape[1] == 2 * x_t.shape[1]:
+                        eps_pred, model_var_values = torch.split(eps_pred, x_t.shape[1], dim=1)
 
                 x_new, x_mean_new = self.proposal_X_t(
                     num_t, x_t.view(model_input_shape), eps_pred
