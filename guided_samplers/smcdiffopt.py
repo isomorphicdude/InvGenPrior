@@ -297,34 +297,33 @@ class SMCDiffOpt(GuidedSampler):
                 x_new = x_new.clamp(-clamp_to, clamp_to)
 
                 x_input_shape = (self.shape[0] * num_particles, -1)
-                log_weights = self.log_potential(
-                    x_new.view(x_input_shape),
-                    x_t.view(x_input_shape),
-                    y_new,
-                    y_old,
-                    c_new=c_t_func(i),
-                    c_old=c_t_prev_func(i),
-                    d_new=d_t_func(i),
-                    d_old=d_t_prev_func(i),
-                ).view(self.shape[0], num_particles)
+                # log_weights = self.log_potential(
+                #     x_new.view(x_input_shape),
+                #     x_t.view(x_input_shape),
+                #     y_new,
+                #     y_old,
+                #     c_new=c_t_func(i),
+                #     c_old=c_t_prev_func(i),
+                #     d_new=d_t_func(i),
+                #     d_old=d_t_prev_func(i),
+                # ).view(self.shape[0], num_particles)
+                
 
-                # normalise weights
-                log_weights = log_weights - torch.logsumexp(
-                    log_weights, dim=1, keepdim=True
-                )
+                # # normalise weights
+                # log_weights = log_weights - torch.logsumexp(
+                #     log_weights, dim=1, keepdim=True
+                # )
 
-                if i != len(reverse_ts) - 1:
-                    # resample_idx = torch.multinomial(
-                    #     torch.exp(log_weights), num_particles, replacement=True
-                    # )  # (batch, num_particles)
-                    resample_idx = self.resample(
-                        torch.exp(log_weights).view(-1)
-                    )
-                    x_new = (x_new.view(self.shape[0], num_particles, -1))[
-                        torch.arange(self.shape[0])[:, None], resample_idx.unsqueeze(0)
-                    ]
+                # if i != len(reverse_ts) - 1:
+                #     resample_idx = self.resample(
+                #         torch.exp(log_weights).view(-1)
+                #     )
+                #     x_new = (x_new.view(self.shape[0], num_particles, -1))[
+                #         torch.arange(self.shape[0])[:, None], resample_idx.unsqueeze(0)
+                #     ]
 
                 x_t = x_new
+                log_weights = 0.0
                 if return_list:
                     samples.append(
                             x_t.reshape(self.shape[0] * num_particles, *self.shape[1:])
