@@ -265,7 +265,7 @@ class SMCDiffOpt(GuidedSampler):
         model_fn = mutils.get_model_fn(self.model, train=False)
         # flattened initial x, shape (batch * num_particles, dim_x)
         # where for images dim = 3*256*256
-        x_t = torch.randn(self.shape[0] * num_particles, np.prod(self.shape[1:]))
+        x_t = torch.randn(self.shape[0] * num_particles, np.prod(self.shape[1:]), device=self.device)
 
         with torch.no_grad():
             for i, num_t in enumerate(reverse_ts):
