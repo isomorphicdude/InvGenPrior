@@ -85,10 +85,10 @@ class SMCDiffOpt(GuidedSampler):
         eta = 1.0
         ts, dt = self._get_times(self.sde.N)
         timestep = self.get_timestep(num_t * torch.ones(1), ts[0], ts[-1], self.sde.N)
-        m = self.sde.sqrt_alphas_cumprod[timestep].to(x_t.device)
-        sqrt_1m_alpha = (self.sde.sqrt_1m_alphas_cumprod[timestep]).to(x_t.device)
+        m = self.sde.sqrt_alphas_cumprod[timestep]
+        sqrt_1m_alpha = (self.sde.sqrt_1m_alphas_cumprod[timestep])
 
-        v = (sqrt_1m_alpha**2).to(x_t.device)
+        v = (sqrt_1m_alpha**2)
 
         alpha_cumprod = self.sde.alphas_cumprod[timestep]
 
@@ -97,7 +97,7 @@ class SMCDiffOpt(GuidedSampler):
         m_prev = self.sde.sqrt_alphas_cumprod_prev[timestep]
         v_prev = self.sde.sqrt_1m_alphas_cumprod_prev[timestep] ** 2
 
-        x_0 = (x_t - sqrt_1m_alpha * eps_pred) / m
+        x_0 = (x_t - sqrt_1m_alpha.to(x_t.device) * eps_pred) / m.to(x_t.device)
 
         coeff1 = (
             torch.sqrt((v_prev / v) * (1 - alpha_cumprod / alpha_cumprod_prev)) * eta
