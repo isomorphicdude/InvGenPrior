@@ -293,6 +293,8 @@ class SMCDiffOpt(GuidedSampler):
                 x_new, x_mean_new = self.proposal_X_t(
                     num_t, x_t.view(model_input_shape), eps_pred
                 )  # (batch * num_particles, 3, 256, 256)
+                
+                x_new = x_new.clamp(-clamp_to, clamp_to)
 
                 x_input_shape = (self.shape[0] * num_particles, -1)
                 log_weights = self.log_potential(
