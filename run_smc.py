@@ -65,7 +65,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     # use a dataset but we choose an index
     dset = lmdb_dataset.get_dataset(
         name=data_name,
-        db_path=config.data.lmdb_file_path,
+        db_path="data/ffhq/val.lmdb",
         transform=None,  # overridden by child class
     )
     logging.info(f"Using dataset {data_name}.")
