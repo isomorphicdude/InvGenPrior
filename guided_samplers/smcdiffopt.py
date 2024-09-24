@@ -193,7 +193,7 @@ class SMCDiffOpt(GuidedSampler):
         positions = (torch.rand(1) + torch.arange(N)) / N
 
         #indexes = np.zeros(N, 'i')
-        indexes = torch.zeros(N,dtype=torch.int32)
+        indexes = torch.zeros(N, dtype=torch.int32, device=weights.device)
         cumulative_sum = torch.cumsum(weights,dim=0)
         
         # i, j = 0, 0
