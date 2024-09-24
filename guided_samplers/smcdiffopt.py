@@ -101,10 +101,10 @@ class SMCDiffOpt(GuidedSampler):
 
         coeff1 = (
             torch.sqrt((v_prev / v) * (1 - alpha_cumprod / alpha_cumprod_prev)) * eta
-        ).to(x_t.device)
-        coeff2 = torch.sqrt(v_prev - coeff1**2).to(x_t.device)
-        x_mean = m_prev * x_0 + coeff2 * eps_pred
-        std = coeff1
+        )
+        coeff2 = torch.sqrt(v_prev - coeff1**2)
+        x_mean = m_prev.to(x_t.device) * x_0 + coeff2.to(x_t.device) * eps_pred
+        std = coeff1.to(x_t.device)
 
         new_x = x_mean + std * torch.randn_like(x_mean)
         return new_x, x_mean
