@@ -287,6 +287,7 @@ class SMCDiffOpt(GuidedSampler):
                     )  # (batch * num_particles, 3, 256, 256)
                 else:
                     eps_pred = model_fn(x_t.view(model_input_shape), vec_t)
+                    print(vec_t)
                     if eps_pred.shape[1] == 2 * self.shape[1]:
                         eps_pred, model_var_values = torch.split(eps_pred, self.shape[1], dim=1)
 
