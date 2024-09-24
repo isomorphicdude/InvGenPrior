@@ -269,6 +269,7 @@ class SMCDiffOpt(GuidedSampler):
 
         with torch.no_grad():
             for i, num_t in enumerate(reverse_ts):
+                print(f"Sampling at time {num_t}.")
                 y_new = y_obs * c_t_func(i)  # (batch, dim_y)
 
                 y_old = y_obs * c_t_prev_func(i)  # (batch, dim_y)
