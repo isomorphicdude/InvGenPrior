@@ -84,18 +84,21 @@ class SMCDiffOpt(GuidedSampler):
         # TODO: change this to a parameter
         eta = 1.0
         ts, dt = self._get_times(self.sde.N)
-        timestep = self.get_timestep(num_t * torch.ones(1), ts[0], ts[-1], self.sde.N)
-        m = self.sde.sqrt_alphas_cumprod[timestep]
-        sqrt_1m_alpha = self.sde.sqrt_1m_alphas_cumprod[timestep]
+        timestep = self.get_timestep(num_t * torch.ones(1), ts[0], ts[-1], self.sde.N).to(
+            x_t.device
+        )
+        m = self.sde.sqrt_alphas_cumprod[timestep].to(x_t.device)
+        sqrt_1m_alpha = self.sde.sqrt_1m_alphas_cumprod[timestep].to(x_t.device)
 
-        v = sqrt_1m_alpha**2
+        v = (sqrt_1m_alpha**2).to(x_t.device)
 
-        alpha_cumprod = self.sde.alphas_cumprod[timestep]
+        alpha_cumprod = self.sde.alphas_cumprod[timestep].to(x_t.device)
 
-        alpha_cumprod_prev = self.sde.alphas_cumprod_prev[timestep]
+        alpha_cumprod_prev = self.sde.alphas_cumprod_prev[timestep].to(x_t.device)
 
-        m_prev = self.sde.sqrt_alphas_cumprod_prev[timestep]
+        m_prev = self.sde.sqrt_alphas_cumprod_prev[timestep].to(x_t.device)
         v_prev = self.sde.sqrt_1m_alphas_cumprod_prev[timestep] ** 2
+        v_prev = v_prev.to(x_t.device)
 
         x_0 = (x_t - sqrt_1m_alpha * eps_pred) / m
 
