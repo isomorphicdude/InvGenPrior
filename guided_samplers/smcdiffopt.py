@@ -90,20 +90,24 @@ class SMCDiffOpt(GuidedSampler):
 
         v = (sqrt_1m_alpha**2).to(x_t.device)
 
-        alpha_cumprod = self.sde.alphas_cumprod[timestep].to(x_t.device)
+        alpha_cumprod = self.sde.alphas_cumprod[timestep]
 
-        alpha_cumprod_prev = self.sde.alphas_cumprod_prev[timestep].to(x_t.device)
+        alpha_cumprod_prev = self.sde.alphas_cumprod_prev[timestep]
 
-        m_prev = self.sde.sqrt_alphas_cumprod_prev[timestep].to(x_t.device)
+        m_prev = self.sde.sqrt_alphas_cumprod_prev[timestep]
         v_prev = self.sde.sqrt_1m_alphas_cumprod_prev[timestep] ** 2
-        v_prev = v_prev.to(x_t.device)
 
+        
+        print(x_t.shape)
+        print(eps_pred.shape)
+        print(sqrt_1m_alpha)
+        print(m)
         x_0 = (x_t - sqrt_1m_alpha * eps_pred) / m
 
         coeff1 = (
             torch.sqrt((v_prev / v) * (1 - alpha_cumprod / alpha_cumprod_prev)) * eta
-        )
-        coeff2 = torch.sqrt(v_prev - coeff1**2)
+        ).to(x_t.device)
+        coeff2 = torch.sqrt(v_prev - coeff1**2).to(x_t.device)
         x_mean = m_prev * x_0 + coeff2 * eps_pred
         std = coeff1
 
