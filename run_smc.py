@@ -160,7 +160,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         z=start_z,  # maybe can use latent encoding
         return_list=True,
         method=config.sampling.use_ode_sampler,  # euler by default
-        clamp_to=clamp_to,
+        clamp_to=1.0,
         starting_time=starting_time,
         data_name = data_name,
     )
