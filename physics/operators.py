@@ -157,17 +157,62 @@ class H_functions(ABC):
         
         return self.U(temp)
     
-    def HtH_inv(self, vec):
+    def HtH_inv(self, vec, r_t_2 = 1.0, sigma_y_2 = 1.0):
         """
         Returns the output as (H^T @ H)^{-1} @ vec.
         """
         temp = self.Vt(vec)
         singulars = self.singulars()
         singulars_zero = self.add_zeros(singulars)[None]
-        modified_singulars = singulars_zero**2
+        modified_singulars = singulars_zero**2 * r_t_2 + sigma_y_2
         modified_singulars = torch.where(modified_singulars != 0, modified_singulars, 1.0)
         temp = temp / modified_singulars
         return self.V(temp)
+    
+    def scale_noise(self, z, r_t_2 = 1.0, sigma_y_2 = 1.0):
+        """
+        Given form (r_t^2 H @ H^T + sigma_y^2 I)^{-1}, 
+        scale the noise by V * (r_t_2 * S + sigma_y^2)^(-0.5) @ z,
+        since we are inverting the matrix.
+        
+        For reason, see Dou & Song 2024 Proposition B.3.
+        """
+        singulars = self.singulars()
+        singulars_zero = self.add_zeros(singulars)[None]
+        modified_singulars = singulars_zero**2 * r_t_2 + sigma_y_2
+        # modified_singulars = torch.where(modified_singulars != 0, modified_singulars, 1.0)
+        return self.V(z / (modified_singulars**0.5 + 1e-6))
+    
+    
+    def scale_noise_diff_opt(self, z, std, d_t, c_t, sigma_y_2=1.0):
+        """
+        """
+        singulars = self.singulars()
+        singulars_zero = self.add_zeros(singulars)[None]
+        
+        modified_singulars = d_t**2 * singulars_zero**2 + c_t**2 * sigma_y_2
+        s_inv_s = singulars_zero**2 / modified_singulars
+        s_inv_s += 1/ std**2
+        
+        return self.V(z / (s_inv_s**0.5 + 1e-6))
+    
+    def cov_inv_diff_opt(self, vec, std, d_t, c_t, sigma_y_2=1.0):
+        
+        temp = self.Vt(vec)
+        
+        singulars = self.singulars()
+        singulars_zero = self.add_zeros(singulars)[None]
+        
+        modified_singulars = d_t**2 * singulars_zero**2 + c_t**2 * sigma_y_2
+        s_inv_s = singulars_zero**2 / modified_singulars
+        s_inv_s += 1/ std**2
+        
+        temp = temp / s_inv_s
+        
+        return self.V(temp)
+        
+        
+        
         
     
     def SVt(self, vec):

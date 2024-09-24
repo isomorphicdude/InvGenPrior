@@ -68,7 +68,7 @@ class SMCDiffOpt(GuidedSampler):
         return x * y
 
     # from smcdiffopt diffusionlib
-    def proposal_X_t(self, num_t, x_t, eps_pred):
+    def _proposal_X_t(self, num_t, x_t, eps_pred, y_obs=None, return_std=False):
         """
         Sample x_{t-1} from x_{t} in the diffusion model.
         Args:
@@ -107,7 +107,10 @@ class SMCDiffOpt(GuidedSampler):
         std = coeff1.to(x_t.device)
 
         new_x = x_mean + std * torch.randn_like(x_mean)
-        return new_x, x_mean
+        if return_std:
+            return new_x, x_mean, std
+        else:
+            return new_x, x_mean
         # dt = -1.0 / self.sde.N
         # z = torch.randn_like(x_t)
         # drift, diffusion = self.sde.reverse(self.model, probability_flow=False).sde(
@@ -117,6 +120,94 @@ class SMCDiffOpt(GuidedSampler):
 
         # x = x_mean + diffusion * z * math.sqrt(-dt)
         # return x, x_mean
+
+    def _proposal_X_t_y_old(self, num_t, x_t, eps_pred, y_obs):
+        """
+        The optimal proposal \proto g^y(x_t) p(x_t | x_{t+1}) used in Dou & Song 2024.
+        However, note this is not the optimal one here as we are using a different
+        potential function.
+        """
+        ts, dt = self._get_times(self.sde.N)
+        new_x, x_mean = self._proposal_X_t(num_t, x_t, eps_pred)
+        timestep = self.get_timestep(num_t * torch.ones(1), ts[0], ts[-1], self.sde.N)
+
+        ddim_var = 1.0 * self.sde.sqrt_1m_alphas_cumprod[timestep - 1]  # eta=1.0
+        if timestep == 0:
+            ddim_var = 1e-3
+            
+        a_bar_next = self.sde.sqrt_alphas_cumprod[timestep - 1] ** 2
+        hht_coeff = self.noiser.sigma**2 * a_bar_next
+
+        # compute the mean of the proposal
+        y_next = y_obs * self.sde.sqrt_alphas_cumprod[timestep - 1] + self.H_func.H(
+            torch.randn_like(x_t.view(x_t.shape[0], -1))
+        ) * self.sde.sqrt_1m_alphas_cumprod[timestep - 1]
+        # y_next = y_obs * self.sde.sqrt_alphas_cumprod[timestep - 1]
+
+        _mean = (
+            x_t.view(x_t.shape[0], -1) / ddim_var + self.H_func.Ht(y_next) / hht_coeff
+        )
+
+        mean = self.H_func.HtH_inv(
+            vec=_mean.view(_mean.shape[0], -1),
+            r_t_2=1 / hht_coeff,
+            sigma_y_2=1 / ddim_var,
+        )
+
+        # compute the covariance of the proposal
+        z = torch.randn_like(x_t.view(x_t.shape[0], -1))
+        scaled_z = self.H_func.scale_noise(
+            z, r_t_2=1 / hht_coeff, sigma_y_2=1 / ddim_var
+        )
+
+        new_x = mean + scaled_z
+        return new_x, mean
+    
+    def _proposal_X_t_y(self, num_t, x_t, eps_pred, y_t, c_t, d_t):
+        """
+        The optimal proposal \proto g^y(x_t) p(x_t | x_{t+1}) used in Dou & Song 2024.
+        But the covariance is different, as y_t = c_t * y_0
+        which introduces complex dependencies.
+        """
+        ts, dt = self._get_times(self.sde.N)
+        new_x, x_mean, std = self._proposal_X_t(num_t, x_t, eps_pred, return_std=True)
+        
+        if std == 0:
+            std = 1e-6
+        # Sigma^-1 y
+        rescaled_y = self.H_func.HHt_inv(
+            vec=y_t.view(y_t.shape[0], -1),
+            r_t_2=d_t**2,
+            sigma_y_2=c_t**2 * self.noiser.sigma**2,
+        )
+        _mean = 1/std**2 * x_mean + self.H_func.Ht(rescaled_y)
+        
+        # some similar hack to get the inverse of the covariance
+        mean = self.H_func.cov_inv_diff_opt(
+            vec=_mean.view(_mean.shape[0], -1),
+            std=std,
+            d_t=d_t,
+            c_t=c_t,
+            sigma_y_2=self.noiser.sigma**2,
+        )
+        
+        # noise
+        z = torch.randn_like(x_t.view(x_t.shape[0], -1), device=x_t.device)
+        scaled_z = self.H_func.scale_noise_diff_opt(
+            z, std=std, d_t=d_t, c_t=c_t, sigma_y_2=self.noiser.sigma**2
+        )
+        
+        new_x = mean + scaled_z
+        
+        return new_x, mean
+
+    def get_proposal_X_t(self, num_t, x_t, eps_pred, method="default", **kwargs):
+        if method == "default":
+            return self._proposal_X_t(num_t, x_t, eps_pred)
+        elif method == "conditional":
+            return self._proposal_X_t_y(num_t, x_t, eps_pred, **kwargs)
+        else:
+            raise ValueError("Invalid proposal method.")
 
     def anneal_scheme(self, t):
         # for inverse problems
@@ -195,6 +286,7 @@ class SMCDiffOpt(GuidedSampler):
         # indexes = np.zeros(N, 'i')
         indexes = torch.zeros(N, dtype=torch.int32, device=weights.device)
         cumulative_sum = torch.cumsum(weights, dim=0)
+        # cumulative_sum[-1] = 1.0  # avoid round-off errors
 
         # i, j = 0, 0
         # while i < N:
@@ -209,6 +301,9 @@ class SMCDiffOpt(GuidedSampler):
         # resulting in indexes such that each element of it gives the position
         # to insert position into cumsum to maintain the increasing order
         indexes = torch.searchsorted(cumulative_sum, positions)
+
+        # cap indexes to N - 1
+        indexes = torch.min(indexes, torch.tensor(N - 1, device=weights.device))
         return indexes
 
     def _multinomial_resample(self, weights):
@@ -232,6 +327,23 @@ class SMCDiffOpt(GuidedSampler):
         else:
             raise ValueError("Invalid resampling method.")
 
+    def _get_y_obs(self, y_obs, t, num_particles, method="conditional"):
+        """
+        Get y_obs at time t.
+        """
+        # if method == "default":
+        return y_obs * self.sde.sqrt_alphas_cumprod[-(t + 1)]
+        # elif method == "conditional":
+        #     return (
+        #         y_obs * self.sde.sqrt_alphas_cumprod[-(t + 1)]
+        #         + self.H_func.H(
+        #             torch.randn((self.shape[0] * num_particles, self.shape[-1]))
+        #         )
+        #         * self.sde.sqrt_1m_alphas_cumprod[-(t + 1)]
+        #     )
+        # else:
+        #     raise ValueError("Invalid y_obs method.")
+
     def sample(
         self,
         y_obs,
@@ -251,6 +363,8 @@ class SMCDiffOpt(GuidedSampler):
         # data = self._construct_obs_sequence(y_obs)
         num_particles = kwargs.get("num_particles", 10)
         score_output = kwargs.get("score_output", False)
+        sampling_method = kwargs.get("sampling_method", "conditional")
+        resampling_method = kwargs.get("resampling_method", "systematic")
 
         ts, dt = self._get_times(self.sde.N)
         reverse_ts = ts[::-1]
@@ -271,9 +385,9 @@ class SMCDiffOpt(GuidedSampler):
         with torch.no_grad():
             for i, num_t in enumerate(reverse_ts):
                 print(f"Sampling at time {num_t}.")
-                y_new = y_obs * c_t_func(i)  # (batch, dim_y)
+                y_new = self._get_y_obs(y_obs, i, num_particles, method="default")
 
-                y_old = y_obs * c_t_prev_func(i)  # (batch, dim_y)
+                y_old = self._get_y_obs(y_obs, i - 1, num_particles, method="default")
 
                 if self.shape[1] == 1:
                     vec_t = (torch.ones(self.shape[0]) * (reverse_ts[i - 1])).to(
@@ -303,13 +417,17 @@ class SMCDiffOpt(GuidedSampler):
                             eps_pred, self.shape[1], dim=1
                         )
 
-                x_new, x_mean_new = self.proposal_X_t(
-                    num_t, x_t.view(model_input_shape), eps_pred
+                x_new, x_mean_new = self.get_proposal_X_t(
+                    num_t,
+                    x_t.view(model_input_shape),
+                    eps_pred,
+                    method=sampling_method,
+                    y_t=y_new,
+                    c_t=c_t_func(i),
+                    d_t=d_t_func(i),
                 )  # (batch * num_particles, 3, 256, 256)
 
-
                 # x_new = x_new.clamp(-clamp_to, clamp_to)
-
                 x_input_shape = (self.shape[0] * num_particles, -1)
                 log_weights = self.log_potential(
                     x_new.view(x_input_shape),
@@ -329,14 +447,14 @@ class SMCDiffOpt(GuidedSampler):
 
                 if i != len(reverse_ts) - 1:
                     resample_idx = self.resample(
-                        torch.exp(log_weights).view(-1)
+                        torch.exp(log_weights).view(-1), method=resampling_method
                     )
                     x_new = (x_new.view(self.shape[0], num_particles, -1))[
                         torch.arange(self.shape[0])[:, None], resample_idx.unsqueeze(0)
                     ]
 
                 x_t = x_new
-                
+
                 if return_list:
                     samples.append(
                         x_t.reshape(self.shape[0] * num_particles, *self.shape[1:])
@@ -353,7 +471,7 @@ class SMCDiffOpt(GuidedSampler):
         else:
             return (
                 self.inverse_scaler(
-                    x_t.view(num_particles, self.shape[0], *self.shape[1:])[0]
+                    x_t.view(num_particles, self.shape[0], *self.shape[1:])
                 ),
                 torch.exp(log_weights),
             )
