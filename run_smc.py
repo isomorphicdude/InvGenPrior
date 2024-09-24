@@ -155,7 +155,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     
 
     # fix noise during sampling
-    current_sample = guided_sampler.sample(
+    current_sample, _ = guided_sampler.sample(
         y_obs=y_obs,
         z=start_z,  # maybe can use latent encoding
         return_list=False,
