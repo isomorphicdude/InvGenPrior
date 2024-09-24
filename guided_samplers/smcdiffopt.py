@@ -323,7 +323,7 @@ class SMCDiffOpt(GuidedSampler):
                 #     ]
 
                 x_t = x_new
-                log_weights = 0.0
+                log_weights = torch.tensor([0.0])
                 if return_list:
                     samples.append(
                             x_t.reshape(self.shape[0] * num_particles, *self.shape[1:])
