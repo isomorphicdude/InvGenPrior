@@ -42,9 +42,9 @@ def load_yaml(file_path: str) -> dict:
 
 def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
                        sample_N=100, clamp_to=1.0,
-                       starting_time= 0.2,
                        model_yaml="configs/dps_ffhq.yaml",
-                       data_name="ffhq256"):
+                       data_name="ffhq256",
+                       num_particles=10):
     """
     Creates a result for each method and compare them.
     """
@@ -161,8 +161,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         return_list=True,
         method=config.sampling.use_ode_sampler,  # euler by default
         clamp_to=1.0,
-        starting_time=starting_time,
         data_name = data_name,
+        num_particles=num_particles,
     )
 
     # save
@@ -211,7 +211,7 @@ flags.DEFINE_float("noise_sigma", 0.05, "Noise sigma for the degradation.")
 
 flags.DEFINE_float("clamp_to", 1.0, "Clamp to value.")
 
-flags.DEFINE_float("starting_time", 0.0, "Starting time for the sampler.")
+flags.DEFINE_integer("num_particles", 10, "Number of particles for the sampler.")
 
 
 flags.DEFINE_string("workdir", "InvGenPrior", "Work directory.")
@@ -252,6 +252,7 @@ def main(argv):
         sample_N=FLAGS.sample_N,
         clamp_to=FLAGS.clamp_to,
         starting_time=FLAGS.starting_time,
+        num_particles=FLAGS.num_particles,
     )
 
 
