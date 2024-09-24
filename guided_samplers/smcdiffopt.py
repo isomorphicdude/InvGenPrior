@@ -273,7 +273,7 @@ class SMCDiffOpt(GuidedSampler):
 
                 y_old = y_obs * c_t_prev_func(i)  # (batch, dim_y)
 
-                vec_t = torch.ones(self.shape[0]) * (reverse_ts[i-1])
+                vec_t = (torch.ones(self.shape[0]) * (reverse_ts[i-1])).to(x_t.device)
 
                 # get model prediction
                 # assume input is (N, 3, 256, 256)
