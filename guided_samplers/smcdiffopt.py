@@ -307,7 +307,6 @@ class SMCDiffOpt(GuidedSampler):
                     num_t, x_t.view(model_input_shape), eps_pred
                 )  # (batch * num_particles, 3, 256, 256)
 
-                print(x_new.mean())
 
                 # x_new = x_new.clamp(-clamp_to, clamp_to)
 
@@ -337,7 +336,7 @@ class SMCDiffOpt(GuidedSampler):
                     ]
 
                 x_t = x_new
-                # log_weights = torch.tensor([0.0])
+                
                 if return_list:
                     samples.append(
                         x_t.reshape(self.shape[0] * num_particles, *self.shape[1:])

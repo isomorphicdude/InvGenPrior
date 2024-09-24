@@ -166,7 +166,7 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
     )
 
     # save
-    save_image(current_sample[-1], os.path.join(eval_dir, f"{sampler_name}_sample.png"))
+    save_image(current_sample[-1][0], os.path.join(eval_dir, f"{sampler_name}_sample.png"))
     
     # save the list of images
     for i, img in enumerate(current_sample):
