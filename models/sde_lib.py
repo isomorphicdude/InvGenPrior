@@ -274,7 +274,7 @@ class SDE(abc.ABC):
                 if not self.rsde_modified:
                     drift, diffusion = sde_fn(x, t)
                     score = score_fn(x, t)
-                    drift = drift - diffusion[:, None, None, None] ** 2 * score * (
+                    drift = drift - diffusion**2 * score * (
                         0.5 if self.probability_flow else 1.0
                     )
                     # Set the diffusion function to zero for ODEs.
@@ -296,7 +296,7 @@ class SDE(abc.ABC):
                 if not self.rsde_modified:
                     f, G = discretize_fn(x, t)
                     # squared as already taken square root in the discretize_fn
-                    rev_f = f - G[:, None, None, None] ** 2 * score_fn(x, t) * (
+                    rev_f = f - G** 2 * score_fn(x, t) * (
                         0.5 if self.probability_flow else 1.0
                     )
                     rev_G = torch.zeros_like(G) if self.probability_flow else G
@@ -323,7 +323,7 @@ class VPSDE(SDE):
     def __init__(
         self,
         beta_min=0.1,
-        beta_max=30,
+        beta_max=20,
         N=1000,
         init_samples=None,
         init_times=1.0,
@@ -348,6 +348,10 @@ class VPSDE(SDE):
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
         self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
         self.sqrt_1m_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
+        
+        self.alphas_cumprod_prev = torch.cat((torch.tensor([1.0]), self.alphas_cumprod[:-1]))
+        self.sqrt_alphas_cumprod_prev = torch.sqrt(self.alphas_cumprod_prev)
+        self.sqrt_1m_alphas_cumprod_prev = torch.sqrt(1.0 - self.alphas_cumprod_prev)
 
         self.init_samples = init_samples
         self.init_times = init_times
@@ -358,8 +362,8 @@ class VPSDE(SDE):
 
     def sde(self, x, t):
         beta_t = self.beta_0 + t * (self.beta_1 - self.beta_0)
-        drift = -0.5 * beta_t[:, None, None, None] * x
-        diffusion = torch.sqrt(beta_t)
+        drift = -0.5 * beta_t * x
+        diffusion = math.sqrt(beta_t)
         return drift, diffusion
 
     def marginal_prob(self, x, t):
