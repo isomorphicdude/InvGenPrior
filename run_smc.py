@@ -44,6 +44,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
                        sample_N=100, clamp_to=1.0,
                        model_yaml="configs/dps_ffhq.yaml",
                        data_name="ffhq256",
+                       sampling_method="default",
+                       resampling_method="systematic",
                        num_particles=10):
     """
     Creates a result for each method and compare them.
@@ -163,6 +165,8 @@ def create_and_compare(config, workdir, data_index=53, noise_sigma=0.05,
         clamp_to=1.0,
         data_name = data_name,
         num_particles=num_particles,
+        sampling_method=sampling_method,
+        resampling_method=resampling_method,
     )
 
     # save
@@ -220,6 +224,14 @@ flags.DEFINE_string(
     "eval_folder", "eval_samples", "The folder name for storing evaluation results"
 )
 
+flags.DEFINE_string(
+    "sampling_method", "default", "The method for sampling, default/conditional."
+)
+
+flags.DEFINE_string(
+    "resampling_method", "systematic", "The method for resampling, systematic/multinomial."
+)
+
 flags.mark_flag_as_required("config")
 
 
@@ -252,6 +264,8 @@ def main(argv):
         sample_N=FLAGS.sample_N,
         clamp_to=FLAGS.clamp_to,
         num_particles=FLAGS.num_particles,
+        sampling_method=FLAGS.sampling_method,
+        resampling_method=FLAGS.resampling_method,
     )
 
 
