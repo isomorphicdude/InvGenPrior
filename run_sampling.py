@@ -268,6 +268,7 @@ def create_samples(
                 data_name=config.data.name,
                 gmres_max_iter=gmres_max_iter,
                 alt_impl=tmpd_alt_impl,
+                recycle_start_time=recycle_start_time
             )
 
             # save the images to eval folder
