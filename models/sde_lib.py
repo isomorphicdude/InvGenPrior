@@ -362,8 +362,9 @@ class VPSDE(SDE):
 
     def sde(self, x, t):
         beta_t = self.beta_0 + t * (self.beta_1 - self.beta_0)
+        beta_t = beta_t[:, None, None, None]
         drift = -0.5 * beta_t * x
-        diffusion = math.sqrt(beta_t)
+        diffusion = torch.sqrt(beta_t)
         return drift, diffusion
 
     def marginal_prob(self, x, t):
@@ -515,6 +516,14 @@ class VESDE(SDE):
 
         self.init_samples = init_samples
         self.init_times = init_times
+        self.alphas = torch.ones(N)
+        
+    def alpha_t(self, t):
+        return 1.0
+    
+    def std_t(self, t):
+        return self.sigma_min * (self.sigma_max / self.sigma_min) ** t
+        
 
     @property
     def T(self):
