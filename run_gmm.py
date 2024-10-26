@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from ml_collections.config_flags import config_flags
 
 from physics import noisers, operators, create_mask
-from guided_samplers import registry, tmpd, pgdm, dps, reddiff
+from guided_samplers import registry, tmpd, pgdm, dps, reddiff, tmpd_cgr
 from models import sde_lib, gmm_model
 from models.utils import convert_flow_to_x0, convert_x0_to_flow
 from evaluation import plotting_utils
@@ -206,8 +206,10 @@ def create_samples(
             return_list=return_list,
             method="euler",
             gmm_model=gmm,
-            gmres_max_iter = 5,
-            use_svd = False
+            gmres_max_iter = 1,
+            use_svd = False,
+            # recycle_start_time=gmm.sde.sample_N,
+            recycle_start_time = 0
         )
         # convert to numpy
         if return_list:
@@ -367,7 +369,8 @@ def run_exp(
     seed=42,
     # methods=["tmpd_fixed_cov", "pgdm", "dps"],
     # methods=["tmpd_h", "tmpd_fixed_diag"],
-    methods=["tmpd_cg"],
+    methods=["tmpd_cg", "tmpd_fixed_diag", "tmpd_fixed_cov", "pgdm", "tmpd_recycle"],
+    # methods=["tmpd_recycle"],
     clamp_to=20,
 ):
     """
@@ -379,14 +382,14 @@ def run_exp(
     # noise_list = [0.01, 0.1, 1.0]
 
     # for testing
-    # dim_list = [8]
-    # obs_dim_list = [1, 2, 4]
-    # noise_list = [0.01, 0.1, 1.0]
+    dim_list = [8]
+    obs_dim_list = [1, 2, 4]
+    noise_list = [0.01, 0.1, 1.0]
 
     # for debugging
-    dim_list = [8]
-    obs_dim_list = [1]
-    noise_list = [0.01]
+    # dim_list = [8]
+    # obs_dim_list = [1]
+    # noise_list = [0.01]
 
     # get cartesian product of the lists
     product_list = list(itertools.product(dim_list, obs_dim_list, noise_list))
