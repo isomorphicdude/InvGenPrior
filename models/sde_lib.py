@@ -519,7 +519,7 @@ class VESDE(SDE):
         self.alphas = torch.ones(N)
         
     def alpha_t(self, t):
-        return 1.0
+        return torch.ones_like(t)
     
     def std_t(self, t):
         return self.sigma_min * (self.sigma_max / self.sigma_min) ** t
@@ -537,6 +537,8 @@ class VESDE(SDE):
                 2 * (np.log(self.sigma_max) - np.log(self.sigma_min)), device=t.device
             )
         )
+        diffusion = diffusion[:, None, None, None]
+        # print("Diffusion:", diffusion.shape)
         return drift, diffusion
 
     def marginal_prob(self, x, t):
