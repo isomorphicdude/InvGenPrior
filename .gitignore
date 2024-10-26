@@ -9,4 +9,6 @@ run_tmpd_exact.py
 # *.png
 *.txt
 qualitative/
+*.pt
+*.pth
 # datasets/lmdb_dataset.py
